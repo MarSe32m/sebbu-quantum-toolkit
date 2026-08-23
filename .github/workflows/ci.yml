@@ -16,11 +16,26 @@ jobs:
   native:
     name: Native (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, windows-11-arm, macos-latest]
-        swift: ['6.3.3']
+        include:
+          - os: ubuntu-latest
+            swift: '6.3.3'
+            cuda: true
+
+          - os: windows-latest
+            swift: '6.3.3'
+            cuda: true
+
+          - os: windows-11-arm
+            swift: '6.3.3'
+            cuda: false
+
+          - os: macos-latest
+            swift: '6.3.3'
+            cuda: false
 
     steps:
       - name: Check out repository
@@ -31,8 +46,20 @@ jobs:
         with:
           swift-version: ${{ matrix.swift }}
 
+      - name: Install CUDA Toolkit
+        if: matrix.cuda
+        uses: Jimver/cuda-toolkit@v0.2.36
+        with:
+          cuda: '13.3.1'
+          method: network
+          log-file-suffix: '${{ matrix.os }}.txt'
+
       - name: Show Swift version
         run: swift --version
+
+      - name: Show CUDA version
+        if: matrix.cuda
+        run: nvcc --version
 
       - name: Build (debug)
         run: swift build
@@ -49,11 +76,15 @@ jobs:
   static-linux:
     name: Static Linux (${{ matrix.sdk }})
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
-        sdk: ['x86_64-swift-linux-musl', 'aarch64-swift-linux-musl']
-        swift: ['6.3.3']
+        sdk:
+          - x86_64-swift-linux-musl
+          - aarch64-swift-linux-musl
+        swift:
+          - '6.3.3'
 
     steps:
       - name: Check out repository
