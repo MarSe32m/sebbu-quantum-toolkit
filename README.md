@@ -8,7 +8,7 @@ A Swift toolkit for simulating open quantum systems using stochastic trajectory,
 
 `sebbu-quantum-toolkit` aims to provide a common, high-performance interface for numerical methods used in open quantum dynamics.
 
-The library is designed around a simple idea: different numerical approaches should share the same representation of the underlying quantum system, Markovian dissipation, integration settings, and trajectory infrastructure wherever possible, while retaining method-specific representations of non-Markovian environments and auxiliary states.
+The library is designed around a simple idea: different numerical approaches should share the same representation of the underlying quantum system, Markovian dissipation, integration settings and trajectory infrastructure wherever possible, while retaining method-specific representations of non-Markovian environments and auxiliary states.
 
 Planned and developing methods include:
 
@@ -178,7 +178,7 @@ Method-specific numerical details remain isolated from the common description of
 - **Performance**, with zero-copy data structures and efficient numerical kernels where possible.
 - **Parallelism**, especially over independent stochastic trajectories.
 - **Extensibility**, allowing new unravelings and non-Markovian methods to fit naturally into the toolkit.
-- **Time-dependent models**, including Hamiltonians, rates, and system operators.
+- **Time-dependent models**, including Hamiltonians, rates and system operators.
 - **Research-oriented flexibility** without unnecessarily constraining the underlying numerical methods.
 
 ## Planned structure
@@ -241,6 +241,8 @@ This project is currently in its initial implementation phase.
 
 APIs shown in this README illustrate the intended design and may differ from the current implementation. Breaking changes should be expected until the core abstractions have stabilized.
 
-## License
+# License
 
-License information will be added before the first stable release.
+`sebbu-quantum-toolkit` is licensed under the Apache License, Version 2.0.
+
+See the [LICENSE](LICENSE) file for details.
