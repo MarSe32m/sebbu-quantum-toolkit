@@ -8,11 +8,6 @@ import SebbuScience
 public enum HEOM: Sendable {}
 
 public extension HEOM {
-    protocol HierarchySpecification: Sendable {
-        var bathCorrelationFunctions: Matrix<BathCorrelationFunction> { get }
-        var couplingOperators: [CouplingOperator] { get }
-    }
-    
     struct BathCorrelationFunction: Sendable {
         
     }
@@ -29,18 +24,18 @@ public extension HEOM {
 
 public extension HEOM {
     protocol Implementation {
-        associatedtype Hierarchy: HierarchySpecification
+        associatedtype HierarchySpecification
         
         static func solveWithAuxiliaries<
             Hamiltonian: HamiltonianFunction & ~Copyable
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueMatrix<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            linbladChannels: [LindbladChannel],
-            hierarchy: Hierarchy,
+            markovianChannels: [MarkovianChannel],
+            hierarchy: HierarchySpecification,
             shiftType: ShiftType,
             intergation: IntegrationOptions,
             _ forEach: (Double, borrowing Span<UniqueMatrix<Complex<Double>>>) -> Void
@@ -51,16 +46,16 @@ public extension HEOM {
 public extension HEOM.Implementation {
     @inlinable
     static func solve<Hamiltonian>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueMatrix<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        linbladChannels: [LindbladChannel],
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel],
+        hierarchy: HierarchySpecification,
         shiftType: HEOM.ShiftType,
         intergation: IntegrationOptions,
         _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-    ) where Hamiltonian : HamiltonianFunction, Hierarchy : HEOM.HierarchySpecification, Hamiltonian : ~Copyable {
-        solveWithAuxiliaries(start: start, end: end, on: on, initialState: initialState, system: system, linbladChannels: linbladChannels, hierarchy: hierarchy, shiftType: shiftType, intergation: intergation) { t, totalState in
+    ) where Hamiltonian : HamiltonianFunction, Hamiltonian : ~Copyable {
+        solveWithAuxiliaries(start: start, end: end, samplingTimes: samplingTimes, initialState: initialState, system: system, markovianChannels: markovianChannels, hierarchy: hierarchy, shiftType: shiftType, intergation: intergation) { t, totalState in
             assert(totalState.count > 0, "Expected at least one state")
             forEach(t, totalState[unchecked: 0])
         }
@@ -68,7 +63,7 @@ public extension HEOM.Implementation {
 }
 
 public extension HEOM {
-    final class Hierarchy: HierarchySpecification {
+    final class HierarchySpecification {
         public let bathCorrelationFunctions: SebbuScience.Matrix<BathCorrelationFunction>
         
         public let couplingOperators: [CouplingOperator]
@@ -85,11 +80,11 @@ public extension HEOM {
 extension HEOM: HEOM.Implementation {
     @inlinable
     public static func solveWithAuxiliaries<Hamiltonian>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueMatrix<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        linbladChannels: [LindbladChannel],
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel],
+        hierarchy: HierarchySpecification,
         shiftType: ShiftType,
         intergation: IntegrationOptions,
         _ forEach: (Double, borrowing Span<UniqueMatrix<Complex<Double>>>) -> Void

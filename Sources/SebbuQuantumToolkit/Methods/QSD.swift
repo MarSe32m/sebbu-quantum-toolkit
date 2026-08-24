@@ -8,6 +8,14 @@ import SebbuScience
 public enum QSD: Sendable {}
 
 public extension QSD {
+    enum EquationType: Sendable {
+        case linear
+        case nonLinear
+        case nonLinearNormalized
+    }
+}
+
+public extension QSD {
     protocol Implementation {
         static func solve<
             Hamiltonian: HamiltonianFunction & ~Copyable,
@@ -15,10 +23,11 @@ public extension QSD {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueVector<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            linbladChannels: [LindbladChannel],
+            markovianChannels: [MarkovianChannel],
+            equationType: EquationType,
             rng: inout RNG,
             intergation: IntegrationOptions,
             _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
@@ -29,10 +38,11 @@ public extension QSD {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueVector<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            linbladChannels: [LindbladChannel],
+            MarkovianChannels: [MarkovianChannel],
+            equationType: EquationType,
             seed: UInt64,
             trajectories: Int,
             intergation: IntegrationOptions,
@@ -47,10 +57,11 @@ public extension QSD.Implementation {
     >(
         start: Double,
         end: Double,
-        on: [Double]?,
+        samplingTimes: [Double]?,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        linbladChannels: [LindbladChannel],
+        MarkovianChannels: [MarkovianChannel],
+        equationType: QSD.EquationType,
         seed: UInt64,
         trajectories: Int,
         intergation: IntegrationOptions,
@@ -63,10 +74,11 @@ public extension QSD.Implementation {
 extension QSD: QSD.Implementation {
     @inlinable
     public static func solve<Hamiltonian, RNG>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        linbladChannels: [LindbladChannel],
+        markovianChannels: [MarkovianChannel],
+        equationType: EquationType,
         rng: inout RNG,
         intergation: IntegrationOptions,
         _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void

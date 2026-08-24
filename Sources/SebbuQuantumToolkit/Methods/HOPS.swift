@@ -14,11 +14,9 @@ public extension HOPS {
         case nonLinearNormalized
     }
     
-    protocol HierarchySpecification: Sendable {
-        var bathCorrelationFunctions: Matrix<BathCorrelationFunction> { get }
-        var couplingOperators: [CouplingOperator] { get }
-        
-        init(bathCorrelationFunctions: Matrix<BathCorrelationFunction>, couplingOperators: [CouplingOperator], truncationCondition: (borrowing Span<Int>) -> Bool)
+    enum ShiftType: Sendable {
+        case none
+        case meanField
     }
     
     struct CouplingOperator: Sendable {
@@ -35,20 +33,11 @@ public extension HOPS {
         internal var r: [Complex<Double>]
     }
     
-    enum ShiftType: Sendable {
-        case none
-        case meanField
-    }
-    
-    enum LindbladMethod: Sendable {
-        case qsd
-        case mcwf
-    }
 }
 
 public extension HOPS {
     protocol Implementation {
-        associatedtype Hierarchy: HierarchySpecification
+        associatedtype HierarchySpecification
         
         static func solveWithAuxiliaries<
             Hamiltonian: HamiltonianFunction & ~Copyable,
@@ -56,12 +45,12 @@ public extension HOPS {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueVector<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            lindbladChannels: [LindbladChannel],
-            lindbladMethod: LindbladMethod,
-            hierarchy: Hierarchy,
+            markovianChannels: [MarkovianChannel],
+            unravelling: MarkovianUnravelling,
+            hierarchy: HierarchySpecification,
             equationType: EquationType,
             shiftType: ShiftType,
             rng: inout RNG,
@@ -74,12 +63,12 @@ public extension HOPS {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueVector<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            lindbladChannels: [LindbladChannel],
-            lindbladMethod: LindbladMethod,
-            hierarchy: Hierarchy,
+            markovianChannels: [MarkovianChannel],
+            unravelling: MarkovianUnravelling,
+            hierarchy: HierarchySpecification,
             equationType: EquationType,
             shiftType: ShiftType,
             seed: UInt64,
@@ -93,38 +82,38 @@ public extension HOPS {
 public extension HOPS.Implementation {
     @inlinable
     static func solve<Hamiltonian, RNG>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        lindbladChannels: [LindbladChannel] = [],
-        lindbladMethod: HOPS.LindbladMethod = .qsd,
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel] = [],
+        unravelling: MarkovianUnravelling = .diffusive,
+        hierarchy: HierarchySpecification,
         equationType: HOPS.EquationType,
         shiftType: HOPS.ShiftType,
         rng: inout RNG,
         intergation: IntegrationOptions,
         _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
     ) where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-        solveWithAuxiliaries(start: start, end: end, on: on, initialState: initialState, system: system, lindbladChannels: lindbladChannels, lindbladMethod: lindbladMethod, hierarchy: hierarchy, equationType: equationType, shiftType: shiftType, rng: &rng, intergation: intergation) { t, totalStateSpan in
+        solveWithAuxiliaries(start: start, end: end, samplingTimes: samplingTimes, initialState: initialState, system: system, markovianChannels: markovianChannels, unravelling: unravelling, hierarchy: hierarchy, equationType: equationType, shiftType: shiftType, rng: &rng, intergation: intergation) { t, totalStateSpan in
             forEach(t, totalStateSpan[unchecked: 0])
         }
     }
     
     @inlinable
     static func solve<Hamiltonian>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        lindbladChannels: [LindbladChannel] = [],
-        lindbladMethod: HOPS.LindbladMethod = .qsd,
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel] = [],
+        unravelling: MarkovianUnravelling = .diffusive,
+        hierarchy: HierarchySpecification,
         equationType: HOPS.EquationType,
         shiftType: HOPS.ShiftType,
         intergation: IntegrationOptions,
         _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
     ) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
         var rng = NumPyRandom()
-        solve(start: start, end: end, on: on, initialState: initialState, system: system, hierarchy: hierarchy, equationType: equationType, shiftType: shiftType, rng: &rng, intergation: intergation, forEach)
+        solve(start: start, end: end, samplingTimes: samplingTimes, initialState: initialState, system: system, hierarchy: hierarchy, equationType: equationType, shiftType: shiftType, rng: &rng, intergation: intergation, forEach)
     }
     
     @inlinable
@@ -133,12 +122,12 @@ public extension HOPS.Implementation {
     >(
         start: Double,
         end: Double,
-        on: [Double]?,
+        samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        lindbladChannels: [LindbladChannel] = [],
-        lindbladMethod: HOPS.LindbladMethod = .qsd,
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel] = [],
+        unravelling: MarkovianUnravelling = .diffusive,
+        hierarchy: HierarchySpecification,
         equationType: HOPS.EquationType,
         shiftType: HOPS.ShiftType,
         seed: UInt64,
@@ -151,7 +140,7 @@ public extension HOPS.Implementation {
 }
 
 public extension HOPS {
-    final class Hierarchy: HierarchySpecification {
+    final class HierarchySpecification {
         public let bathCorrelationFunctions: SebbuScience.Matrix<HOPS.BathCorrelationFunction>
         
         public let couplingOperators: [HOPS.CouplingOperator]
@@ -167,13 +156,18 @@ public extension HOPS {
 
 extension HOPS: HOPS.Implementation {
     @inlinable
-    public static func solveWithAuxiliaries<Hamiltonian, RNG>(
-        start: Double, end: Double, on: [Double]? = nil,
+    public static func solveWithAuxiliaries<
+        Hamiltonian: HamiltonianFunction & ~Copyable,
+        RNG: RandomNumberGenerator
+    >(
+        start: Double,
+        end: Double,
+        samplingTimes: [Double]?,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        lindbladChannels: [LindbladChannel],
-        lindbladMethod: LindbladMethod,
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel],
+        unravelling: MarkovianUnravelling,
+        hierarchy: HierarchySpecification,
         equationType: EquationType,
         shiftType: ShiftType,
         rng: inout RNG,

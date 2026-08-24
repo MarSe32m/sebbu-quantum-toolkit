@@ -14,10 +14,10 @@ public extension GKSL {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueMatrix<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            linbladChannels: [LindbladChannel],
+            markovianChannels: [MarkovianChannel],
             intergation: IntegrationOptions,
             _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
         )
@@ -27,10 +27,10 @@ public extension GKSL {
 extension GKSL: GKSL.Implementation {
     @inlinable
     public static func solve<Hamiltonian>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueMatrix<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        linbladChannels: [LindbladChannel],
+        markovianChannels: [MarkovianChannel],
         intergation: IntegrationOptions,
         _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
     ) where Hamiltonian : HamiltonianFunction, Hamiltonian : ~Copyable {

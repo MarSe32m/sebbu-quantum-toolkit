@@ -21,11 +21,6 @@ public extension NMQSD {
         case nonLinear
         case nonLinearNormalized
     }
-    
-    enum LindbladMethod: Sendable {
-        case qsd
-        case mcwf
-    }
 }
 
 public extension NMQSD {
@@ -36,11 +31,11 @@ public extension NMQSD {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueVector<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            linbladChannels: [LindbladChannel],
-            lindbladMethod: LindbladMethod,
+            markovianChannels: [MarkovianChannel],
+            unravelling: MarkovianUnravelling,
             baths: Matrix<BathCorrelationFunction>,
             couplingOperators: [CouplingOperator],
             equationType: EquationType,
@@ -54,11 +49,11 @@ public extension NMQSD {
         >(
             start: Double,
             end: Double,
-            on: [Double]?,
+            samplingTimes: [Double]?,
             initialState: borrowing UniqueVector<Complex<Double>>,
             system: borrowing QuantumSystem<Hamiltonian>,
-            linbladChannels: [LindbladChannel],
-            lindbladMethod: LindbladMethod,
+            markovianChannels: [MarkovianChannel],
+            unravelling: MarkovianUnravelling,
             baths: Matrix<BathCorrelationFunction>,
             couplingOperators: [CouplingOperator],
             equationType: EquationType,
@@ -76,11 +71,11 @@ public extension NMQSD.Implementation {
     >(
         start: Double,
         end: Double,
-        on: [Double]?,
+        samplingTimes: [Double]?,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        linbladChannels: [LindbladChannel] = [],
-        lindbladMethod: NMQSD.LindbladMethod = .qsd,
+        markovianChannels: [MarkovianChannel],
+        unravelling: MarkovianUnravelling,
         baths: Matrix<NMQSD.BathCorrelationFunction>,
         couplingOperators: [NMQSD.CouplingOperator],
         equationType: NMQSD.EquationType,

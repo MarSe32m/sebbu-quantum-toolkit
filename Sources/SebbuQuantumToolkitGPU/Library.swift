@@ -5,13 +5,14 @@ import SebbuScience
 import SebbuQuantumToolkit
 
 public struct GPUHOPS: HOPS.Implementation {
+    @inlinable
     public static func solveWithAuxiliaries<Hamiltonian, RNG>(
-        start: Double, end: Double, on: [Double]? = nil,
+        start: Double, end: Double, samplingTimes: [Double]? = nil,
         initialState: borrowing UniqueVector<Complex<Double>>,
         system: borrowing QuantumSystem<Hamiltonian>,
-        lindbladChannels: [LindbladChannel],
-        lindbladMethod: HOPS.LindbladMethod,
-        hierarchy: Hierarchy,
+        markovianChannels: [MarkovianChannel],
+        unravelling: MarkovianUnravelling,
+        hierarchy: HierarchySpecification,
         equationType: HOPS.EquationType,
         shiftType: HOPS.ShiftType,
         rng: inout RNG,
@@ -21,7 +22,25 @@ public struct GPUHOPS: HOPS.Implementation {
         fatalError("TODO: Implement")
     }
     
-    final public class Hierarchy: HOPS.HierarchySpecification {
+    @inlinable
+    public static func solveEnsemble<Hamiltonian>(
+        start: Double, end: Double, on: [Double]?,
+        initialState: borrowing UniqueVector<Complex<Double>>,
+        system: borrowing QuantumSystem<Hamiltonian>,
+        markovianChannels: [MarkovianChannel],
+        unravelling: MarkovianUnravelling,
+        hierarchy: HierarchySpecification,
+        equationType: HOPS.EquationType,
+        shiftType: HOPS.ShiftType,
+        seed: UInt64,
+        trajectories: Int,
+        integration: IntegrationOptions,
+        _ forEach: (Double, Int, borrowing UniqueVector<Complex<Double>>) -> Void
+    ) where Hamiltonian : HamiltonianFunction, Hamiltonian : ~Copyable {
+        fatalError("TODO: Implement")
+    }
+    
+    final public class HierarchySpecification {
         public let bathCorrelationFunctions: SebbuScience.Matrix<SebbuQuantumToolkit.HOPS.BathCorrelationFunction>
         
         public let couplingOperators: [SebbuQuantumToolkit.HOPS.CouplingOperator]

@@ -17,8 +17,8 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.3"),
-        .package(url: "https://github.com/MarSe32m/sebbu-cuda", branch: "main"),
+        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.4"),
+        .package(url: "https://github.com/MarSe32m/sebbu-cuda", branch: "0.0.1"),
         .package(url: "https://github.com/apple/swift-numerics", from: "1.1.1"),
     ],
     targets: [

@@ -1,5 +1,5 @@
 {
-  "originHash" : "44db9280207ebc8d03c1bb98a419ac101d64e614320f66fdecf08ba672f9130b",
+  "originHash" : "37b005f27691e3738a1895e41ecc8ce57026e36104e881339160c4a815034bf4",
   "pins" : [
     {
       "identity" : "sebbu-blas",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MarSe32m/sebbu-cuda",
       "state" : {
-        "branch" : "main",
-        "revision" : "1879d16399ff21a0643175cc997bb122d09ccf9e"
+        "branch" : "0.0.1",
+        "revision" : "c544b1baa15cf2d284a19c760cd3f26aba6a5842"
       }
     },
     {
@@ -56,12 +56,21 @@
       }
     },
     {
+      "identity" : "sebbu-lapack",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/MarSe32m/sebbu-lapack",
+      "state" : {
+        "revision" : "d71575c146f4f4d1320891990d34d9cd3d143a4d",
+        "version" : "0.3.0"
+      }
+    },
+    {
       "identity" : "sebbu-science",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MarSe32m/sebbu-science",
       "state" : {
-        "revision" : "15503ee8b2407108b2a9ed07f0cd75b858ca08d2",
-        "version" : "0.4.3"
+        "revision" : "91c551678860cdd894204a47826dc385bb39a99a",
+        "version" : "0.4.4"
       }
     },
     {
