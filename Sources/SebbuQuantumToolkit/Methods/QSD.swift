@@ -10,79 +10,60 @@ public enum QSD: Sendable {}
 public extension QSD {
     enum EquationType: Sendable {
         case linear
-        case nonLinear
         case nonLinearNormalized
+    }
+
+    struct Configuration: Sendable {
+        public var equationType: EquationType
+
+        public init(
+            equationType: EquationType = .nonLinearNormalized
+        ) {
+            self.equationType = equationType
+        }
     }
 }
 
 public extension QSD {
     protocol Implementation {
-        static func solve<
+        static func solve<Hamiltonian, RNG>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: QSD.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            rng: inout RNG,
+            _ forEach: (
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
+        )
+        where
             Hamiltonian: HamiltonianFunction & ~Copyable,
             RNG: RandomNumberGenerator
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueVector<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            markovianChannels: [MarkovianChannel],
-            equationType: EquationType,
-            rng: inout RNG,
-            intergation: IntegrationOptions,
-            _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-        )
         
-        static func solveEnsemble<
-            Hamiltonian: HamiltonianFunction & ~Copyable
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueVector<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            MarkovianChannels: [MarkovianChannel],
-            equationType: EquationType,
+        static func solve<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: QSD.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
             seed: UInt64,
-            trajectories: Int,
-            intergation: IntegrationOptions,
-            _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
+            trajectoryID: UInt64,
+            _ forEach: (
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
         )
-    }
-}
-
-public extension QSD.Implementation {
-    static func solveEnsemble<
-        Hamiltonian: HamiltonianFunction & ~Copyable
-    >(
-        start: Double,
-        end: Double,
-        samplingTimes: [Double]?,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        MarkovianChannels: [MarkovianChannel],
-        equationType: QSD.EquationType,
-        seed: UInt64,
-        trajectories: Int,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-    ) {
-        fatalError("TODO: Default implementation")
-    }
-}
-
-extension QSD: QSD.Implementation {
-    @inlinable
-    public static func solve<Hamiltonian, RNG>(
-        start: Double, end: Double, samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel],
-        equationType: EquationType,
-        rng: inout RNG,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-    ) where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator, Hamiltonian : ~Copyable {
-        fatalError("TODO: Implement")
+        where Hamiltonian: HamiltonianFunction & ~Copyable
+        
+        @discardableResult
+        static func solveEnsemble<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: QSD.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            execution: TrajectoryExecution,
+            _ forEach: (
+                Double,
+                borrowing UniqueMatrix<Complex<Double>>
+            ) -> Void
+        ) -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction & ~Copyable
     }
 }

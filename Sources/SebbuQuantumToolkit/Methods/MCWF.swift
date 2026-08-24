@@ -8,84 +8,71 @@ import SebbuScience
 public enum MCWF: Sendable {}
 
 public extension MCWF {
+    enum JumpAlgorithm: Sendable {
+        /// Integrate the cumulative hazard and locate its crossing.
+        case waitingTime(
+            eventTolerance: Double,
+            maximumEventIterations: Int
+        )
+
+        /// Test for jumps over discrete integration intervals.
+        case discreteTime
+    }
+
+    struct Configuration: Sendable {
+        public var jumpAlgorithm: JumpAlgorithm
+
+        public init(
+            jumpAlgorithm: JumpAlgorithm = .waitingTime(
+                eventTolerance: 1e-10,
+                maximumEventIterations: 64
+            )
+        ) {
+            self.jumpAlgorithm = jumpAlgorithm
+        }
+    }
+}
+
+public extension MCWF {
     protocol Implementation {
-        static func solve<
+        static func solve<Hamiltonian, RNG>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: MCWF.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            rng: inout RNG,
+            _ forEach: (
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
+        )
+        where
             Hamiltonian: HamiltonianFunction & ~Copyable,
             RNG: RandomNumberGenerator
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueVector<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            markovianChannels: [MarkovianChannel],
-            rng: inout RNG,
-            intergation: IntegrationOptions,
-            _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-        )
         
-        static func solveEnsemble<
-            Hamiltonian: HamiltonianFunction & ~Copyable
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueVector<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            markovianChannels: [MarkovianChannel],
+        static func solve<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: MCWF.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
             seed: UInt64,
-            trajectories: Int,
-            intergation: IntegrationOptions,
-            _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
+            trajectoryID: UInt64,
+            _ forEach: (
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
         )
+        where Hamiltonian: HamiltonianFunction & ~Copyable
+        
+        @discardableResult
+        static func solveEnsemble<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: MCWF.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            execution: TrajectoryExecution,
+            _ forEach: (
+                Double,
+                borrowing UniqueMatrix<Complex<Double>>
+            ) -> Void
+        ) -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction & ~Copyable
     }
 }
-
-public extension MCWF.Implementation {
-    @inlinable
-    static func solveEnsemble<
-        Hamiltonian: HamiltonianFunction & ~Copyable
-    >(
-        start: Double,
-        end: Double,
-        samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel],
-        seed: UInt64,
-        trajectories: Int,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-    ) {
-        fatalError("TODO: Default implementation")
-    }
-    
-    @inlinable
-    static func solve<Hamiltonian>(
-        start: Double, end: Double, samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel],
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-    ) where Hamiltonian : HamiltonianFunction, Hamiltonian : ~Copyable {
-        var rng = NumPyRandom()
-        solve(start: start, end: end, samplingTimes: samplingTimes, initialState: initialState, system: system, markovianChannels: markovianChannels, rng: &rng, intergation: intergation, forEach)
-    }
-}
-
-extension MCWF: MCWF.Implementation {
-    @inlinable
-    public static func solve<Hamiltonian, RNG>(
-        start: Double, end: Double, samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel],
-        rng: inout RNG,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-    ) where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator, Hamiltonian : ~Copyable {
-        fatalError("TODO: Implement")
-    }
-}
-

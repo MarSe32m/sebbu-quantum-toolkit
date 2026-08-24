@@ -4,10 +4,14 @@
 import Numerics
 import SebbuScience
 
-public enum ScalarTimeFunction: Sendable {
-    case constant(Double)
-    case generated(@Sendable (Double) -> Double)
+public enum TimeFunction<Value: Sendable>: Sendable {
+    case constant(Value)
+    case generated(@Sendable (Double) -> Value)
 }
+
+public typealias ScalarTimeFunction = TimeFunction<Double>
+public typealias ComplexTimeFunction =
+    TimeFunction<Complex<Double>>
 
 public enum TimeDependentOperator: Sendable {
     case constant(QuantumOperator)

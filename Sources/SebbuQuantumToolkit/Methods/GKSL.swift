@@ -5,35 +5,50 @@ import Numerics
 import NumericsExtensions
 import SebbuScience
 
-public enum GKSL: Sendable {}
+public enum GKSL {}
+
+public extension GKSL {
+    struct Configuration: Sendable {
+        public init() {}
+    }
+}
 
 public extension GKSL {
     protocol Implementation {
-        static func solve<
-            Hamiltonian: HamiltonianFunction & ~Copyable
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueMatrix<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            markovianChannels: [MarkovianChannel],
-            intergation: IntegrationOptions,
-            _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
+        static func solve<Hamiltonian>(
+            problem: borrowing DensityMatrixProblem<Hamiltonian>,
+            configuration: GKSL.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            _ forEach: (
+                Double,
+                borrowing UniqueMatrix<Complex<Double>>
+            ) -> Void
+        )
+
+        static func solve<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: GKSL.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            _ forEach: (
+                Double,
+                borrowing UniqueMatrix<Complex<Double>>
+            ) -> Void
         )
     }
 }
 
-extension GKSL: GKSL.Implementation {
+public extension GKSL.Implementation {
     @inlinable
-    public static func solve<Hamiltonian>(
-        start: Double, end: Double, samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueMatrix<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel],
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-    ) where Hamiltonian : HamiltonianFunction, Hamiltonian : ~Copyable {
-        fatalError("TODO: Implement")
+    static func solve<Hamiltonian>(
+        problem: borrowing PureStateProblem<Hamiltonian>,
+        configuration: GKSL.Configuration = .init(),
+        propagation: PropagationOptions<IntegrationOptions>,
+        _ forEach: (
+            Double,
+            borrowing UniqueMatrix<Complex<Double>>
+        ) -> Void
+    )
+    where Hamiltonian: HamiltonianFunction & ~Copyable {
+        fatalError("TODO: Implement with a call to solve(problem: DensityMatrixProblem, configuration: GKSL.Configuration, propagation: PropagationOptions<IntegrationOptions>, forEach:)")
     }
 }

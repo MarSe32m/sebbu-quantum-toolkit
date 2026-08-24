@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Sebastian Toivonen
 // SPDX-License-Identifier: Apache-2.0
 
-public struct IntegrationOptions {
+public struct IntegrationOptions: Sendable {
     public var minimumStepSize: Double
     public var maximumStepSize: Double
     public var absoluteTolerance: Double

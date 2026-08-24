@@ -1,13 +1,20 @@
-// Copyright (c) 2026 Sebastian Toivonen
-// SPDX-License-Identifier: Apache-2.0
+//
+//  HOPS.swift
+//  sebbu-quantum-toolkit
+//
+//  Created by Sebastian Toivonen on 24.8.2026.
+//
 
 import Numerics
-import NumericsExtensions
 import SebbuScience
 
-public enum HOPS: Sendable {}
+public enum HOPS {}
 
 public extension HOPS {
+    struct Hierarchy: Sendable {
+        
+    }
+    
     enum EquationType: Sendable {
         case linear
         case nonLinear
@@ -19,161 +26,78 @@ public extension HOPS {
         case meanField
     }
     
-    struct CouplingOperator: Sendable {
-        @usableFromInline
-        internal var L: Matrix<Complex<Double>>
+    struct Configuration: Sendable {
+        public let hierarchy: Hierarchy
+        public var equationType: EquationType
+        public var shiftType: ShiftType
+        public var unravelling: MarkovianUnravelling
+
+        public init(
+            hierarchy: Hierarchy,
+            equationType: EquationType,
+            shiftType: ShiftType = .none,
+            unravelling: MarkovianUnravelling = .diffusive
+        ) {
+            self.hierarchy = hierarchy
+            self.equationType = equationType
+            self.shiftType = shiftType
+            self.unravelling = unravelling
+        }
     }
-    
-    struct BathCorrelationFunction: Sendable {
-        @usableFromInline
-        internal var G: [Complex<Double>]
-        @usableFromInline
-        internal var W: [Complex<Double>]
-        @usableFromInline
-        internal var r: [Complex<Double>]
-    }
-    
 }
 
 public extension HOPS {
     protocol Implementation {
-        associatedtype HierarchySpecification
-        
-        static func solveWithAuxiliaries<
+        static func solve<Hamiltonian, RNG>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: HOPS.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            rng: inout RNG,
+            _ forEach: (
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
+        )
+        where
             Hamiltonian: HamiltonianFunction & ~Copyable,
             RNG: RandomNumberGenerator
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueVector<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            markovianChannels: [MarkovianChannel],
-            unravelling: MarkovianUnravelling,
-            hierarchy: HierarchySpecification,
-            equationType: EquationType,
-            shiftType: ShiftType,
-            rng: inout RNG,
-            intergation: IntegrationOptions,
-            _ forEach: (Double, borrowing Span<UniqueVector<Complex<Double>>>) -> Void
-        )
-        
-        static func solveEnsemble<
-            Hamiltonian: HamiltonianFunction & ~Copyable
-        >(
-            start: Double,
-            end: Double,
-            samplingTimes: [Double]?,
-            initialState: borrowing UniqueVector<Complex<Double>>,
-            system: borrowing QuantumSystem<Hamiltonian>,
-            markovianChannels: [MarkovianChannel],
-            unravelling: MarkovianUnravelling,
-            hierarchy: HierarchySpecification,
-            equationType: EquationType,
-            shiftType: ShiftType,
+
+        static func solve<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: HOPS.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
             seed: UInt64,
-            trajectories: Int,
-            integration: IntegrationOptions,
-            _ forEach: (Double, Int, borrowing UniqueVector<Complex<Double>>) -> Void
+            trajectoryID: UInt64,
+            _ forEach: (
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
         )
-    }
-}
+        where Hamiltonian: HamiltonianFunction & ~Copyable
 
-public extension HOPS.Implementation {
-    @inlinable
-    static func solve<Hamiltonian, RNG>(
-        start: Double, end: Double, samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel] = [],
-        unravelling: MarkovianUnravelling = .diffusive,
-        hierarchy: HierarchySpecification,
-        equationType: HOPS.EquationType,
-        shiftType: HOPS.ShiftType,
-        rng: inout RNG,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-    ) where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-        solveWithAuxiliaries(start: start, end: end, samplingTimes: samplingTimes, initialState: initialState, system: system, markovianChannels: markovianChannels, unravelling: unravelling, hierarchy: hierarchy, equationType: equationType, shiftType: shiftType, rng: &rng, intergation: intergation) { t, totalStateSpan in
-            forEach(t, totalStateSpan[unchecked: 0])
-        }
-    }
-    
-    @inlinable
-    static func solve<Hamiltonian>(
-        start: Double, end: Double, samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel] = [],
-        unravelling: MarkovianUnravelling = .diffusive,
-        hierarchy: HierarchySpecification,
-        equationType: HOPS.EquationType,
-        shiftType: HOPS.ShiftType,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-    ) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        var rng = NumPyRandom()
-        solve(start: start, end: end, samplingTimes: samplingTimes, initialState: initialState, system: system, hierarchy: hierarchy, equationType: equationType, shiftType: shiftType, rng: &rng, intergation: intergation, forEach)
-    }
-    
-    @inlinable
-    static func solveEnsemble<
-        Hamiltonian: HamiltonianFunction & ~Copyable
-    >(
-        start: Double,
-        end: Double,
-        samplingTimes: [Double]? = nil,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel] = [],
-        unravelling: MarkovianUnravelling = .diffusive,
-        hierarchy: HierarchySpecification,
-        equationType: HOPS.EquationType,
-        shiftType: HOPS.ShiftType,
-        seed: UInt64,
-        trajectories: Int,
-        integration: IntegrationOptions,
-        _ forEach: (Double, Int, borrowing UniqueVector<Complex<Double>>) -> Void
-    ) {
-        fatalError("TODO: Default implementation")
-    }
-}
-
-public extension HOPS {
-    final class HierarchySpecification {
-        public let bathCorrelationFunctions: SebbuScience.Matrix<HOPS.BathCorrelationFunction>
+        @discardableResult
+        static func solveEnsemble<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: HOPS.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            execution: TrajectoryExecution,
+            _ forEach: (
+                Double,
+                borrowing UniqueMatrix<Complex<Double>>
+            ) -> Void
+        ) -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction & ~Copyable
         
-        public let couplingOperators: [HOPS.CouplingOperator]
-        
-        @inlinable
-        public init(bathCorrelationFunctions: Matrix<HOPS.BathCorrelationFunction>, couplingOperators: [HOPS.CouplingOperator], truncationCondition: (borrowing Span<Int>) -> Bool) {
-            self.bathCorrelationFunctions = bathCorrelationFunctions
-            self.couplingOperators = couplingOperators
-            fatalError("TODO: Implement")
-        }
-    }
-}
-
-extension HOPS: HOPS.Implementation {
-    @inlinable
-    public static func solveWithAuxiliaries<
-        Hamiltonian: HamiltonianFunction & ~Copyable,
-        RNG: RandomNumberGenerator
-    >(
-        start: Double,
-        end: Double,
-        samplingTimes: [Double]?,
-        initialState: borrowing UniqueVector<Complex<Double>>,
-        system: borrowing QuantumSystem<Hamiltonian>,
-        markovianChannels: [MarkovianChannel],
-        unravelling: MarkovianUnravelling,
-        hierarchy: HierarchySpecification,
-        equationType: EquationType,
-        shiftType: ShiftType,
-        rng: inout RNG,
-        intergation: IntegrationOptions,
-        _ forEach: (Double, borrowing Span<UniqueVector<Complex<Double>>>) -> Void
-    ) where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator, Hamiltonian : ~Copyable {
-        fatalError("TODO: Implement")
+        static func solveTrajectories<Hamiltonian>(
+            problem: borrowing PureStateProblem<Hamiltonian>,
+            configuration: HOPS.Configuration,
+            propagation: PropagationOptions<IntegrationOptions>,
+            execution: TrajectoryExecution,
+            _ forEach: (
+                UInt64,
+                Double,
+                borrowing UniqueVector<Complex<Double>>
+            ) -> Void
+        )
     }
 }
