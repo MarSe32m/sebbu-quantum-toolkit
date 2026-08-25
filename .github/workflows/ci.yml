@@ -9,33 +9,45 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
+
+env:
+  CUDA_VERSION: '13.3.1'
+  SWIFT_VERSION: '6.3.3'
 
 jobs:
   native:
-    name: Native (${{ matrix.os }})
+    name: Native (${{ matrix.platform }}, ${{ matrix.mode }})
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            swift: '6.3.3'
+            platform: Linux x64
             cuda: true
-
+            mode: CUDA
+          - os: ubuntu-latest
+            platform: Linux x64
+            cuda: false
+            mode: No CUDA
           - os: windows-latest
-            swift: '6.3.3'
+            platform: Windows x64
             cuda: true
-
+            mode: CUDA
+          - os: windows-latest
+            platform: Windows x64
+            cuda: false
+            mode: No CUDA
           - os: windows-11-arm
-            swift: '6.3.3'
+            platform: Windows ARM64
             cuda: false
-
+            mode: No CUDA
           - os: macos-latest
-            swift: '6.3.3'
+            platform: macOS
             cuda: false
+            mode: No CUDA
 
     steps:
       - name: Check out repository
@@ -44,47 +56,165 @@ jobs:
       - name: Set up Swift
         uses: SwiftyLab/setup-swift@v1.14.0
         with:
-          swift-version: ${{ matrix.swift }}
+          swift-version: ${{ env.SWIFT_VERSION }}
 
       - name: Install CUDA Toolkit
-        if: matrix.cuda
+        if: ${{ matrix.cuda }}
         uses: Jimver/cuda-toolkit@v0.2.36
         with:
-          cuda: '13.3.1'
+          cuda: ${{ env.CUDA_VERSION }}
           method: network
-          log-file-suffix: '${{ matrix.os }}.txt'
+          sub-packages: ${{ runner.os == 'Linux' && '["nvcc","cudart-dev","driver-dev"]' || '["nvcc","cudart"]' }}
+          log-file-suffix: '${{ matrix.os }}-cuda-${{ matrix.cuda }}.txt'
 
-      - name: Show Swift version
-        run: swift --version
+      - name: Force CUDA-unavailable configuration
+        if: ${{ !matrix.cuda }}
+        shell: bash
+        run: |
+          missing_path="${RUNNER_TEMP}/sebbu-cuda-missing-toolkit"
+          echo "CUDA_PATH=$missing_path" >> "$GITHUB_ENV"
+          echo "CUDA_HOME=$missing_path" >> "$GITHUB_ENV"
+          echo "CUDA_INCLUDE_PATH=$missing_path" >> "$GITHUB_ENV"
+          echo "CUDA_LIBRARY_PATH=$missing_path" >> "$GITHUB_ENV"
+          echo "NVRTC_INCLUDE_PATH=$missing_path" >> "$GITHUB_ENV"
+          echo "NVRTC_LIBRARY_PATH=$missing_path" >> "$GITHUB_ENV"
 
-      - name: Show CUDA version
-        if: matrix.cuda
-        run: nvcc --version
+      # GitHub's Linux runners do not have an NVIDIA driver. The Toolkit's
+      # Driver API stub is sufficient for linking, while tests which require
+      # a real driver or device remain responsible for skipping themselves.
+      - name: Configure CUDA Driver API stub (Linux)
+        if: ${{ matrix.cuda && runner.os == 'Linux' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cuda_header=""
+          for candidate in \
+            "$CUDA_PATH/include/cuda.h" \
+            "$CUDA_PATH/targets/x86_64-linux/include/cuda.h" \
+            "$CUDA_PATH/targets/sbsa-linux/include/cuda.h"
+          do
+            if [[ -f "$candidate" ]]; then
+              cuda_header="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$cuda_header" ]]; then
+            cuda_header="$(find "$CUDA_PATH" -type f -name cuda.h -print -quit)"
+          fi
+          if [[ -z "$cuda_header" ]]; then
+            echo "CUDA Driver API header was not installed." >&2
+            exit 1
+          fi
+
+          echo "CUDA_INCLUDE_PATH=$(dirname "$cuda_header")" >> "$GITHUB_ENV"
+
+          stub_library=""
+          for candidate in \
+            "$CUDA_PATH/lib64/stubs/libcuda.so" \
+            "$CUDA_PATH/targets/x86_64-linux/lib/stubs/libcuda.so" \
+            "$CUDA_PATH/lib/stubs/libcuda.so"
+          do
+            if [[ -f "$candidate" ]]; then
+              stub_library="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$stub_library" ]]; then
+            stub_library="$(find "$CUDA_PATH" -type f -path '*/stubs/libcuda.so' -print -quit)"
+          fi
+          if [[ -z "$stub_library" ]]; then
+            echo "CUDA Driver API stub library was not installed." >&2
+            exit 1
+          fi
+
+          runtime_stub_dir="$RUNNER_TEMP/sebbu-cuda-driver-stub"
+          mkdir -p "$runtime_stub_dir"
+          cp -L "$stub_library" "$runtime_stub_dir/libcuda.so"
+          ln -sfn libcuda.so "$runtime_stub_dir/libcuda.so.1"
+
+          echo "CUDA_LIBRARY_PATH=$runtime_stub_dir" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$runtime_stub_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
+
+      - name: Verify CUDA Toolkit layout (Windows)
+        if: ${{ matrix.cuda && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          $header = Get-ChildItem -Path $env:CUDA_PATH -Filter cuda.h `
+            -File -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          $importLibrary = Get-ChildItem -Path $env:CUDA_PATH -Filter cuda.lib `
+            -File -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if ($null -eq $header) {
+            throw "CUDA header not found below $env:CUDA_PATH"
+          }
+          if ($null -eq $importLibrary) {
+            throw "CUDA Driver import library not found below $env:CUDA_PATH"
+          }
+
+          "CUDA_INCLUDE_PATH=$($header.DirectoryName)" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "CUDA_LIBRARY_PATH=$($importLibrary.DirectoryName)" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Show toolchain versions
+        shell: bash
+        run: |
+          swift --version
+          if [[ "${{ matrix.cuda }}" == "true" ]]; then
+            nvcc --version
+          fi
+
+      - name: Resolve dependencies
+        run: swift package --scratch-path .build/native resolve
+
+      - name: Verify sebbu-cuda configuration
+        shell: bash
+        run: |
+          swift package \
+            --package-path .build/native/checkouts/sebbu-cuda \
+            dump-package > sebbu-cuda-package.json
+
+          if [[ "${{ matrix.cuda }}" == "true" ]]; then
+            grep -q '"CCUDA"' sebbu-cuda-package.json
+          else
+            if grep -q '"CCUDA"' sebbu-cuda-package.json; then
+              echo "CCUDA must not be selected without the CUDA Toolkit." >&2
+              exit 1
+            fi
+            grep -q '"SebbuCUDAUnavailableTests"' sebbu-cuda-package.json
+          fi
 
       - name: Build (debug)
-        run: swift build
+        run: swift build --scratch-path .build/native
 
       - name: Test (debug)
-        run: swift test
+        run: swift test --scratch-path .build/native --no-parallel
 
       - name: Build (release)
-        run: swift build -c release
+        run: swift build --scratch-path .build/native -c release
 
       - name: Test (release)
-        run: swift test -c release
+        run: swift test --scratch-path .build/native -c release --no-parallel
 
   static-linux:
-    name: Static Linux (${{ matrix.sdk }})
+    name: Static Linux (${{ matrix.sdk }}, no CUDA)
     runs-on: ubuntu-latest
-
+    env:
+      CUDA_PATH: /__sebbu_cuda_toolkit_not_installed__
+      CUDA_HOME: /__sebbu_cuda_toolkit_not_installed__
+      CUDA_INCLUDE_PATH: /__sebbu_cuda_toolkit_not_installed__
+      CUDA_LIBRARY_PATH: /__sebbu_cuda_toolkit_not_installed__
+      NVRTC_INCLUDE_PATH: /__sebbu_cuda_toolkit_not_installed__
+      NVRTC_LIBRARY_PATH: /__sebbu_cuda_toolkit_not_installed__
     strategy:
       fail-fast: false
       matrix:
-        sdk:
-          - x86_64-swift-linux-musl
-          - aarch64-swift-linux-musl
-        swift:
-          - '6.3.3'
+        sdk: ['x86_64-swift-linux-musl', 'aarch64-swift-linux-musl']
 
     steps:
       - name: Check out repository
@@ -93,7 +223,7 @@ jobs:
       - name: Set up Swift and Static Linux SDK
         uses: SwiftyLab/setup-swift@v1.14.0
         with:
-          swift-version: ${{ matrix.swift }}
+          swift-version: ${{ env.SWIFT_VERSION }}
           sdks: static-linux
 
       - name: Show Swift version and installed SDKs
@@ -101,8 +231,28 @@ jobs:
           swift --version
           swift sdk list
 
+      - name: Resolve dependencies
+        run: swift package --scratch-path .build/static-linux resolve
+
+      - name: Verify CUDA-unavailable dependency configuration
+        shell: bash
+        run: |
+          swift package \
+            --package-path .build/static-linux/checkouts/sebbu-cuda \
+            dump-package > sebbu-cuda-package.json
+
+          if grep -q '"CCUDA"' sebbu-cuda-package.json; then
+            echo "Static Linux must use the CUDA-unavailable target." >&2
+            exit 1
+          fi
+          grep -q '"SebbuCUDAUnavailableTests"' sebbu-cuda-package.json
+
       - name: Build with Static Linux SDK (debug)
-        run: swift build --swift-sdk ${{ matrix.sdk }}
+        run: >-
+          swift build --scratch-path .build/static-linux
+          --swift-sdk ${{ matrix.sdk }}
 
       - name: Build with Static Linux SDK (release)
-        run: swift build -c release --swift-sdk ${{ matrix.sdk }}
+        run: >-
+          swift build --scratch-path .build/static-linux -c release
+          --swift-sdk ${{ matrix.sdk }}
