@@ -6,14 +6,19 @@ import NumericsExtensions
 import SebbuScience
 
 public struct MarkovianChannel: Sendable {
-    public let rate: ScalarTimeFunction
-    public let collapseOperator: TimeDependentOperator
-    
-    @inlinable
-    public init(rate: ScalarTimeFunction, collapseOperator: TimeDependentOperator) {
-        self.rate = rate
-        self.collapseOperator = collapseOperator
-    }
-    
-    //TODO: Convenience methods
+	public let rate: ScalarTimeFunction
+	public let collapseOperator: TimeDependentOperator
+
+	@inlinable
+	public init(rate: ScalarTimeFunction, collapseOperator: TimeDependentOperator) {
+		self.rate = rate
+		self.collapseOperator = collapseOperator
+	}
+
+	//TODO: Convenience methods
+}
+
+public enum MarkovianUnravelling: Sendable {
+    case diffusive
+    case jump
 }
