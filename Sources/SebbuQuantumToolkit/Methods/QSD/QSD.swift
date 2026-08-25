@@ -25,20 +25,6 @@ extension QSD {
 
 extension QSD {
 	protocol Implementation {
-		static func solve<Hamiltonian, RNG>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
-			configuration: QSD.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
-			rng: inout RNG,
-			_ forEach: (
-				Double,
-				borrowing UniqueVector<Complex<Double>>
-			) -> Void
-		)
-		where
-			Hamiltonian: HamiltonianFunction & ~Copyable,
-			RNG: RandomNumberGenerator
-
 		static func solve<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
@@ -64,5 +50,35 @@ extension QSD {
 			) -> Void
 		) -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction & ~Copyable
+
+		static func solveTrajectories<Hamiltonian>(
+			problem: borrowing PureStateProblem<Hamiltonian>,
+			configuration: QSD.Configuration,
+			propagation: PropagationOptions<IntegrationOptions>,
+			execution: TrajectoryExecution,
+			_ forEach:
+				@Sendable (  // Will potentially be called from multiple threads for each trajectory
+					UInt64,
+					Double,
+					borrowing UniqueVector<Complex<Double>>
+				) -> Void
+		)
+		where Hamiltonian: HamiltonianFunction & ~Copyable
+	}
+
+	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
+		static func solve<Hamiltonian, RNG>(
+			problem: borrowing PureStateProblem<Hamiltonian>,
+			configuration: QSD.Configuration,
+			propagation: PropagationOptions<IntegrationOptions>,
+			rng: inout RNG,
+			_ forEach: (
+				Double,
+				borrowing UniqueVector<Complex<Double>>
+			) -> Void
+		)
+		where
+			Hamiltonian: HamiltonianFunction & ~Copyable,
+			RNG: RandomNumberGenerator
 	}
 }

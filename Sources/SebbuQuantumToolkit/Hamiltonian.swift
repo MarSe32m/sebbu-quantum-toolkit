@@ -60,7 +60,7 @@ public struct TimeIndependentHamiltonian: ~Copyable, Sendable, HamiltonianFuncti
 	}
 }
 
-extension QuantumSystem where Hamiltonian == TimeIndependentHamiltonian {
+extension QuantumSystem where Hamiltonian == TimeIndependentHamiltonian, Hamiltonian: ~Copyable {
 	@inlinable
 	public init(_ hamiltonian: borrowing UniqueMatrix<Complex<Double>>) {
 		precondition(hamiltonian.isSquare, "Hamiltonian operator must be a square matrix")

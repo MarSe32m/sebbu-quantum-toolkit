@@ -12,9 +12,9 @@ extension GKSL {
 	}
 }
 
-extension GKSL {
+public extension GKSL {
 	protocol Implementation {
-		static func solve<Hamiltonian>(
+        static func solve<Hamiltonian: HamiltonianFunction & ~Copyable>(
 			problem: borrowing DensityMatrixProblem<Hamiltonian>,
 			configuration: GKSL.Configuration,
 			propagation: PropagationOptions<IntegrationOptions>,
@@ -24,7 +24,7 @@ extension GKSL {
 			) -> Void
 		)
 
-		static func solve<Hamiltonian>(
+		static func solve<Hamiltonian: HamiltonianFunction & ~Copyable>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: GKSL.Configuration,
 			propagation: PropagationOptions<IntegrationOptions>,
@@ -36,9 +36,9 @@ extension GKSL {
 	}
 }
 
-extension GKSL.Implementation {
+public extension GKSL.Implementation {
 	@inlinable
-	public static func solve<Hamiltonian>(
+	static func solve<Hamiltonian: HamiltonianFunction & ~Copyable>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: GKSL.Configuration = .init(),
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -46,8 +46,24 @@ extension GKSL.Implementation {
 			Double,
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction & ~Copyable {
+	) {
 		fatalError("TODO: Implement")
+	}
+}
+
+public extension GKSL {
+	protocol TwoTimeCorrelationImplementation: Implementation {
+		static func solveTwoTimeCorrelation<
+			Hamiltonian: HamiltonianFunction & ~Copyable
+		>(
+			problem: borrowing DensityMatrixProblem<Hamiltonian>,
+			configuration: HEOM.Configuration,
+			request: TwoTimeCorrelationRequest,
+			propagation: PropagationOptions<IntegrationOptions>,
+			_ forEach: (
+				Double,
+				Complex<Double>
+			) -> Void
+		)
 	}
 }

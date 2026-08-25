@@ -19,6 +19,6 @@ public struct MarkovianChannel: Sendable {
 }
 
 public enum MarkovianUnravelling: Sendable {
-    case diffusive
-    case jump
+	case diffusive
+	case jump
 }

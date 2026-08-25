@@ -7,8 +7,8 @@ import SebbuScience
 
 public enum MCWF: Sendable {}
 
-extension MCWF {
-	public enum JumpAlgorithm: Sendable {
+public extension MCWF {
+	enum JumpAlgorithm: Sendable {
 		/// Integrate the cumulative hazard and locate its crossing.
 		case waitingTime(
 			eventTolerance: Double,
@@ -19,7 +19,7 @@ extension MCWF {
 		case discreteTime
 	}
 
-	public struct Configuration: Sendable {
+	struct Configuration: Sendable {
 		public var jumpAlgorithm: JumpAlgorithm
 
 		public init(
@@ -33,22 +33,8 @@ extension MCWF {
 	}
 }
 
-extension MCWF {
+public extension MCWF {
 	protocol Implementation {
-		static func solve<Hamiltonian, RNG>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
-			configuration: MCWF.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
-			rng: inout RNG,
-			_ forEach: (
-				Double,
-				borrowing UniqueVector<Complex<Double>>
-			) -> Void
-		)
-		where
-			Hamiltonian: HamiltonianFunction & ~Copyable,
-			RNG: RandomNumberGenerator
-
 		static func solve<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
@@ -74,5 +60,35 @@ extension MCWF {
 			) -> Void
 		) -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction & ~Copyable
+
+		static func solveTrajectories<Hamiltonian>(
+			problem: borrowing PureStateProblem<Hamiltonian>,
+			configuration: MCWF.Configuration,
+			propagation: PropagationOptions<IntegrationOptions>,
+			execution: TrajectoryExecution,
+			_ forEach:
+				@Sendable (  // Will potentially be called from multiple threads for each trajectory
+					UInt64,
+					Double,
+					borrowing UniqueVector<Complex<Double>>
+				) -> Void
+		)
+		where Hamiltonian: HamiltonianFunction & ~Copyable
+	}
+
+	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
+		static func solve<Hamiltonian, RNG>(
+			problem: borrowing PureStateProblem<Hamiltonian>,
+			configuration: MCWF.Configuration,
+			propagation: PropagationOptions<IntegrationOptions>,
+			rng: inout RNG,
+			_ forEach: (
+				Double,
+				borrowing UniqueVector<Complex<Double>>
+			) -> Void
+		)
+		where
+			Hamiltonian: HamiltonianFunction & ~Copyable,
+			RNG: RandomNumberGenerator
 	}
 }

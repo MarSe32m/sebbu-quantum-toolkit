@@ -7,7 +7,7 @@ import SebbuScience
 
 public enum DefaultMCWFImplementation: Sendable {}
 
-extension DefaultMCWFImplementation: MCWF.Implementation {
+extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
 	public static func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
@@ -17,7 +17,7 @@ extension DefaultMCWFImplementation: MCWF.Implementation {
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	)
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-		fatalError("TODO: Implement")
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 
 	@inlinable
@@ -29,7 +29,7 @@ extension DefaultMCWFImplementation: MCWF.Implementation {
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		fatalError("TODO: Implement")
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 
 	@inlinable
@@ -40,11 +40,24 @@ extension DefaultMCWFImplementation: MCWF.Implementation {
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		fatalError("TODO: Implementation")
+        print("\(#file):\(#function) has not yet been implemented")
+		return TrajectoryRunSummary(trajectoryIDs: 0..<1, masterSeed: 0)
+	}
+
+	@inlinable
+	public static func solveTrajectories<Hamiltonian>(
+		problem: borrowing PureStateProblem<Hamiltonian>,
+		configuration: MCWF.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+		execution: TrajectoryExecution,
+		_ forEach:
+			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
+	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 }
 
-extension MCWF: MCWF.Implementation {
+extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
@@ -89,4 +102,20 @@ extension MCWF: MCWF.Implementation {
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
+
+	@inlinable
+	@inline(always)
+	public static func solveTrajectories<Hamiltonian>(
+		problem: borrowing PureStateProblem<Hamiltonian>,
+		configuration: MCWF.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+		execution: TrajectoryExecution,
+		_ forEach:
+			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
+	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
+		DefaultMCWFImplementation.solveTrajectories(
+			problem: problem, configuration: configuration, propagation: propagation,
+			execution: execution, forEach)
+	}
+
 }

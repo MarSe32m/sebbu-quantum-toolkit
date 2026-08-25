@@ -13,8 +13,8 @@ extension DefaultGKSLImplementation: GKSL.Implementation {
 		configuration: GKSL.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction {
-		fatalError("TODO: Implement")
+	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 }
 
@@ -26,7 +26,7 @@ extension GKSL: GKSL.Implementation {
 		configuration: Configuration = .init(),
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction {
+	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
 		DefaultGKSLImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			forEach)

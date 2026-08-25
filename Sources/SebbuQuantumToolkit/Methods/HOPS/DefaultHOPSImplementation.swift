@@ -6,7 +6,7 @@ import SebbuScience
 
 public enum DefaultHOPSImplementation: Sendable {}
 
-extension DefaultHOPSImplementation: HOPS.Implementation {
+extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
 	public static func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
@@ -16,7 +16,7 @@ extension DefaultHOPSImplementation: HOPS.Implementation {
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	)
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-		fatalError("TODO: Implement")
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 
 	@inlinable
@@ -28,7 +28,7 @@ extension DefaultHOPSImplementation: HOPS.Implementation {
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		fatalError("TODO: Implement")
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 
 	@inlinable
@@ -39,7 +39,8 @@ extension DefaultHOPSImplementation: HOPS.Implementation {
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		fatalError("TODO: Implement")
+        print("\(#file):\(#function) has not yet been implemented")
+		return TrajectoryRunSummary(trajectoryIDs: 0..<1, masterSeed: 0)
 	}
 
 	@inlinable
@@ -50,12 +51,12 @@ extension DefaultHOPSImplementation: HOPS.Implementation {
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction {
-		fatalError("TODO: Implement")
+	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
+        print("\(#file):\(#function) has not yet been implemented")
 	}
 }
 
-extension HOPS: HOPS.Implementation {
+extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
@@ -110,7 +111,7 @@ extension HOPS: HOPS.Implementation {
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction {
+	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
 		DefaultHOPSImplementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
