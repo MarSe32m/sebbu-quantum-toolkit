@@ -21,7 +21,7 @@ public enum TimeDependentOperator: Sendable {
 
 public struct QuantumOperator: Sendable {
     @usableFromInline
-    internal let matrix: Matrix<Complex<Double>>
+    package let matrix: Matrix<Complex<Double>>
     
     @inlinable
     public init(_ matrix: Matrix<Complex<Double>>) {
@@ -36,12 +36,12 @@ public struct QuantumOperator: Sendable {
 
 public struct OperatorExpansion: Sendable {
     @usableFromInline
-    internal let coefficients: [ScalarTimeFunction]
+    package let coefficients: [ComplexTimeFunction]
     @usableFromInline
-    internal let operators: [QuantumOperator]
+    package let operators: [QuantumOperator]
     
     @inlinable
-    public init(coefficients: [ScalarTimeFunction], operators: [QuantumOperator]) {
+    public init(coefficients: [ComplexTimeFunction], operators: [QuantumOperator]) {
         self.coefficients = coefficients
         self.operators = operators
     }

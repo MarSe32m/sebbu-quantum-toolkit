@@ -93,7 +93,7 @@ public extension HOPS {
             configuration: HOPS.Configuration,
             propagation: PropagationOptions<IntegrationOptions>,
             execution: TrajectoryExecution,
-            _ forEach: (
+            _ forEach: @Sendable ( // Can be called from multiple threads for each trajectory
                 UInt64,
                 Double,
                 borrowing UniqueVector<Complex<Double>>

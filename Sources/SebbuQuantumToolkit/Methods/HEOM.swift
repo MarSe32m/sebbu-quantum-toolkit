@@ -66,6 +66,6 @@ public extension HEOM.Implementation {
             borrowing UniqueMatrix<Complex<Double>>
         ) -> Void
     ) {
-        fatalError("TODO: Implement with a call to `solve(problem:DensityMatrixProblem,configuration:propagation:forEach:)")
+        fatalError("TODO: Implement")
     }
 }

@@ -15,6 +15,10 @@ let package = Package(
             name: "SebbuQuantumToolkit",
             targets: ["SebbuQuantumToolkit"]
         ),
+        .library(
+            name: "SebbuQuantumToolkitGPU",
+            targets: ["SebbuQuantumToolkitGPU"]
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.4"),

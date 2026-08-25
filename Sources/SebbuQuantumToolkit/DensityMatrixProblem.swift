@@ -15,7 +15,7 @@ public struct DensityMatrixProblem<
     public init(
         initialState: consuming UniqueMatrix<Complex<Double>>,
         system: consuming QuantumSystem<Hamiltonian>,
-        markovianChannel: [MarkovianChannel] = []
+        markovianChannels: [MarkovianChannel] = []
     ) {
         precondition(
             initialState.rows == system.dimension &&
@@ -25,6 +25,6 @@ public struct DensityMatrixProblem<
 
         self.initialState = initialState
         self.system = system
-        self.markovianChannels = markovianChannel
+        self.markovianChannels = markovianChannels
     }
 }

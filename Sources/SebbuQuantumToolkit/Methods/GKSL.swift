@@ -49,6 +49,6 @@ public extension GKSL.Implementation {
         ) -> Void
     )
     where Hamiltonian: HamiltonianFunction & ~Copyable {
-        fatalError("TODO: Implement with a call to solve(problem: DensityMatrixProblem, configuration: GKSL.Configuration, propagation: PropagationOptions<IntegrationOptions>, forEach:)")
+        fatalError("TODO: Implement")
     }
 }
