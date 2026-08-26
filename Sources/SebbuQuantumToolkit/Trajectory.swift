@@ -70,7 +70,7 @@ public struct TrajectoryRunSummary: Sendable {
 	public let masterSeed: UInt64
 
 	@inlinable
-	package init(trajectoryIDs: Range<UInt64>, masterSeed: UInt64) {
+	public init(trajectoryIDs: Range<UInt64>, masterSeed: UInt64) {
 		self.trajectoryIDs = trajectoryIDs
 		self.masterSeed = masterSeed
 	}
