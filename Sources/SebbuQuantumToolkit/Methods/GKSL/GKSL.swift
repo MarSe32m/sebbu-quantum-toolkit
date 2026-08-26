@@ -13,7 +13,7 @@ extension GKSL {
 }
 
 public extension GKSL {
-	protocol Implementation {
+    protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         func solve<Hamiltonian: HamiltonianFunction>(

@@ -24,7 +24,7 @@ extension QSD {
 }
 
 public extension QSD {
-	protocol Implementation {
+	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
 		func solve<Hamiltonian>(

@@ -201,7 +201,7 @@ extension HOPS {
 }
 
 public extension HOPS {
-	protocol Implementation {
+	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         func solve<Hamiltonian>(

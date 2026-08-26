@@ -192,7 +192,7 @@ extension HEOM {
 }
 
 public extension HEOM {
-	protocol Implementation {
+	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
 		func solve<Hamiltonian: HamiltonianFunction>(

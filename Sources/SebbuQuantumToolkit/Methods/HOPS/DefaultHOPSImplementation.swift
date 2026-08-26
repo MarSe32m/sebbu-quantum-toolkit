@@ -62,7 +62,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 extension HOPS {
 	@inlinable
 	@inline(always)
-	public func solve<Hamiltonian, RNG>(
+	public static func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,

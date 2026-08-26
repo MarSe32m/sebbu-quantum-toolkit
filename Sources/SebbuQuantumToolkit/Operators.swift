@@ -52,7 +52,7 @@ public struct DynamicDenseOperator: Sendable {
 		@Sendable (Double, inout UniqueMatrix<Complex<Double>>) -> Void
 
 	@usableFromInline
-	internal let generator: GeneratorFunction
+	package let generator: GeneratorFunction
 
 	@inlinable
 	public init(_ generator: @escaping GeneratorFunction) {

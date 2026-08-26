@@ -34,7 +34,7 @@ public extension MCWF {
 }
 
 public extension MCWF {
-	protocol Implementation {
+	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
 		func solve<Hamiltonian>(
