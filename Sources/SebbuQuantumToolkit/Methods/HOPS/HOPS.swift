@@ -25,7 +25,7 @@ extension HOPS {
         
         // All of the -k \cdot W precomputed for all states
         @usableFromInline
-        package let kWArray: UniqueArray<Index>
+        package let kWArray: UniqueArray<Complex<Double>>
         
         // The multi indices for each auxiliary state
         // For example, 0 -> (0, 0, ..., 0, 0), 1 -> (0, 0, ..., 0, 1), 2 -> (0, 0, ..., 1, 0) etc.
@@ -35,6 +35,8 @@ extension HOPS {
         // How many indices the multi index tuple has
         @usableFromInline
         package let multiIndexCount: Int
+        
+        public let environment: Environment
         
         public init(environment: Environment, truncation: Truncation) {
             fatalError("TODO: Implement")
@@ -200,10 +202,12 @@ extension HOPS {
 
 public extension HOPS {
 	protocol Implementation {
-        static func solve<Hamiltonian>(
+        associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
+        
+        func solve<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
 			_ forEach: (
@@ -213,10 +217,10 @@ public extension HOPS {
 		) throws where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
-        static func solveEnsemble<Hamiltonian>(
+        func solveEnsemble<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach: (
 				Double,
@@ -225,10 +229,10 @@ public extension HOPS {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
-		static func solveTrajectories<Hamiltonian>(
+		func solveTrajectories<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach:
 				@Sendable (  // Will potentially be called from multiple threads for each trajectory
@@ -243,10 +247,10 @@ public extension HOPS {
 
 public extension HOPS {
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
-		static func solve<Hamiltonian, RNG>(
+		func solve<Hamiltonian, RNG>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
 			_ forEach: (
 				Double,
@@ -259,10 +263,10 @@ public extension HOPS {
 
 public extension HOPS {
 	protocol HierarchyProvidingImplementation: Implementation {
-        static func solveWithHierarchy<Hamiltonian>(
+        func solveWithHierarchy<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
 			_ forEach: (
@@ -273,12 +277,13 @@ public extension HOPS {
 	}
 
 	protocol HierarchyProvidingRandomNumberGeneratorDrivenImplementation:
-		HierarchyProvidingImplementation
+		HierarchyProvidingImplementation,
+        RandomNumberGeneratorDrivenImplementation
 	{
-		static func solveWithHierarchy<Hamiltonian, RNG>(
+		func solveWithHierarchy<Hamiltonian, RNG>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
 			_ forEach: (
 				Double,
@@ -289,11 +294,11 @@ public extension HOPS {
 
 	protocol TwoTimeCorrelationImplementation: Implementation {
 		@discardableResult
-		static func solveTwoTimeCorrelation<Hamiltonian>(
+		func solveTwoTimeCorrelation<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			request: TwoTimeCorrelationRequest,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach: (
 				Double,

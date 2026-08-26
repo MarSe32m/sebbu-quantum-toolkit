@@ -4,11 +4,14 @@
 import Numerics
 import SebbuScience
 
-public enum DefaultHOPSImplementation: Sendable {}
+public struct DefaultHOPSImplementation: Sendable {
+    @inlinable
+    public init() {}
+}
 
 extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
-	public static func solve<Hamiltonian, RNG>(
+	public func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -20,7 +23,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 	}
 
 	@inlinable
-	public static func solve<Hamiltonian>(
+	public func solve<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -32,7 +35,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 	}
 
 	@inlinable
-	public static func solveEnsemble<Hamiltonian>(
+	public func solveEnsemble<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -43,7 +46,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 	}
 
 	@inlinable
-	public static func solveTrajectories<Hamiltonian>(
+	public func solveTrajectories<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -56,10 +59,10 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 	}
 }
 
-extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
+extension HOPS {
 	@inlinable
 	@inline(always)
-	public static func solve<Hamiltonian, RNG>(
+	public func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -67,7 +70,8 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-		try DefaultHOPSImplementation.solve(
+		let implementation = DefaultHOPSImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
 	}
@@ -82,7 +86,8 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
-		try DefaultHOPSImplementation.solve(
+        let implementation = DefaultHOPSImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID, forEach)
@@ -97,7 +102,8 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try DefaultHOPSImplementation.solveEnsemble(
+        let implementation = DefaultHOPSImplementation()
+        return try implementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
@@ -113,7 +119,8 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary
     where Hamiltonian: HamiltonianFunction {
-		try DefaultHOPSImplementation.solveTrajectories(
+        let implementation = DefaultHOPSImplementation()
+        return try implementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}

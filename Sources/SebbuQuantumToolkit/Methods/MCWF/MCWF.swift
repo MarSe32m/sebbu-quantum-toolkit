@@ -35,10 +35,12 @@ public extension MCWF {
 
 public extension MCWF {
 	protocol Implementation {
-		static func solve<Hamiltonian>(
+        associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
+        
+		func solve<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
 			_ forEach: (
@@ -49,10 +51,10 @@ public extension MCWF {
 		where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
-		static func solveEnsemble<Hamiltonian>(
+		func solveEnsemble<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach: (
 				Double,
@@ -61,10 +63,10 @@ public extension MCWF {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
-		static func solveTrajectories<Hamiltonian>(
+        func solveTrajectories<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach:
 				@Sendable (  // Will potentially be called from multiple threads for each trajectory
@@ -77,10 +79,10 @@ public extension MCWF {
 	}
 
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
-		static func solve<Hamiltonian, RNG>(
+		func solve<Hamiltonian, RNG>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
 			_ forEach: (
 				Double,

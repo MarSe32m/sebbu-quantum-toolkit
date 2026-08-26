@@ -5,11 +5,14 @@ import Numerics
 import NumericsExtensions
 import SebbuScience
 
-public enum DefaultMCWFImplementation: Sendable {}
+public struct DefaultMCWFImplementation: Sendable {
+    @inlinable
+    public init() {}
+}
 
 extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
-	public static func solve<Hamiltonian, RNG>(
+	public func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -21,7 +24,7 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 	}
 
 	@inlinable
-	public static func solve<Hamiltonian>(
+	public func solve<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -33,7 +36,7 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 	}
 
 	@inlinable
-	public static func solveEnsemble<Hamiltonian>(
+	public func solveEnsemble<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -44,7 +47,7 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 	}
 
 	@inlinable
-	public static func solveTrajectories<Hamiltonian>(
+	public func solveTrajectories<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -57,7 +60,7 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 	}
 }
 
-extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
+extension MCWF {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
@@ -68,7 +71,8 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-		try DefaultMCWFImplementation.solve(
+        let implementation = DefaultMCWFImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
 	}
@@ -83,7 +87,8 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
-		try DefaultMCWFImplementation.solve(
+        let implementation = DefaultMCWFImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID, forEach)
@@ -98,7 +103,8 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try DefaultMCWFImplementation.solveEnsemble(
+        let implementation = DefaultMCWFImplementation()
+        return try implementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
@@ -114,7 +120,8 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary
     where Hamiltonian: HamiltonianFunction {
-		try DefaultMCWFImplementation.solveTrajectories(
+        let implementation = DefaultMCWFImplementation()
+        return try implementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}

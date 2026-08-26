@@ -4,11 +4,14 @@
 import Numerics
 import SebbuScience
 
-public enum DefaultGKSLImplementation: Sendable {}
+public struct DefaultGKSLImplementation: Sendable {
+    @inlinable
+    public init() {}
+}
 
 extension DefaultGKSLImplementation: GKSL.Implementation {
 	@inlinable
-	public static func solve<Hamiltonian>(
+	public func solve<Hamiltonian>(
 		problem: borrowing DensityMatrixProblem<Hamiltonian>,
 		configuration: GKSL.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -18,7 +21,7 @@ extension DefaultGKSLImplementation: GKSL.Implementation {
 	}
 }
 
-extension GKSL: GKSL.Implementation {
+extension GKSL {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian>(
@@ -27,7 +30,8 @@ extension GKSL: GKSL.Implementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
-		try DefaultGKSLImplementation.solve(
+        let implementation = DefaultGKSLImplementation()
+		try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			forEach)
 	}

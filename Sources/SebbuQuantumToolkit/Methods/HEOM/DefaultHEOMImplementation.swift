@@ -4,11 +4,14 @@
 import Numerics
 import SebbuScience
 
-public enum DefaultHEOMImplementation: Sendable {}
+public struct DefaultHEOMImplementation: Sendable {
+    @inlinable
+    public init() {}
+}
 
 extension DefaultHEOMImplementation: HEOM.Implementation {
 	@inlinable
-	public static func solve<Hamiltonian>(
+	public func solve<Hamiltonian>(
 		problem: borrowing DensityMatrixProblem<Hamiltonian>,
 		configuration: HEOM.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -18,7 +21,7 @@ extension DefaultHEOMImplementation: HEOM.Implementation {
 	}
 }
 
-extension HEOM: HEOM.Implementation {
+extension HEOM {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian>(
@@ -27,7 +30,8 @@ extension HEOM: HEOM.Implementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
-		try DefaultHEOMImplementation.solve(
+        let implementation = DefaultHEOMImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			forEach)
 	}

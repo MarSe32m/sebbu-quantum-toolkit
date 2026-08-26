@@ -4,11 +4,14 @@
 import Numerics
 import SebbuScience
 
-public enum DefaultQSDImplementation: Sendable {}
+public struct DefaultQSDImplementation: Sendable {
+    @inlinable
+    public init() {}
+}
 
 extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
-	public static func solve<Hamiltonian, RNG>(
+	public func solve<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -20,7 +23,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 	}
 
 	@inlinable
-	public static func solve<Hamiltonian>(
+	public func solve<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -32,7 +35,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 	}
 
 	@inlinable
-	public static func solveEnsemble<Hamiltonian>(
+	public func solveEnsemble<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -43,7 +46,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 	}
 
 	@inlinable
-	public static func solveTrajectories<Hamiltonian>(
+	public func solveTrajectories<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -57,7 +60,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 
 }
 
-extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
+extension QSD {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
@@ -68,7 +71,8 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-		try DefaultQSDImplementation.solve(
+        let implementation = DefaultQSDImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
 	}
@@ -83,7 +87,8 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
-		try DefaultQSDImplementation.solve(
+        let implementation = DefaultQSDImplementation()
+        try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID, forEach)
@@ -98,7 +103,8 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try DefaultQSDImplementation.solveEnsemble(
+        let implementation = DefaultQSDImplementation()
+        return try implementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
@@ -114,7 +120,8 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary
     where Hamiltonian: HamiltonianFunction {
-		try DefaultQSDImplementation.solveTrajectories(
+        let implementation = DefaultQSDImplementation()
+        return try implementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}

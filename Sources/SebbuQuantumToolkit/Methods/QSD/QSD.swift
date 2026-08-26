@@ -23,12 +23,14 @@ extension QSD {
 	}
 }
 
-extension QSD {
+public extension QSD {
 	protocol Implementation {
-		static func solve<Hamiltonian>(
+        associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
+        
+		func solve<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
 			_ forEach: (
@@ -39,10 +41,10 @@ extension QSD {
 		where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
-		static func solveEnsemble<Hamiltonian>(
+		func solveEnsemble<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach: (
 				Double,
@@ -51,10 +53,10 @@ extension QSD {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
-		static func solveTrajectories<Hamiltonian>(
+		func solveTrajectories<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			_ forEach:
 				@Sendable (  // Will potentially be called from multiple threads for each trajectory
@@ -67,10 +69,10 @@ extension QSD {
 	}
 
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
-		static func solve<Hamiltonian, RNG>(
+		func solve<Hamiltonian, RNG>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
 			_ forEach: (
 				Double,

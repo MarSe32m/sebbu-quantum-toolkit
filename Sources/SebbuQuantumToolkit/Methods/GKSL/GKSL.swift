@@ -14,52 +14,54 @@ extension GKSL {
 
 public extension GKSL {
 	protocol Implementation {
-        static func solve<Hamiltonian: HamiltonianFunction>(
+        associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
+        
+        func solve<Hamiltonian: HamiltonianFunction>(
 			problem: borrowing DensityMatrixProblem<Hamiltonian>,
 			configuration: GKSL.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
 		) throws
 
-		static func solve<Hamiltonian: HamiltonianFunction>(
+		func solve<Hamiltonian: HamiltonianFunction>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: GKSL.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
-			) throws -> Void
-		)
+			) -> Void
+		) throws
 	}
 }
 
 public extension GKSL.Implementation {
 	@inlinable
-	static func solve<Hamiltonian: HamiltonianFunction>(
+	func solve<Hamiltonian: HamiltonianFunction>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: GKSL.Configuration = .init(),
-		propagation: PropagationOptions<IntegrationOptions>,
+		propagation: PropagationOptions<IntegratorConfiguration>,
 		_ forEach: (
 			Double,
 			borrowing UniqueMatrix<Complex<Double>>
-		) throws -> Void
-	) {
+		) -> Void
+	) throws {
 		fatalError("TODO: Implement")
 	}
 }
 
 public extension GKSL {
 	protocol TwoTimeCorrelationImplementation: Implementation {
-		static func solveTwoTimeCorrelation<
+		func solveTwoTimeCorrelation<
 			Hamiltonian: HamiltonianFunction
 		>(
 			problem: borrowing DensityMatrixProblem<Hamiltonian>,
 			configuration: GKSL.Configuration,
 			request: TwoTimeCorrelationRequest,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				Complex<Double>

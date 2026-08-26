@@ -26,7 +26,7 @@ extension HEOM {
         
         // All of the -k \cdot W precomputed for all states
         @usableFromInline
-        package let kWArray: UniqueArray<Index>
+        package let kWArray: UniqueArray<Complex<Double>>
         
         // The multi indices for each auxiliary state
         // For example, 0 -> (0, 0, ..., 0, 0), 1 -> (0, 0, ..., 0, 1), 2 -> (0, 0, ..., 1, 0) etc.
@@ -36,6 +36,8 @@ extension HEOM {
         // How many indices the multi index tuple has
         @usableFromInline
         package let multiIndexCount: Int
+        
+        public let environment: Environment
         
         public init(environment: Environment, truncation: Truncation) {
             fatalError("TODO: Implement")
@@ -191,20 +193,22 @@ extension HEOM {
 
 public extension HEOM {
 	protocol Implementation {
-		static func solve<Hamiltonian: HamiltonianFunction>(
+        associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
+        
+		func solve<Hamiltonian: HamiltonianFunction>(
 			problem: borrowing DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
 		) throws
 
-		static func solve<Hamiltonian: HamiltonianFunction>(
+		func solve<Hamiltonian: HamiltonianFunction>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
@@ -215,10 +219,10 @@ public extension HEOM {
 
 public extension HEOM.Implementation {
 	@inlinable
-	static func solve<Hamiltonian: HamiltonianFunction>(
+	func solve<Hamiltonian: HamiltonianFunction>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: HEOM.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>,
+		propagation: PropagationOptions<IntegratorConfiguration>,
 		_ forEach: (
 			Double,
 			borrowing UniqueMatrix<Complex<Double>>
@@ -230,10 +234,10 @@ public extension HEOM.Implementation {
 
 public extension HEOM {
 	protocol HierarchyProvidingImplementation: Implementation {
-		static func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
+		func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
 			problem: borrowing DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				borrowing HEOM.HierarchyStateView
@@ -242,13 +246,13 @@ public extension HEOM {
 	}
 
 	protocol TwoTimeCorrelationImplementation: Implementation {
-		static func solveTwoTimeCorrelation<
+		func solveTwoTimeCorrelation<
 			Hamiltonian: HamiltonianFunction
 		>(
 			problem: borrowing DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
 			request: TwoTimeCorrelationRequest,
-			propagation: PropagationOptions<IntegrationOptions>,
+			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
 				Double,
 				Complex<Double>
