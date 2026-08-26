@@ -13,8 +13,8 @@ extension DefaultHEOMImplementation: HEOM.Implementation {
 		configuration: HEOM.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 }
 
@@ -26,8 +26,8 @@ extension HEOM: HEOM.Implementation {
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultHEOMImplementation.solve(
+	) throws where Hamiltonian: HamiltonianFunction {
+		try DefaultHEOMImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			forEach)
 	}

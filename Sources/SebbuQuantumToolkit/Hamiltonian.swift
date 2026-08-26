@@ -4,11 +4,11 @@
 import Numerics
 import SebbuScience
 
-public protocol HamiltonianFunction: ~Copyable, Sendable {
+public protocol HamiltonianFunction: Sendable {
 	func hamiltonian(t: Double, into: inout UniqueMatrix<Complex<Double>>)
 }
 
-public struct ClosureHamiltonian: ~Copyable, Sendable, HamiltonianFunction {
+public struct ClosureHamiltonian: Sendable, HamiltonianFunction {
 	@usableFromInline
 	internal let closure: @Sendable (Double, inout UniqueMatrix<Complex<Double>>) -> Void
 
@@ -39,9 +39,9 @@ extension QuantumSystem where Hamiltonian == ClosureHamiltonian {
 
 public typealias ConstantHamiltonian = TimeIndependentHamiltonian
 
-public struct TimeIndependentHamiltonian: ~Copyable, Sendable, HamiltonianFunction {
+public struct TimeIndependentHamiltonian: Sendable, HamiltonianFunction {
 	@usableFromInline
-	internal let _hamiltonian: UniqueMatrix<Complex<Double>>
+	internal let _hamiltonian: Matrix<Complex<Double>>
 
 	@inlinable
 	public init(_ hamiltonian: borrowing UniqueMatrix<Complex<Double>>) {
@@ -50,7 +50,7 @@ public struct TimeIndependentHamiltonian: ~Copyable, Sendable, HamiltonianFuncti
 
 	@inlinable
 	public init(_ hamiltonian: Matrix<Complex<Double>>) {
-		self._hamiltonian = .init(copying: hamiltonian)
+		self._hamiltonian = hamiltonian
 	}
 
 	@inlinable
@@ -60,7 +60,7 @@ public struct TimeIndependentHamiltonian: ~Copyable, Sendable, HamiltonianFuncti
 	}
 }
 
-extension QuantumSystem where Hamiltonian == TimeIndependentHamiltonian, Hamiltonian: ~Copyable {
+extension QuantumSystem where Hamiltonian == TimeIndependentHamiltonian {
 	@inlinable
 	public init(_ hamiltonian: borrowing UniqueMatrix<Complex<Double>>) {
 		precondition(hamiltonian.isSquare, "Hamiltonian operator must be a square matrix")

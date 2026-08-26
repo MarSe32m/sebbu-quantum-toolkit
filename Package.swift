@@ -24,6 +24,7 @@ let package = Package(
         .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.4"),
         .package(url: "https://github.com/MarSe32m/sebbu-cuda", branch: "0.0.1"),
         .package(url: "https://github.com/apple/swift-numerics", from: "1.1.1"),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.6.0")
     ],
     targets: [
         .target(
@@ -31,6 +32,7 @@ let package = Package(
             dependencies: [
                 .product(name: "SebbuScience", package: "sebbu-science"),
                 .product(name: "Numerics", package: "swift-numerics"),
+                .product(name: "BasicContainers", package: "swift-collections")
             ],
             cSettings: [
                 .define("ACCELERATE_NEW_LAPACK", .when(platforms: [.macOS])),
@@ -38,6 +40,7 @@ let package = Package(
             ],
             swiftSettings: [
                 .enableExperimentalFeature("SuppressedAssociatedTypes"),
+                .enableExperimentalFeature("Lifetimes")
             ],
             linkerSettings: [
                 .linkedFramework("Accelerate", .when(platforms: [.macOS]))

@@ -45,8 +45,8 @@ public extension MCWF {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
-		)
-		where Hamiltonian: HamiltonianFunction & ~Copyable
+		) throws
+		where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
 		static func solveEnsemble<Hamiltonian>(
@@ -58,8 +58,8 @@ public extension MCWF {
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
-		) -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction & ~Copyable
+		) throws -> TrajectoryRunSummary
+		where Hamiltonian: HamiltonianFunction
 
 		static func solveTrajectories<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
@@ -72,8 +72,8 @@ public extension MCWF {
 					Double,
 					borrowing UniqueVector<Complex<Double>>
 				) -> Void
-		)
-		where Hamiltonian: HamiltonianFunction & ~Copyable
+		) throws -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction
 	}
 
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
@@ -86,9 +86,9 @@ public extension MCWF {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
-		)
+		) throws
 		where
-			Hamiltonian: HamiltonianFunction & ~Copyable,
+			Hamiltonian: HamiltonianFunction,
 			RNG: RandomNumberGenerator
 	}
 }

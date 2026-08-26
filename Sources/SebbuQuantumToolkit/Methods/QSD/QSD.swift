@@ -35,8 +35,8 @@ extension QSD {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
-		)
-		where Hamiltonian: HamiltonianFunction & ~Copyable
+		) throws
+		where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
 		static func solveEnsemble<Hamiltonian>(
@@ -48,8 +48,8 @@ extension QSD {
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
-		) -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction & ~Copyable
+		) throws -> TrajectoryRunSummary
+		where Hamiltonian: HamiltonianFunction
 
 		static func solveTrajectories<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
@@ -62,8 +62,8 @@ extension QSD {
 					Double,
 					borrowing UniqueVector<Complex<Double>>
 				) -> Void
-		)
-		where Hamiltonian: HamiltonianFunction & ~Copyable
+		) throws -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction
 	}
 
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
@@ -76,9 +76,9 @@ extension QSD {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
-		)
+		) throws
 		where
-			Hamiltonian: HamiltonianFunction & ~Copyable,
+			Hamiltonian: HamiltonianFunction,
 			RNG: RandomNumberGenerator
 	}
 }

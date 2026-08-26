@@ -5,7 +5,7 @@ import Numerics
 import SebbuScience
 
 public struct PureStateProblem<
-	Hamiltonian: HamiltonianFunction & ~Copyable
+	Hamiltonian: HamiltonianFunction
 >: ~Copyable, Sendable {
 	public let initialState: UniqueVector<Complex<Double>>
 	public let system: QuantumSystem<Hamiltonian>
@@ -29,7 +29,7 @@ public struct PureStateProblem<
 }
 
 public struct DensityMatrixProblem<
-	Hamiltonian: HamiltonianFunction & ~Copyable
+	Hamiltonian: HamiltonianFunction
 >: ~Copyable, Sendable {
 	public let initialState: UniqueMatrix<Complex<Double>>
 	public let system: QuantumSystem<Hamiltonian>

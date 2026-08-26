@@ -14,9 +14,9 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -27,8 +27,8 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -38,9 +38,8 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
-		return TrajectoryRunSummary(trajectoryIDs: 0..<1, masterSeed: 0)
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -51,8 +50,9 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws -> TrajectoryRunSummary
+    where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 }
 
@@ -65,9 +65,9 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-		DefaultHOPSImplementation.solve(
+	) throws
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+		try DefaultHOPSImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
 	}
@@ -81,8 +81,8 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultHOPSImplementation.solve(
+	) throws where Hamiltonian: HamiltonianFunction {
+		try DefaultHOPSImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID, forEach)
@@ -96,8 +96,8 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultHOPSImplementation.solveEnsemble(
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+		try DefaultHOPSImplementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
@@ -111,8 +111,9 @@ extension HOPS: HOPS.RandomNumberGeneratorDrivenImplementation {
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultHOPSImplementation.solveTrajectories(
+	) throws -> TrajectoryRunSummary
+    where Hamiltonian: HamiltonianFunction {
+		try DefaultHOPSImplementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}

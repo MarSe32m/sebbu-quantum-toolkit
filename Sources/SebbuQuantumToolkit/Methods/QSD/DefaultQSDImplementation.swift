@@ -14,9 +14,9 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -27,8 +27,8 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -38,9 +38,8 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
-		return TrajectoryRunSummary(trajectoryIDs: 0..<1, masterSeed: 0)
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -51,8 +50,9 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws -> TrajectoryRunSummary
+    where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 }
@@ -66,9 +66,9 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-		DefaultQSDImplementation.solve(
+	) throws
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+		try DefaultQSDImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
 	}
@@ -82,8 +82,8 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultQSDImplementation.solve(
+	) throws where Hamiltonian: HamiltonianFunction {
+		try DefaultQSDImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID, forEach)
@@ -97,8 +97,8 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultQSDImplementation.solveEnsemble(
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+		try DefaultQSDImplementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
@@ -112,8 +112,9 @@ extension QSD: QSD.RandomNumberGeneratorDrivenImplementation {
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultQSDImplementation.solveTrajectories(
+	) throws -> TrajectoryRunSummary
+    where Hamiltonian: HamiltonianFunction {
+		try DefaultQSDImplementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}

@@ -5,11 +5,11 @@ import Numerics
 import NumericsExtensions
 import SebbuScience
 
-public struct QuantumSystem<Hamiltonian: ~Copyable & HamiltonianFunction>: ~Copyable, Sendable {
+public struct QuantumSystem<Hamiltonian: HamiltonianFunction>: Sendable {
 	public let dimension: Int
 	public let hamiltonian: Hamiltonian
 
-	public init(dimension: Int, hamiltonian: consuming Hamiltonian) {
+	public init(dimension: Int, hamiltonian: Hamiltonian) {
 		self.dimension = dimension
 		self.hamiltonian = hamiltonian
 	}

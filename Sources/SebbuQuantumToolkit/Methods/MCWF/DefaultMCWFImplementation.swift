@@ -15,9 +15,9 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -28,8 +28,8 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -39,9 +39,8 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
-		return TrajectoryRunSummary(trajectoryIDs: 0..<1, masterSeed: 0)
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 
 	@inlinable
@@ -52,8 +51,9 @@ extension DefaultMCWFImplementation: MCWF.RandomNumberGeneratorDrivenImplementat
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-        print("\(#file):\(#function) has not yet been implemented")
+	) throws -> TrajectoryRunSummary
+    where Hamiltonian: HamiltonianFunction {
+        throw ImplementationError.notImplemented
 	}
 }
 
@@ -66,9 +66,9 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	)
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator, Hamiltonian: ~Copyable {
-		DefaultMCWFImplementation.solve(
+	) throws
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+		try DefaultMCWFImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
 	}
@@ -82,8 +82,8 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultMCWFImplementation.solve(
+	) throws where Hamiltonian: HamiltonianFunction {
+		try DefaultMCWFImplementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID, forEach)
@@ -97,8 +97,8 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultMCWFImplementation.solveEnsemble(
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+		try DefaultMCWFImplementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
@@ -112,8 +112,9 @@ extension MCWF: MCWF.RandomNumberGeneratorDrivenImplementation {
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) where Hamiltonian: HamiltonianFunction, Hamiltonian: ~Copyable {
-		DefaultMCWFImplementation.solveTrajectories(
+	) throws -> TrajectoryRunSummary
+    where Hamiltonian: HamiltonianFunction {
+		try DefaultMCWFImplementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
