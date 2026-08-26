@@ -7,17 +7,17 @@ import SebbuScience
 public enum TimeFunction<Value: Sendable>: Sendable {
 	case constant(Value)
 	case generated(@Sendable (Double) -> Value)
-    
-    @inlinable
-    @inline(always)
-    public func callAsFunction(_ t: Double) -> Value {
-        switch self {
-        case .constant(let value):
-            value
-        case .generated(let function):
-            function(t)
-        }
-    }
+
+	@inlinable
+	@inline(always)
+	public func callAsFunction(_ t: Double) -> Value {
+		switch self {
+		case .constant(let value):
+			value
+		case .generated(let function):
+			function(t)
+		}
+	}
 }
 
 public typealias ScalarTimeFunction = TimeFunction<Double>
@@ -28,18 +28,18 @@ public enum TimeDependentOperator: Sendable {
 	case constant(ConstantOperator)
 	case linearCombination(OperatorExpansion)
 	case generatedDense(DynamicDenseOperator)
-    
-    @inlinable
-    package var isConstant: Bool {
-        switch self {
-        case .constant(_):
-            return true
-        case .linearCombination(let operatorExpansion):
-            return operatorExpansion.isConstant
-        case .generatedDense(let dynamicDenseOperator):
-            return false
-        }
-    }
+
+	@inlinable
+	package var isConstant: Bool {
+		switch self {
+		case .constant(_):
+			return true
+		case .linearCombination(let operatorExpansion):
+			return operatorExpansion.isConstant
+		case .generatedDense:
+			return false
+		}
+	}
 }
 
 public struct ConstantOperator: Sendable {
@@ -63,20 +63,22 @@ public struct OperatorExpansion: Sendable {
 	@usableFromInline
 	package let operators: [ConstantOperator]
 
-    @usableFromInline
-    package var isConstant: Bool {
-        for coefficient in coefficients {
-            if case .generated(_) = coefficient {
-                return false
-            }
-        }
-        return true
-    }
-    
+	@usableFromInline
+	package var isConstant: Bool {
+		for coefficient in coefficients {
+			if case .generated(_) = coefficient {
+				return false
+			}
+		}
+		return true
+	}
+
 	@inlinable
 	public init(coefficients: [ComplexTimeFunction], operators: [ConstantOperator]) {
-        precondition(coefficients.count == operators.count, "`coefficients` and `operators` must have the same count")
-        precondition(!coefficients.isEmpty, "`coefficients` must not be empty")
+		precondition(
+			coefficients.count == operators.count,
+			"`coefficients` and `operators` must have the same count")
+		precondition(!coefficients.isEmpty, "`coefficients` must not be empty")
 		self.coefficients = coefficients
 		self.operators = operators
 	}

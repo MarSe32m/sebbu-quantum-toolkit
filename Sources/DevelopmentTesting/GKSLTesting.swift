@@ -46,14 +46,17 @@ public func testGKLSRadiativeDamping(endTime: Double) {
     var Y: [Double] = []
     var Z: [Double] = []
     do {
-        try GKSL.solve(
-            problem: problem,
-            propagation: propagationOptions
-        ) { time, rho in
-                X.append(2 * rho[0, 1].real)
-                Y.append(-2 * rho[0, 1].imaginary)
-                Z.append(rho[0, 0].real - rho[1, 1].real)
+        let executionTime = try ContinuousClock().measure {
+            try GKSL.solve(
+                problem: problem,
+                propagation: propagationOptions
+            ) { time, rho in
+                    X.append(2 * rho[0, 1].real)
+                    Y.append(-2 * rho[0, 1].imaginary)
+                    Z.append(rho[0, 0].real - rho[1, 1].real)
             }
+        }
+        print("GKSL simulation took:", executionTime)
     } catch {
         print("Failed to solve GKSL master equation: \(error)")
     }

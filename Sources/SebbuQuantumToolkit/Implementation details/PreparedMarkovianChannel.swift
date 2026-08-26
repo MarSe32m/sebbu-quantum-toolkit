@@ -4,71 +4,139 @@
 import Numerics
 import SebbuScience
 
+/// Precomputed matrices for a time-independent collapse operator.
+///
+/// A reference type is intentional here. It lets the containing RHS use an
+/// ordinary `Array` while each channel still uniquely owns its matrix
+/// allocations. This avoids exercising arrays of noncopyable elements in the
+/// Swift 6.3 compiler and costs only one allocation per channel during setup.
 @usableFromInline
-internal struct _PreparedConstantMarkovianChannelOperators: ~Copyable, Sendable {
-    @usableFromInline
-    let rate: ScalarTimeFunction
-    
-    @usableFromInline
-    let C: UniqueMatrix<Complex<Double>>
-    @usableFromInline
-    let Cdagger: UniqueMatrix<Complex<Double>>
-    @usableFromInline
-    let CdaggerC: UniqueMatrix<Complex<Double>>
-    
-    @inlinable
-    public init(_ C: borrowing UniqueMatrix<Complex<Double>>, rate: ScalarTimeFunction) {
-        self.rate = rate
-        let Cdagger = C.conjugateTranspose
-        self.C = .init(copying: C)
-        self.CdaggerC = Cdagger.dot(C)
-        self.Cdagger = Cdagger
-    }
-    
-    @inlinable
-    public init?(_ channel: MarkovianChannel) {
-        switch channel.collapseOperator {
-        case .constant(let constantOperator):
-            let C = UniqueMatrix(copying: constantOperator.matrix)
-            self.init(C, rate: channel.rate)
-        case .linearCombination(let operatorExpansion):
-            if !operatorExpansion.isConstant { return nil }
-            var C: UniqueMatrix<Complex<Double>>? = nil
-            for (coefficient, op) in zip(operatorExpansion.coefficients, operatorExpansion.operators) {
-                guard case .constant(let coefficient) = coefficient else {
-                    preconditionFailure("Operator expansion contains non-constant coefficients")
-                }
-                if C == nil {
-                    C = .init(copying: coefficient * op.matrix)
-                } else {
-                    C!.add(op.matrix, multiplied: coefficient)
-                }
-            }
-            guard let C else { preconditionFailure("Operator expansion is empty") }
-            self.init(C, rate: channel.rate)
-        case .generatedDense(_):
-            return nil
-        }
-    }
+internal final class _PreparedConstantMarkovianChannel {
+	@usableFromInline
+	internal let rate: ScalarTimeFunction
+	@usableFromInline
+	internal let collapseOperator: UniqueMatrix<Complex<Double>>
+	@usableFromInline
+	internal let collapseOperatorAdjoint: UniqueMatrix<Complex<Double>>
+	@usableFromInline
+	internal let lossOperator: UniqueMatrix<Complex<Double>>
+
+	@inlinable
+	internal init(
+		collapseOperator: consuming UniqueMatrix<Complex<Double>>,
+		rate: ScalarTimeFunction
+	) {
+		let adjoint = collapseOperator.conjugateTranspose
+		let lossOperator = adjoint.dot(collapseOperator)
+
+		self.rate = rate
+		self.collapseOperator = collapseOperator
+		self.collapseOperatorAdjoint = adjoint
+		self.lossOperator = lossOperator
+	}
+
+	@inlinable
+	internal convenience init?(
+		_ channel: MarkovianChannel,
+		dimension: Int
+	) {
+		switch channel.collapseOperator {
+		case .constant(let constantOperator):
+			Self.validate(
+				constantOperator.matrix,
+				dimension: dimension
+			)
+			self.init(
+				collapseOperator: UniqueMatrix(copying: constantOperator.matrix),
+				rate: channel.rate
+			)
+
+		case .linearCombination(let expansion):
+			guard expansion.isConstant else { return nil }
+
+			var collapseOperator = UniqueMatrix<Complex<Double>>.zeros(
+				rows: dimension,
+				columns: dimension
+			)
+			for index in expansion.operators.indices {
+				let matrix = expansion.operators[index].matrix
+				Self.validate(matrix, dimension: dimension)
+				guard
+					case .constant(let coefficient) = expansion.coefficients[
+						index]
+				else {
+					preconditionFailure(
+						"A constant operator expansion contains a generated coefficient"
+					)
+				}
+				collapseOperator.add(matrix, multiplied: coefficient)
+			}
+
+			self.init(
+				collapseOperator: collapseOperator,
+				rate: channel.rate
+			)
+
+		case .generatedDense:
+			return nil
+		}
+	}
+
+	@inlinable
+	internal static func validate(
+		_ matrix: Matrix<Complex<Double>>,
+		dimension: Int
+	) {
+		precondition(
+			matrix.rows == dimension && matrix.columns == dimension,
+			"Collapse-operator dimensions do not match the quantum system"
+		)
+	}
 }
 
+/// A channel whose collapse operator must be materialized at every RHS time.
 @usableFromInline
-internal struct _PreparedDynamicMarkovianChannel: ~Copyable, Sendable {
-    @usableFromInline
-    let rate: ScalarTimeFunction
-    
-    @usableFromInline
-    let _operator: _TimeDependentOperator
-    
-    @inlinable
-    public init(_ channel: MarkovianChannel) {
-        self.rate = channel.rate
-        self._operator = .init(channel.collapseOperator)
-    }
-    
-    @inlinable
-    @inline(always)
-    public func insert(t: Double, into: inout UniqueMatrix<Complex<Double>>) {
-        _operator.insert(t: t, into: &into)
-    }
+internal struct _PreparedDynamicMarkovianChannel {
+	@usableFromInline
+	internal let rate: ScalarTimeFunction
+	@usableFromInline
+	internal let collapseOperator: TimeDependentOperator
+
+	@inlinable
+	internal init(_ channel: MarkovianChannel, dimension: Int) {
+		switch channel.collapseOperator {
+		case .constant(let constantOperator):
+			Self.validate(constantOperator.matrix, dimension: dimension)
+		case .linearCombination(let expansion):
+			for operatorComponent in expansion.operators {
+				Self.validate(operatorComponent.matrix, dimension: dimension)
+			}
+		case .generatedDense:
+			break
+		}
+
+		self.rate = channel.rate
+		self.collapseOperator = channel.collapseOperator
+	}
+
+	@inlinable
+	@inline(always)
+	internal func insert(
+		t: Double,
+		into output: inout UniqueMatrix<Complex<Double>>
+	) {
+		collapseOperator.insert(t: t, into: &output)
+	}
+
+	@inlinable
+	@inline(always)
+	internal static func validate(
+		_ matrix: Matrix<Complex<Double>>,
+		dimension: Int
+	) {
+		precondition(
+			matrix.rows == dimension && matrix.columns == dimension,
+			"Collapse-operator dimensions do not match the quantum system"
+		)
+	}
 }

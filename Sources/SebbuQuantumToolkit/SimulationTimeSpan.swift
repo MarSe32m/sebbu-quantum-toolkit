@@ -7,7 +7,11 @@ public struct SimulationTimeSpan: Sendable {
 
 	@inlinable
 	public init(start: Double, end: Double) {
-		precondition(end >= start)
+		precondition(
+			start.isFinite && end.isFinite,
+			"Simulation times must be finite"
+		)
+		precondition(end >= start, "Simulation end must not precede its start")
 		self.start = start
 		self.end = end
 	}

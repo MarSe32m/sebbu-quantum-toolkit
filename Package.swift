@@ -65,7 +65,7 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "Development",
+            name: "DevelopmentTesting",
             dependencies: [
                 "SebbuQuantumToolkit", "SebbuQuantumToolkitGPU",
                 .product(name: "SebbuScience", package: "sebbu-science"),

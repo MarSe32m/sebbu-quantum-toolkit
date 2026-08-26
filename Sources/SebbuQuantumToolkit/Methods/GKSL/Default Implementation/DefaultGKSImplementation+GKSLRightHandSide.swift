@@ -3,101 +3,169 @@
 
 import Numerics
 import SebbuScience
-#if swift(<6.5)
-import BasicContainers
-#else
-#warning("Remove swift-collections dependency")
-#endif
 
 extension DefaultGKSLImplementation {
-    @usableFromInline
-    internal struct GKSLRightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable, ODERHSFunction {
-        public let hamiltonian: Hamiltonian
-        public let constantChannels: UniqueArray<_PreparedConstantMarkovianChannelOperators>
-        public let dynamicChannels: UniqueArray<_PreparedDynamicMarkovianChannel>
-        
-        @usableFromInline
-        internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var adjointBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var productBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var temporary1: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var temporary2: UniqueMatrix<Complex<Double>>
-        
-        @inlinable
-        public init(_ problem: DensityMatrixProblem<Hamiltonian>) {
-            self.hamiltonian = problem.system.hamiltonian
-            let markovianChannels = problem.markovianChannels
-            self.constantChannels = .init(capacity: problem.markovianChannels.count) { output in
-                for channel in markovianChannels where channel.collapseOperator.isConstant {
-                    if let constantChannel = _PreparedConstantMarkovianChannelOperators(channel) {
-                        output.append(constantChannel)
-                    }
-                }
-            }
-            self.dynamicChannels = .init(capacity: problem.markovianChannels.count) { output in
-                for channel in markovianChannels where !channel.collapseOperator.isConstant {
-                    output.append(_PreparedDynamicMarkovianChannel(channel))
-                }
-            }
-            
-            //TODO: For some reason, these need to be first. Otherwise it crashes...
-            self.hamiltonianBuffer = .zeros(rows: problem.system.dimension, columns: problem.system.dimension)
-            self.collapseBuffer = .zeros(rows: problem.system.dimension, columns: problem.system.dimension)
-            self.adjointBuffer = .zeros(rows: problem.system.dimension, columns: problem.system.dimension)
-            self.productBuffer = .zeros(rows: problem.system.dimension, columns: problem.system.dimension)
-            self.temporary1 = .zeros(rows: problem.system.dimension, columns: problem.system.dimension)
-            self.temporary2 = .zeros(rows: problem.system.dimension, columns: problem.system.dimension)
-            let channelCount = problem.markovianChannels.count
-            precondition(channelCount == self.constantChannels.count + self.dynamicChannels.count)
-        }
-        
-        @inlinable
-        public mutating func evaluate(t: Double, y: borrowing DensityMatrixState, dy: inout DensityMatrixState) {
-            // \dot{\rho} = -i[H, \rho] + \sum_\mu \gamma_\mu (C_\mu \rho C_\mu^\dagger - \frac{1}{2} \{ C_\mu^\dagger C_\mu, \rho \})
-            var productBuffer = UniqueMatrix(_unsafeElements: productBuffer.elements, rows: productBuffer.rows, columns: productBuffer.columns)
-            var collapseBuffer = UniqueMatrix(_unsafeElements: collapseBuffer.elements, rows: collapseBuffer.rows, columns: collapseBuffer.columns)
-            var adjointBuffer = UniqueMatrix(_unsafeElements: adjointBuffer.elements, rows: adjointBuffer.rows, columns: adjointBuffer.columns)
-            var temporary = UniqueMatrix(_unsafeElements: temporary1.elements, rows: temporary1.rows, columns: temporary1.columns)
-            
-            hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
-            hamiltonianBuffer.dotBLAS(y.densityMatrix, multiplied: -.i, into: &dy.densityMatrix)
-            y.densityMatrix.dotBLAS(hamiltonianBuffer, multiplied: .i, addingInto: &dy.densityMatrix)
-            for i in 0..<constantChannels.count {
-                let rate = constantChannels[i].rate(t)
-                // \gamma_i C \rho C^\dagger
-                constantChannels[i].C.dotBLAS(y.densityMatrix, into: &productBuffer)
-                productBuffer.dotBLAS(constantChannels[i].Cdagger, multiplied: Complex(rate), addingInto: &dy.densityMatrix)
-                // -\gamma_i / 2 {C_i^\dagger C_i, \rho}
-                constantChannels[i].CdaggerC.dotBLAS(y.densityMatrix, multiplied: Complex(-0.5 * rate), addingInto: &dy.densityMatrix)
-                y.densityMatrix.dotBLAS(constantChannels[i].CdaggerC, multiplied: Complex(-0.5 * rate), addingInto: &dy.densityMatrix)
-            }
-            for i in 0..<dynamicChannels.count {
-                let rate = dynamicChannels[i].rate(t)
-                dynamicChannels[i].insert(t: t, into: &collapseBuffer)
-                for i in 0..<collapseBuffer.rows {
-                    for j in 0..<collapseBuffer.columns {
-                        adjointBuffer[j, i] = collapseBuffer[i, j].conjugate
-                    }
-                }
-                adjointBuffer.dotBLAS(collapseBuffer, into: &productBuffer)
-                // \gamma_i C \rho C^\dagger
-                collapseBuffer.dotBLAS(y.densityMatrix, into: &temporary)
-                temporary.dotBLAS(adjointBuffer, multiplied: Complex(rate), addingInto: &dy.densityMatrix)
-                // -\gamma_i / 2 {C_i^\dagger C_i, \rho}
-                productBuffer.dotBLAS(y.densityMatrix, multiplied: Complex(-0.5 * rate), addingInto: &dy.densityMatrix)
-                y.densityMatrix.dotBLAS(productBuffer, multiplied: Complex(-0.5 * rate), addingInto: &dy.densityMatrix)
-            }
-            let _ = productBuffer.consumeElements()
-            let _ = collapseBuffer.consumeElements()
-            let _ = adjointBuffer.consumeElements()
-            let _ = temporary.consumeElements()
-            
-        }
-    }
+	@usableFromInline
+	internal struct GKSLRightHandSide<Hamiltonian: HamiltonianFunction>:
+		~Copyable, ODERHSFunction
+	{
+		@usableFromInline
+		internal let hamiltonian: Hamiltonian
+		@usableFromInline
+		internal let constantChannels: [_PreparedConstantMarkovianChannel]
+		@usableFromInline
+		internal let dynamicChannels: [_PreparedDynamicMarkovianChannel]
+
+		@usableFromInline
+		internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var collapseBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var adjointBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var productBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var temporaryBuffer: UniqueMatrix<Complex<Double>>
+
+		@inlinable
+		internal init(_ problem: borrowing DensityMatrixProblem<Hamiltonian>) {
+			let dimension = problem.system.dimension
+			precondition(dimension > 0, "The quantum-system dimension must be positive")
+
+			var constantChannels: [_PreparedConstantMarkovianChannel] = []
+			var dynamicChannels: [_PreparedDynamicMarkovianChannel] = []
+			constantChannels.reserveCapacity(problem.markovianChannels.count)
+			dynamicChannels.reserveCapacity(problem.markovianChannels.count)
+
+			for channel in problem.markovianChannels {
+				if let prepared = _PreparedConstantMarkovianChannel(
+					channel,
+					dimension: dimension
+				) {
+					constantChannels.append(prepared)
+				} else {
+					dynamicChannels.append(
+						_PreparedDynamicMarkovianChannel(
+							channel,
+							dimension: dimension
+						)
+					)
+				}
+			}
+
+			self.hamiltonian = problem.system.hamiltonian
+			self.constantChannels = constantChannels
+			self.dynamicChannels = dynamicChannels
+			self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)
+			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
+			self.adjointBuffer = .zeros(rows: dimension, columns: dimension)
+			self.productBuffer = .zeros(rows: dimension, columns: dimension)
+			self.temporaryBuffer = .zeros(rows: dimension, columns: dimension)
+		}
+
+		@inlinable
+		internal mutating func evaluate(
+			t: Double,
+			y: borrowing DensityMatrixState,
+			dy: inout DensityMatrixState
+		) {
+			// Copying these copyable descriptors locally prevents accesses to
+			// channel storage from overlapping the inout accesses to scratch
+			// matrices in `self`. Their arrays and matrices retain COW storage.
+			let hamiltonian = self.hamiltonian
+			let constantChannels = self.constantChannels
+			let dynamicChannels = self.dynamicChannels
+
+			// -i[H(t), rho]
+			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
+			hamiltonianBuffer.dotBLAS(
+				y.densityMatrix,
+				multiplied: -.i,
+				into: &dy.densityMatrix
+			)
+			y.densityMatrix.dotBLAS(
+				hamiltonianBuffer,
+				multiplied: .i,
+				addingInto: &dy.densityMatrix
+			)
+
+			// gamma * (C rho C^dagger - 1/2 {C^dagger C, rho})
+			for channel in constantChannels {
+				let rate = channel.rate(t)
+				Self.validate(rate: rate)
+				if rate == .zero { continue }
+
+				channel.collapseOperator.dotBLAS(
+					y.densityMatrix,
+					into: &productBuffer
+				)
+				productBuffer.dotBLAS(
+					channel.collapseOperatorAdjoint,
+					multiplied: Complex(rate),
+					addingInto: &dy.densityMatrix
+				)
+
+				let lossScale = Complex(-0.5 * rate)
+				channel.lossOperator.dotBLAS(
+					y.densityMatrix,
+					multiplied: lossScale,
+					addingInto: &dy.densityMatrix
+				)
+				y.densityMatrix.dotBLAS(
+					channel.lossOperator,
+					multiplied: lossScale,
+					addingInto: &dy.densityMatrix
+				)
+			}
+
+			for channel in dynamicChannels {
+				let rate = channel.rate(t)
+				Self.validate(rate: rate)
+				if rate == .zero { continue }
+
+				channel.insert(t: t, into: &collapseBuffer)
+				for row in 0..<collapseBuffer.rows {
+					for column in 0..<collapseBuffer.columns {
+						adjointBuffer[column, row] =
+							collapseBuffer[row, column].conjugate
+					}
+				}
+
+				adjointBuffer.dotBLAS(
+					collapseBuffer,
+					into: &productBuffer
+				)
+				collapseBuffer.dotBLAS(
+					y.densityMatrix,
+					into: &temporaryBuffer
+				)
+				temporaryBuffer.dotBLAS(
+					adjointBuffer,
+					multiplied: Complex(rate),
+					addingInto: &dy.densityMatrix
+				)
+
+				let lossScale = Complex(-0.5 * rate)
+				productBuffer.dotBLAS(
+					y.densityMatrix,
+					multiplied: lossScale,
+					addingInto: &dy.densityMatrix
+				)
+				y.densityMatrix.dotBLAS(
+					productBuffer,
+					multiplied: lossScale,
+					addingInto: &dy.densityMatrix
+				)
+			}
+		}
+
+		@inlinable
+		@inline(always)
+		internal static func validate(rate: Double) {
+			precondition(
+				rate.isFinite && rate >= .zero,
+				"A GKSL channel rate must be finite and nonnegative"
+			)
+		}
+	}
 }
