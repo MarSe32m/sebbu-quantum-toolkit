@@ -12,7 +12,7 @@ public struct DefaultHOPSImplementation: Sendable {
 extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
 	public func solve<Hamiltonian, RNG>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
@@ -24,7 +24,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 
 	@inlinable
 	public func solve<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		seed: UInt64,
@@ -36,7 +36,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 
 	@inlinable
 	public func solveEnsemble<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -47,7 +47,7 @@ extension DefaultHOPSImplementation: HOPS.RandomNumberGeneratorDrivenImplementat
 
 	@inlinable
 	public func solveTrajectories<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -63,7 +63,7 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
@@ -79,7 +79,7 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		seed: UInt64,
@@ -96,7 +96,7 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	public static func solveEnsemble<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -111,7 +111,7 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	public static func solveTrajectories<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,

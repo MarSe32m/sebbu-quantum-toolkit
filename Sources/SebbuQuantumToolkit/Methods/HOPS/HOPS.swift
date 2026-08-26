@@ -3,7 +3,7 @@
 
 import Numerics
 import SebbuScience
-#if swift(<6.4)
+#if swift(<6.5)
 import BasicContainers
 #else
 #warning("Remove swift-collections dependency")
@@ -205,7 +205,7 @@ public extension HOPS {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         func solve<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -218,7 +218,7 @@ public extension HOPS {
 
 		@discardableResult
         func solveEnsemble<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -230,7 +230,7 @@ public extension HOPS {
 		where Hamiltonian: HamiltonianFunction
 
 		func solveTrajectories<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -248,7 +248,7 @@ public extension HOPS {
 public extension HOPS {
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
 		func solve<Hamiltonian, RNG>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
@@ -264,7 +264,7 @@ public extension HOPS {
 public extension HOPS {
 	protocol HierarchyProvidingImplementation: Implementation {
         func solveWithHierarchy<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -281,7 +281,7 @@ public extension HOPS {
         RandomNumberGeneratorDrivenImplementation
 	{
 		func solveWithHierarchy<Hamiltonian, RNG>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
@@ -295,7 +295,7 @@ public extension HOPS {
 	protocol TwoTimeCorrelationImplementation: Implementation {
 		@discardableResult
 		func solveTwoTimeCorrelation<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			request: TwoTimeCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,

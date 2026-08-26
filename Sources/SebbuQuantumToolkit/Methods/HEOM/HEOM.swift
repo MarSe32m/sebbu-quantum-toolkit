@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-#if swift(<6.4)
+#if swift(<6.5)
 import BasicContainers
 #else
 #warning("Remove swift-collections dependency")
@@ -196,7 +196,7 @@ public extension HEOM {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
 		func solve<Hamiltonian: HamiltonianFunction>(
-			problem: borrowing DensityMatrixProblem<Hamiltonian>,
+			problem: DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
@@ -206,7 +206,7 @@ public extension HEOM {
 		) throws
 
 		func solve<Hamiltonian: HamiltonianFunction>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
@@ -220,7 +220,7 @@ public extension HEOM {
 public extension HEOM.Implementation {
 	@inlinable
 	func solve<Hamiltonian: HamiltonianFunction>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: HEOM.Configuration,
 		propagation: PropagationOptions<IntegratorConfiguration>,
 		_ forEach: (
@@ -228,14 +228,15 @@ public extension HEOM.Implementation {
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
 	) throws {
-		fatalError("TODO: Implement")
+        let densityMatrixProblem = DensityMatrixProblem(problem)
+        try solve(problem: densityMatrixProblem, configuration: configuration, propagation: propagation, forEach)
 	}
 }
 
 public extension HEOM {
 	protocol HierarchyProvidingImplementation: Implementation {
 		func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
-			problem: borrowing DensityMatrixProblem<Hamiltonian>,
+			problem: DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			_ forEach: (
@@ -249,7 +250,7 @@ public extension HEOM {
 		func solveTwoTimeCorrelation<
 			Hamiltonian: HamiltonianFunction
 		>(
-			problem: borrowing DensityMatrixProblem<Hamiltonian>,
+			problem: DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
 			request: TwoTimeCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,

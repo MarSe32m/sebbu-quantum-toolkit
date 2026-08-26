@@ -12,7 +12,7 @@ public struct DefaultQSDImplementation: Sendable {
 extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementation {
 	@inlinable
 	public func solve<Hamiltonian, RNG>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
@@ -24,7 +24,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 
 	@inlinable
 	public func solve<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		seed: UInt64,
@@ -36,7 +36,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 
 	@inlinable
 	public func solveEnsemble<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -47,7 +47,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 
 	@inlinable
 	public func solveTrajectories<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -64,7 +64,7 @@ extension QSD {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
@@ -80,7 +80,7 @@ extension QSD {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		seed: UInt64,
@@ -97,7 +97,7 @@ extension QSD {
 	@inlinable
 	@inline(always)
 	public static func solveEnsemble<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -112,7 +112,7 @@ extension QSD {
 	@inlinable
 	@inline(always)
 	public static func solveTrajectories<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,

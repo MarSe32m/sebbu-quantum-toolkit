@@ -49,7 +49,8 @@ public extension GKSL.Implementation {
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
 	) throws {
-		fatalError("TODO: Implement")
+        let densityMatrixProblem = DensityMatrixProblem(problem)
+        try solve(problem: densityMatrixProblem, configuration: configuration, propagation: propagation, forEach)
 	}
 }
 

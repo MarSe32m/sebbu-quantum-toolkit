@@ -28,7 +28,7 @@ public extension QSD {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
 		func solve<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -42,7 +42,7 @@ public extension QSD {
 
 		@discardableResult
 		func solveEnsemble<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -54,7 +54,7 @@ public extension QSD {
 		where Hamiltonian: HamiltonianFunction
 
 		func solveTrajectories<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -70,7 +70,7 @@ public extension QSD {
 
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
 		func solve<Hamiltonian, RNG>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,

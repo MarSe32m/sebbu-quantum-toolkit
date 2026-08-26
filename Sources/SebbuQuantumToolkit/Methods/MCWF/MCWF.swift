@@ -38,7 +38,7 @@ public extension MCWF {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
 		func solve<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -52,7 +52,7 @@ public extension MCWF {
 
 		@discardableResult
 		func solveEnsemble<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -64,7 +64,7 @@ public extension MCWF {
 		where Hamiltonian: HamiltonianFunction
 
         func solveTrajectories<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -80,7 +80,7 @@ public extension MCWF {
 
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
 		func solve<Hamiltonian, RNG>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+			problem: PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,

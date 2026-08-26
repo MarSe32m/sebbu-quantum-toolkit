@@ -12,7 +12,7 @@ public struct DefaultHEOMImplementation: Sendable {
 extension DefaultHEOMImplementation: HEOM.Implementation {
 	@inlinable
 	public func solve<Hamiltonian>(
-		problem: borrowing DensityMatrixProblem<Hamiltonian>,
+		problem: DensityMatrixProblem<Hamiltonian>,
 		configuration: HEOM.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
@@ -25,9 +25,9 @@ extension HEOM {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian>(
-		problem: borrowing DensityMatrixProblem<Hamiltonian>,
+		problem: DensityMatrixProblem<Hamiltonian>,
 		configuration: Configuration,
-		propagation: PropagationOptions<IntegrationOptions>,
+        propagation: PropagationOptions<DefaultHEOMImplementation.IntegratorConfiguration>,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
         let implementation = DefaultHEOMImplementation()
@@ -35,4 +35,19 @@ extension HEOM {
 			problem: problem, configuration: configuration, propagation: propagation,
 			forEach)
 	}
+    
+    @inlinable
+    @inline(always)
+    public static func solve<Hamiltonian: HamiltonianFunction>(
+        problem: PureStateProblem<Hamiltonian>,
+        configuration: HEOM.Configuration,
+        propagation: PropagationOptions<DefaultHEOMImplementation.IntegratorConfiguration>,
+        _ forEach: (
+            Double,
+            borrowing UniqueMatrix<Complex<Double>>
+        ) -> Void
+    ) throws {
+        let implementation = DefaultHEOMImplementation()
+        try implementation.solve(problem: problem, configuration: configuration, propagation: propagation, forEach)
+    }
 }

@@ -22,7 +22,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.4"),
-        .package(url: "https://github.com/MarSe32m/sebbu-cuda", branch: "0.0.1"),
+        .package(url: "https://github.com/MarSe32m/sebbu-cuda", from: "0.0.1"),
+        .package(url: "https://github.com/MarSe32m/sebbu-python-kit", from: "0.0.1"),
         .package(url: "https://github.com/apple/swift-numerics", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-collections", from: "1.6.0")
     ],
@@ -54,6 +55,22 @@ let package = Package(
                 .product(name: "Numerics", package: "swift-numerics"),
                 //TODO: Use traits so that this is included only if trait, say "CUDA" is enabled
                 .product(name: "SebbuCUDA", package: "sebbu-cuda", condition: .when(platforms: [.windows, .linux]))
+            ],
+            cSettings: [
+                .define("ACCELERATE_NEW_LAPACK", .when(platforms: [.macOS])),
+                .define("ACCELERATE_LAPACK_ILP64", .when(platforms: [.macOS]))
+            ],
+            linkerSettings: [
+                .linkedFramework("Accelerate", .when(platforms: [.macOS]))
+            ]
+        ),
+        .executableTarget(
+            name: "Development",
+            dependencies: [
+                "SebbuQuantumToolkit", "SebbuQuantumToolkitGPU",
+                .product(name: "SebbuScience", package: "sebbu-science"),
+                .product(name: "SebbuPythonKit", package: "sebbu-python-kit"),
+                .product(name: "Numerics", package: "swift-numerics")
             ],
             cSettings: [
                 .define("ACCELERATE_NEW_LAPACK", .when(platforms: [.macOS])),
