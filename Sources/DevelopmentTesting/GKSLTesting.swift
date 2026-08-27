@@ -82,7 +82,7 @@ public func testResonanceFluorescenceSpectrum() {
         rate: .constant(0.075),
         collapseOperator: .constant(sigmaMinus)
     )
-    var problem = DensityMatrixProblem(
+    let problem = DensityMatrixProblem(
         initialState: Matrix.init(elements: (0..<4).map { _ in Complex<Double>(0.5) }, rows: 2, columns: 2),
         system: system,
         markovianChannels: [markovianChannel]
