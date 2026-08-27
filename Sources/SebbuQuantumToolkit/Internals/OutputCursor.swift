@@ -88,6 +88,62 @@ internal struct OutputCursor {
 		}
 	}
 
+	/// Advances fixed output schedules to their first time at or after
+	/// `lowerBound` without emitting the skipped times.
+	///
+	/// This is used when an observable becomes defined only partway through a
+	/// propagation, as with a two-time-correlation insertion. Accepted-step
+	/// and final-only schedules do not contain fixed times to discard.
+	@inlinable
+	internal mutating func discardTimes(before lowerBound: Double) {
+		precondition(
+			lowerBound.isFinite
+				&& lowerBound >= timeSpan.start
+				&& lowerBound <= timeSpan.end,
+			"The output lower bound must lie inside the simulation time span"
+		)
+
+		switch schedule {
+		case .times(let times):
+			// Find the first explicit time that is not less than lowerBound.
+			var lower = explicitTimeIndex
+			var upper = times.count
+			while lower < upper {
+				let middle = lower + (upper - lower) / 2
+				if times[middle] < lowerBound {
+					lower = middle + 1
+				} else {
+					upper = middle
+				}
+			}
+			explicitTimeIndex = lower
+
+		case .uniform(let step):
+			guard lowerBound > timeSpan.start else { return }
+
+			let quotient = (lowerBound - timeSpan.start) / step
+			precondition(
+				quotient.isFinite && quotient < Double(Int.max),
+				"The uniform output schedule contains too many samples"
+			)
+
+			// Starting from floor(quotient), rather than ceil(quotient), keeps
+			// an exactly aligned grid point when the division rounded slightly
+			// upward. The loop corrects either rounding direction.
+			var index = Swift.max(
+				uniformTimeIndex,
+				Int(quotient.rounded(.down))
+			)
+			while timeSpan.start + Double(index) * step < lowerBound {
+				index += 1
+			}
+			uniformTimeIndex = index
+
+		case .everyAcceptedStep, .final:
+			break
+		}
+	}
+
 	/// Returns the next scheduled time no later than an accepted step end.
 	@inlinable
 	internal mutating func nextTime(through acceptedStepEnd: Double) -> Double? {

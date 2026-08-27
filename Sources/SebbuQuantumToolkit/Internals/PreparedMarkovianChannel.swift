@@ -11,7 +11,7 @@ import SebbuScience
 /// allocations. This avoids exercising arrays of noncopyable elements in the
 /// Swift 6.3 compiler and costs only one allocation per channel during setup.
 @usableFromInline
-internal final class _PreparedConstantMarkovianChannel {
+internal final class _PreparedConstantMarkovianChannel: Sendable {
 	@usableFromInline
 	internal let rate: ScalarTimeFunction
 	@usableFromInline
@@ -96,7 +96,7 @@ internal final class _PreparedConstantMarkovianChannel {
 
 /// A channel whose collapse operator must be materialized at every RHS time.
 @usableFromInline
-internal struct _PreparedDynamicMarkovianChannel {
+internal struct _PreparedDynamicMarkovianChannel: Sendable {
 	@usableFromInline
 	internal let rate: ScalarTimeFunction
 	@usableFromInline
