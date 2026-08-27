@@ -37,7 +37,7 @@ public func testGKLSRadiativeDamping(endTime: Double) {
         output: .times(timeSpan),
         integration: IntegrationOptions(
             minimumStepSize: 0.001,
-            maximumStepSize: 0.1,
+            maximumStepSize: 0.5,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         )
@@ -51,9 +51,10 @@ public func testGKLSRadiativeDamping(endTime: Double) {
                 problem: problem,
                 propagation: propagationOptions
             ) { time, rho in
-                    X.append(2 * rho[0, 1].real)
-                    Y.append(-2 * rho[0, 1].imaginary)
-                    Z.append(rho[0, 0].real - rho[1, 1].real)
+                X.append(2 * rho[0, 1].real)
+                Y.append(-2 * rho[0, 1].imaginary)
+                Z.append(rho[0, 0].real - rho[1, 1].real)
+                return .proceed
             }
         }
         print("GKSL simulation took:", executionTime)
@@ -93,7 +94,7 @@ public func testResonanceFluorescenceSpectrum() {
         output: .final,
         integration: IntegrationOptions(
             minimumStepSize: 1e-8,
-            maximumStepSize: 0.1,
+            maximumStepSize: 0.5,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         )
@@ -108,6 +109,7 @@ public func testResonanceFluorescenceSpectrum() {
             ) { time, rho in
                 steadyState = .init(copying: rho)
                 sigmaMinusExpectation = steadyState.dot(sigmaMinus.matrix).trace
+                return .proceed
             }
         }
         print("GKSL simulation took:", executionTime)
@@ -128,7 +130,7 @@ public func testResonanceFluorescenceSpectrum() {
         output: .times(times),
         integration: IntegrationOptions(
             minimumStepSize: 1e-8,
-            maximumStepSize: 0.1,
+            maximumStepSize: 0.5,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         )
@@ -142,6 +144,7 @@ public func testResonanceFluorescenceSpectrum() {
                 propagation: propagationOptions
             ) { t, sample in
                 correlationFunction.append(sample - sigmaMinusExpectation.lengthSquared)
+                return .proceed
             }
         }
         print("Two time correlation function solve took:", executionTime)

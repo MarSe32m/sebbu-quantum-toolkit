@@ -68,10 +68,13 @@ public struct TrajectoryRunSummary: Sendable {
 
 	/// The actual seed, including one generated for `.nondeterministic`.
 	public let masterSeed: UInt64
+    
+    public let propagation: PropagationRunSummary
 
 	@inlinable
-	public init(trajectoryIDs: Range<UInt64>, masterSeed: UInt64) {
+    public init(trajectoryIDs: Range<UInt64>, masterSeed: UInt64, propagation: PropagationRunSummary) {
 		self.trajectoryIDs = trajectoryIDs
 		self.masterSeed = masterSeed
+        self.propagation = propagation
 	}
 }

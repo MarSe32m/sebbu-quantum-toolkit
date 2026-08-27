@@ -200,21 +200,23 @@ extension HOPS {
 	}
 }
 
+// MARK: Implementation
 public extension HOPS {
 	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
+        @discardableResult
         func solve<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing UniqueVector<Complex<Double>>
-			) -> Void
-		) throws where Hamiltonian: HamiltonianFunction
+			) -> PropagationControl
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
         func solveEnsemble<Hamiltonian>(
@@ -229,6 +231,7 @@ public extension HOPS {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
+        @discardableResult
 		func solveTrajectories<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
@@ -245,66 +248,75 @@ public extension HOPS {
 	}
 }
 
+
+// MARK: RandomNumberGeneratorDrivenImplementation
 public extension HOPS {
 	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
+        @discardableResult
 		func solve<Hamiltonian, RNG>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing UniqueVector<Complex<Double>>
-			) -> Void
-		) throws where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator
+			) -> PropagationControl
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator
 
 	}
 }
 
+//MARK: HierarchyProvidingImplementation, HierarchyProvidingRandomNumberGeneratorDrivenImplementation
 public extension HOPS {
 	protocol HierarchyProvidingImplementation: Implementation {
+        @discardableResult
         func solveWithHierarchy<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing HOPS.HierarchyStateView
 			) -> Void
-		) throws where Hamiltonian: HamiltonianFunction
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
 	}
 
 	protocol HierarchyProvidingRandomNumberGeneratorDrivenImplementation:
 		HierarchyProvidingImplementation,
         RandomNumberGeneratorDrivenImplementation
 	{
+        @discardableResult
 		func solveWithHierarchy<Hamiltonian, RNG>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing HOPS.HierarchyStateView
-			) -> Void
-		) throws where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator
+			) -> PropagationControl
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator
 	}
+}
 
-	protocol TwoTimeCorrelationImplementation: Implementation {
-		@discardableResult
-		func solveTwoTimeCorrelation<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
-			configuration: HOPS.Configuration,
-			request: TwoTimeCorrelationRequest,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			execution: TrajectoryExecution,
-			_ forEach: (
-				Double,
-				Complex<Double>
-			) -> Void
-		) throws -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction
-	}
+//MARK: TwoTimeCorrelationImplementation
+public extension HOPS {
+    protocol TwoTimeCorrelationImplementation: Implementation {
+        @discardableResult
+        func solveTwoTimeCorrelation<Hamiltonian>(
+            problem: PureStateProblem<Hamiltonian>,
+            configuration: HOPS.Configuration,
+            request: TwoTimeCorrelationRequest,
+            propagation: PropagationOptions<IntegratorConfiguration>,
+            execution: TrajectoryExecution,
+            observing observer: (
+                Double,
+                Complex<Double>
+            ) -> PropagationControl
+        ) throws -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction
+    }
 }

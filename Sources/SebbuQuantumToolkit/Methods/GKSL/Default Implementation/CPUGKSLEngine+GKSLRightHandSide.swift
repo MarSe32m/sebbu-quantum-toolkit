@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension DefaultGKSLImplementation {
+extension CPUGKSLEngine {
 	@usableFromInline
 	internal struct GKSLRightHandSide<Hamiltonian: HamiltonianFunction>:
 		~Copyable, ODERHSFunction

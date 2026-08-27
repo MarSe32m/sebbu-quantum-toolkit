@@ -26,6 +26,7 @@ func gkslTwoTimeAmplitudeDamping() throws {
 		)
 	) { time, value in
 		results.append((time, value))
+        return .proceed
 	}
 
 	// Requested times before the insertion are not valid later times and are
@@ -74,6 +75,7 @@ func gkslTwoTimeUnitaryPhase() throws {
 		)
 	) { time, value in
 		results.append((time, value))
+        return .proceed
 	}
 
 	#expect(results.count == outputTimes.count)
@@ -109,6 +111,7 @@ func gkslTwoTimeInsertionOrdering() throws {
 		propagation: propagation
 	) { _, value in
 		leftValues.append(value)
+        return .proceed
 	}
 
 	var rightValues: [Complex<Double>] = []
@@ -122,6 +125,7 @@ func gkslTwoTimeInsertionOrdering() throws {
 		propagation: propagation
 	) { _, value in
 		rightValues.append(value)
+        return .proceed
 	}
 
 	#expect(leftValues.count == outputTimes.count)
@@ -169,6 +173,7 @@ func gkslTwoTimeAbsoluteOperatorTimesAndPureStateOverload() throws {
 		)
 	) { time, value in
 		results.append((time, value))
+        return .proceed
 	}
 
 	let expectedTimes = [0.4, 0.6, 0.8, 1.0]
@@ -202,6 +207,7 @@ func gkslTwoTimeInsertionAtEnd() throws {
 		)
 	) { time, value in
 		results.append((time, value))
+        return .proceed
 	}
 
 	#expect(results.count == 1)
@@ -235,6 +241,7 @@ func gkslTwoTimeZeroDuration() throws {
 		)
 	) { outputTime, value in
 		results.append((outputTime, value))
+        return .proceed
 	}
 
 	#expect(results.count == 1)
@@ -264,11 +271,11 @@ func gkslTwoTimeEveryAcceptedStep() throws {
 			end: end,
 			output: .everyAcceptedStep,
 			maximumStep: 0.2
-		)
-	) { time, value in
-		outputTimes.append(time)
-		#expect((value - .one).length < 1e-12)
-	}
+        )) { time, value in
+            outputTimes.append(time)
+            #expect((value - .one).length < 1e-12)
+            return .proceed
+        }
 
 	#expect(!outputTimes.isEmpty)
 	#expect(outputTimes.allSatisfy { $0 > insertionTime && $0 <= end })
@@ -299,7 +306,7 @@ func gkslTwoTimeValidation() throws {
 				observable: correlationRaisingOperator
 			),
 			propagation: propagation
-		) { _, _ in }
+        ) { _, _ in .proceed }
 	}
 
 	#expect(
@@ -317,7 +324,7 @@ func gkslTwoTimeValidation() throws {
 				observable: correlationRaisingOperator
 			),
 			propagation: propagation
-		) { _, _ in }
+        ) { _, _ in .proceed }
 	}
 
 	let threeByThree = TimeDependentOperator.constant(
@@ -340,7 +347,7 @@ func gkslTwoTimeValidation() throws {
 				observable: correlationRaisingOperator
 			),
 			propagation: propagation
-		) { _, _ in }
+        ) { _, _ in .proceed }
 	}
 
 	#expect(
@@ -358,7 +365,7 @@ func gkslTwoTimeValidation() throws {
 				observable: threeByThree
 			),
 			propagation: propagation
-		) { _, _ in }
+        ) { _, _ in .proceed }
 	}
 }
 

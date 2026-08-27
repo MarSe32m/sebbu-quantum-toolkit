@@ -28,6 +28,7 @@ func gkslAmplitudeDamping() throws {
 				densityMatrix[0, 0].real + densityMatrix[1, 1].real
 			)
 		)
+        return .proceed
 	}
 
 	#expect(results.count == outputTimes.count)
@@ -60,12 +61,13 @@ func gkslGeneratedCollapseOperator() throws {
 	var finalExcitedPopulation = Double.nan
 	try GKSL.solve(
 		problem: problem,
-		propagation: propagationOptions(end: end, output: .final)
-	) { time, densityMatrix in
-		callbackCount += 1
-		#expect(time == end)
-		finalExcitedPopulation = densityMatrix[1, 1].real
-	}
+        propagation: propagationOptions(end: end, output: .final),
+    ) { time, densityMatrix in
+        callbackCount += 1
+        #expect(time == end)
+        finalExcitedPopulation = densityMatrix[1, 1].real
+        return .proceed
+    }
 
 	#expect(callbackCount == 1)
 	#expect(
@@ -95,6 +97,7 @@ func gkslPureStateOverload() throws {
 		propagation: propagationOptions(end: end, output: .final)
 	) { _, densityMatrix in
 		finalExcitedPopulation = densityMatrix[1, 1].real
+        return .proceed
 	}
 
 	#expect(
@@ -119,6 +122,7 @@ func gkslEveryAcceptedStepSchedule() throws {
 		)
 	) { time, _ in
 		outputTimes.append(time)
+        return .proceed
 	}
 
 	#expect(!outputTimes.isEmpty)

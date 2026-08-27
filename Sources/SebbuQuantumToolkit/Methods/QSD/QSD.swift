@@ -33,11 +33,11 @@ public extension QSD {
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
 			trajectoryID: UInt64,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing UniqueVector<Complex<Double>>
-			) -> Void
-		) throws
+			) -> PropagationControl
+		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
@@ -74,13 +74,31 @@ public extension QSD {
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			rng: inout RNG,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing UniqueVector<Complex<Double>>
-			) -> Void
-		) throws
+			) -> PropagationControl
+		) throws -> TrajectoryRunSummary
 		where
 			Hamiltonian: HamiltonianFunction,
 			RNG: RandomNumberGenerator
 	}
+}
+
+public extension QSD {
+    protocol TwoTimeCorrelationImplementation: Implementation {
+        @discardableResult
+        func solveTwoTimeCorrelation<Hamiltonian>(
+            problem: PureStateProblem<Hamiltonian>,
+            configuration: QSD.Configuration,
+            request: TwoTimeCorrelationRequest,
+            propagation: PropagationOptions<IntegratorConfiguration>,
+            execution: TrajectoryExecution,
+            observing observer: (
+                Double,
+                Complex<Double>
+            ) -> PropagationControl
+        ) throws -> TrajectoryRunSummary
+        where Hamiltonian: HamiltonianFunction
+    }
 }

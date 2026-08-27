@@ -17,3 +17,24 @@ public struct PropagationOptions<Integration: Sendable>: Sendable {
 		self.integration = integration
 	}
 }
+
+public enum PropagationControl: Sendable, Equatable {
+    case proceed
+    case stop
+}
+
+public enum PropagationEndReason: Sendable, Equatable {
+    case reachedEndTime
+    case stoppedByObserver
+}
+
+public struct PropagationRunSummary: Sendable {
+    public let finalTime: Double
+    public let endReason: PropagationEndReason
+    
+    @inlinable
+    public init(finalTime: Double, endReason: PropagationEndReason) {
+        self.finalTime = finalTime
+        self.endReason = endReason
+    }
+}

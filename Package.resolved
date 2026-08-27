@@ -1,5 +1,5 @@
 {
-  "originHash" : "1babe14abde078c501901adbf0f771a8766facd99a9e4f6f9e7f7dd12f0e28a8",
+  "originHash" : "4f8a0c1509be3b232333304a3d2b4caf37d06dfc411a9aae17853060c51ef893",
   "pins" : [
     {
       "identity" : "pythonkit",
@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MarSe32m/sebbu-science",
       "state" : {
-        "revision" : "91c551678860cdd894204a47826dc385bb39a99a",
-        "version" : "0.4.4"
+        "revision" : "b348a683ba24a9abdb5bc227c5ac203b9d261717",
+        "version" : "0.4.5"
       }
     },
     {

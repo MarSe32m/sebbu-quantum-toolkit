@@ -195,55 +195,48 @@ public extension HEOM {
 	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
-		func solve<Hamiltonian: HamiltonianFunction>(
-			problem: DensityMatrixProblem<Hamiltonian>,
-			configuration: HEOM.Configuration,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			_ forEach: (
-				Double,
-				borrowing UniqueMatrix<Complex<Double>>
-			) -> Void
-		) throws
-
-		func solve<Hamiltonian: HamiltonianFunction>(
-			problem: PureStateProblem<Hamiltonian>,
-			configuration: HEOM.Configuration,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			_ forEach: (
-				Double,
-				borrowing UniqueMatrix<Complex<Double>>
-			) -> Void
-		) throws
+        @discardableResult
+        func solve<Hamiltonian: HamiltonianFunction>(
+            problem: DensityMatrixProblem<Hamiltonian>,
+            configuration: HEOM.Configuration,
+            propagation: PropagationOptions<IntegratorConfiguration>,
+            observing observer: (
+                Double,
+                borrowing UniqueMatrix<Complex<Double>>
+            ) -> PropagationControl
+        ) throws -> PropagationRunSummary
 	}
 }
 
 public extension HEOM.Implementation {
-	@inlinable
-	func solve<Hamiltonian: HamiltonianFunction>(
-		problem: PureStateProblem<Hamiltonian>,
-		configuration: HEOM.Configuration,
-		propagation: PropagationOptions<IntegratorConfiguration>,
-		_ forEach: (
-			Double,
-			borrowing UniqueMatrix<Complex<Double>>
-		) -> Void
-	) throws {
-        let densityMatrixProblem = DensityMatrixProblem(problem)
-        try solve(problem: densityMatrixProblem, configuration: configuration, propagation: propagation, forEach)
-	}
+    @inlinable
+    @discardableResult
+    func solve<Hamiltonian: HamiltonianFunction>(
+        problem: PureStateProblem<Hamiltonian>,
+        configuration: HEOM.Configuration,
+        propagation: PropagationOptions<IntegratorConfiguration>,
+        observing observer: (
+            Double,
+            borrowing UniqueMatrix<Complex<Double>>
+        ) -> PropagationControl
+    ) throws -> PropagationRunSummary {
+        let problem = DensityMatrixProblem(problem)
+        return try solve(problem: problem, configuration: configuration, propagation: propagation, observing: observer)
+    }
 }
 
 public extension HEOM {
 	protocol HierarchyProvidingImplementation: Implementation {
+        @discardableResult
 		func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
 			problem: DensityMatrixProblem<Hamiltonian>,
 			configuration: HEOM.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
-			_ forEach: (
+			observing observer: (
 				Double,
 				borrowing HEOM.HierarchyStateView
-			) -> Void
-		) throws
+			) -> PropagationControl
+		) throws -> PropagationRunSummary
 	}
 
 	protocol TwoTimeCorrelationImplementation: Implementation {
@@ -254,10 +247,11 @@ public extension HEOM {
 			configuration: HEOM.Configuration,
 			request: TwoTimeCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,
-			_ forEach: (
+			observing observer: (
 				Double,
 				Complex<Double>
-			) -> Void
-		) throws
+			) -> PropagationControl
+		) throws -> PropagationRunSummary
 	}
 }
+

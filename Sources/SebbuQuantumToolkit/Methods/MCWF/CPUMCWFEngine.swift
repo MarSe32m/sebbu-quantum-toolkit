@@ -2,18 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Numerics
+import NumericsExtensions
 import SebbuScience
 
-public struct DefaultQSDImplementation: Sendable {
+public struct CPUMCWFEngine: Sendable {
     @inlinable
     public init() {}
 }
 
-extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementation {
+extension CPUMCWFEngine: MCWF.RandomNumberGeneratorDrivenImplementation {
+    @inlinable
+    @discardableResult
+    public func solve<Hamiltonian>(problem: PureStateProblem<Hamiltonian>, configuration: MCWF.Configuration, propagation: PropagationOptions<IntegrationOptions>, seed: UInt64, trajectoryID: UInt64, observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction {
+        throw ImplementationError.notImplemented
+    }
+    
+    @inlinable
+    @discardableResult
+    public func solve<Hamiltonian, RNG>(problem: PureStateProblem<Hamiltonian>, configuration: MCWF.Configuration, propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG, observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator {
+        throw ImplementationError.notImplemented
+    }
+    
 	@inlinable
 	public func solve<Hamiltonian, RNG>(
 		problem: PureStateProblem<Hamiltonian>,
-		configuration: QSD.Configuration,
+		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
@@ -25,7 +38,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 	@inlinable
 	public func solve<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
-		configuration: QSD.Configuration,
+		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		seed: UInt64,
 		trajectoryID: UInt64,
@@ -37,7 +50,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 	@inlinable
 	public func solveEnsemble<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
-		configuration: QSD.Configuration,
+		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
@@ -48,7 +61,7 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
 	@inlinable
 	public func solveTrajectories<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
-		configuration: QSD.Configuration,
+		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		_ forEach:
@@ -57,21 +70,20 @@ extension DefaultQSDImplementation: QSD.RandomNumberGeneratorDrivenImplementatio
     where Hamiltonian: HamiltonianFunction {
         throw ImplementationError.notImplemented
 	}
-
 }
 
-extension QSD {
+extension MCWF {
 	@inlinable
 	@inline(always)
 	public static func solve<Hamiltonian, RNG>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
-		propagation: PropagationOptions<IntegrationOptions>,
+		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
 		rng: inout RNG,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-        let implementation = DefaultQSDImplementation()
+        let implementation = CPUMCWFEngine()
         try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			rng: &rng, forEach)
@@ -82,12 +94,12 @@ extension QSD {
 	public static func solve<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
-		propagation: PropagationOptions<IntegrationOptions>,
+		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
 		seed: UInt64,
 		trajectoryID: UInt64,
 		_ forEach: (Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws where Hamiltonian: HamiltonianFunction {
-        let implementation = DefaultQSDImplementation()
+        let implementation = CPUMCWFEngine()
         try implementation.solve(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed,
@@ -99,11 +111,11 @@ extension QSD {
 	public static func solveEnsemble<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
-		propagation: PropagationOptions<IntegrationOptions>,
+		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-        let implementation = DefaultQSDImplementation()
+        let implementation = CPUMCWFEngine()
         return try implementation.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
@@ -113,16 +125,17 @@ extension QSD {
 	@inline(always)
 	public static func solveTrajectories<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
-		configuration: Configuration,
-		propagation: PropagationOptions<IntegrationOptions>,
+		configuration: MCWF.Configuration,
+		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws -> TrajectoryRunSummary
     where Hamiltonian: HamiltonianFunction {
-        let implementation = DefaultQSDImplementation()
+        let implementation = CPUMCWFEngine()
         return try implementation.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,
 			execution: execution, forEach)
 	}
+
 }
