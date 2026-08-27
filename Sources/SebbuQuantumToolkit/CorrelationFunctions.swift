@@ -22,6 +22,7 @@ public struct TwoTimeCorrelationRequest: Sendable {
 	/// Later operator A, evaluated at each reported time t.
 	public var observable: TimeDependentOperator
 
+    @inlinable
 	public init(
 		insertionTime: Double,
 		insertion: CorrelationInsertion,

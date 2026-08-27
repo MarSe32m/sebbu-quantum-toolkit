@@ -31,15 +31,15 @@ public func testGKLSRadiativeDamping(endTime: Double) {
         system: system,
         markovianChannels: [markovianChannel, markovianChannel2]
     )
-    let timeSpan: [Double] = .linearSpace(0.0, endTime, 1000)
+    let timeSpan: [Double] = .linearSpace(0.0, endTime, 0.1)
     let propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: endTime),
         output: .times(timeSpan),
         integration: IntegrationOptions(
             minimumStepSize: 0.001,
             maximumStepSize: 0.1,
-            absoluteTolerance: 1e-8,
-            relativeTolerance: 1e-8
+            absoluteTolerance: 1e-9,
+            relativeTolerance: 1e-9
         )
     )
     var X: [Double] = []
