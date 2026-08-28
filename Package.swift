@@ -21,7 +21,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.5"),
+        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.6"),
         .package(url: "https://github.com/MarSe32m/sebbu-cuda", from: "0.0.1"),
         .package(url: "https://github.com/MarSe32m/sebbu-python-kit", from: "0.0.1"),
         .package(url: "https://github.com/apple/swift-numerics", from: "1.1.1"),
