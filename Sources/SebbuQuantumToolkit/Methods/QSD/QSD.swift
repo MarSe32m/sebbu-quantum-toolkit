@@ -68,22 +68,6 @@ public extension QSD {
 		) throws -> TrajectoryRunSummary
         where Hamiltonian: HamiltonianFunction
 	}
-
-	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
-		func solve<Hamiltonian, RNG>(
-			problem: PureStateProblem<Hamiltonian>,
-			configuration: QSD.Configuration,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			rng: inout RNG,
-			observing observer: (
-				Double,
-				borrowing UniqueVector<Complex<Double>>
-			) -> PropagationControl
-		) throws -> TrajectoryRunSummary
-		where
-			Hamiltonian: HamiltonianFunction,
-			RNG: RandomNumberGenerator
-	}
 }
 
 public extension QSD {

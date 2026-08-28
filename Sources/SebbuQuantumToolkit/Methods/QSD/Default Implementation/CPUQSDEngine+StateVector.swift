@@ -14,6 +14,11 @@ extension CPUQSDEngine {
         internal init(state: borrowing UniqueVector<Complex<Double>>) {
             self.state = .init(copying: state)
         }
+
+        @inlinable
+        internal init(state: Vector<Complex<Double>>) {
+            self.state = .init(copying: state)
+        }
         
         @inlinable
         internal init(dimension: Int) {

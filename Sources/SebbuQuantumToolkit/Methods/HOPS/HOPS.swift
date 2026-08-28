@@ -248,25 +248,6 @@ public extension HOPS {
 	}
 }
 
-
-// MARK: RandomNumberGeneratorDrivenImplementation
-public extension HOPS {
-	protocol RandomNumberGeneratorDrivenImplementation: Implementation {
-        @discardableResult
-		func solve<Hamiltonian, RNG>(
-			problem: PureStateProblem<Hamiltonian>,
-			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			rng: inout RNG,
-			observing observer: (
-				Double,
-				borrowing UniqueVector<Complex<Double>>
-			) -> PropagationControl
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator
-
-	}
-}
-
 //MARK: HierarchyProvidingImplementation, HierarchyProvidingRandomNumberGeneratorDrivenImplementation
 public extension HOPS {
 	protocol HierarchyProvidingImplementation: Implementation {
@@ -282,23 +263,6 @@ public extension HOPS {
 				borrowing HOPS.HierarchyStateView
 			) -> Void
 		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
-	}
-
-	protocol HierarchyProvidingRandomNumberGeneratorDrivenImplementation:
-		HierarchyProvidingImplementation,
-        RandomNumberGeneratorDrivenImplementation
-	{
-        @discardableResult
-		func solveWithHierarchy<Hamiltonian, RNG>(
-			problem: PureStateProblem<Hamiltonian>,
-			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			rng: inout RNG,
-			observing observer: (
-				Double,
-				borrowing HOPS.HierarchyStateView
-			) -> PropagationControl
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator
 	}
 }
 

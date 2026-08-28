@@ -3,17 +3,9 @@
 
 import Numerics
 
-public struct ZeroNoiseProcess: Sendable {
-    public typealias Element = Complex<Double>
-    
+public struct RealZeroNoiseProcess: Sendable {
     @inlinable
     public init() {}
-    
-    @inlinable
-    @inline(always)
-    public func sample(_ t: Double) -> Complex<Double> {
-        .zero
-    }
     
     @inlinable
     @inline(always)
@@ -22,21 +14,28 @@ public struct ZeroNoiseProcess: Sendable {
     }
 }
 
-extension ZeroNoiseProcess: ComplexNoiseProcess {
-    public func antithetic() -> ZeroNoiseProcess {
-        self
-    }
-}
-extension ZeroNoiseProcess: ComplexWhiteNoiseProcess {}
-
-public struct ZeroNoiseProcessGenerator: NoiseProcessGenerator, Sendable {
-    
+public struct ComplexZeroNoiseProcess: Sendable {
     @inlinable
     public init() {}
     
     @inlinable
     @inline(always)
-    public func generate(seed: UInt32) -> ZeroNoiseProcess {
-        ZeroNoiseProcess()
+    public func sample(_ t: Double) -> Complex<Double> {
+        .zero
     }
 }
+
+extension RealZeroNoiseProcess: RealNoiseProcess {
+    public func antithetic() -> RealZeroNoiseProcess {
+        self
+    }
+}
+
+extension ComplexZeroNoiseProcess: ComplexNoiseProcess {
+    public func antithetic() -> ComplexZeroNoiseProcess {
+        self
+    }
+}
+
+extension RealZeroNoiseProcess: RealWhiteNoiseProcess {}
+extension ComplexZeroNoiseProcess: ComplexWhiteNoiseProcess {}

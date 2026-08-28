@@ -11,13 +11,7 @@ public struct GaussianFFTNoiseProcess: ComplexNoiseProcess, Sendable {
     public var tMax: Double { spline.x.last! }
     
     @inlinable
-    public init(tMax: Double, dtMax: Double = 0.01, deltaOmegaMax: Double = 0.01, omegaMax: Double? = nil, seed: UInt32 = .random(in: .min ... .max), spectralDensity: (_ omega: Double) -> Double) {
-        var generator = NumPyRandom(seed: seed)
-        self.init(tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, generator: &generator, spectralDensity: spectralDensity)
-    }
-    
-    @inlinable
-    public init<RNG: RandomNumberGenerator>(tMax: Double, dtMax: Double, deltaOmegaMax: Double, omegaMax: Double?, generator: inout RNG, spectralDensity: (_ omega: Double) -> Double) {
+    public init<Generator: RandomNumberGenerator>(tMax: Double, dtMax: Double, deltaOmegaMax: Double, omegaMax: Double?, generator: inout Generator, spectralDensity: (_ omega: Double) -> Double) {
         precondition(tMax > 0)
         precondition(dtMax > 0)
         precondition(deltaOmegaMax > 0)
@@ -84,7 +78,7 @@ public struct GaussianFFTNoiseProcess: ComplexNoiseProcess, Sendable {
     }
 }
 
-public struct GaussianFFTNoiseProcessGenerator: NoiseProcessGenerator, Sendable {
+public struct GaussianFFTNoiseProcessGenerator: Sendable {
     @usableFromInline
     internal let tMax: Double
     @usableFromInline
@@ -107,7 +101,7 @@ public struct GaussianFFTNoiseProcessGenerator: NoiseProcessGenerator, Sendable 
     
     @inlinable
     @inline(always)
-    public func generate(seed: UInt32) -> GaussianFFTNoiseProcess {
-        GaussianFFTNoiseProcess(tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, seed: seed, spectralDensity: spectralDensity)
+    public func generate<Generator: RandomNumberGenerator>(generator: inout Generator) -> GaussianFFTNoiseProcess {
+        GaussianFFTNoiseProcess(tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, generator: &generator, spectralDensity: spectralDensity)
     }
 }

@@ -5,151 +5,277 @@ import Numerics
 import SebbuScience
 
 extension CPUQSDEngine {
-    @usableFromInline
-    internal struct QSDRightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable, SDERHSFunction {
-        @usableFromInline
-        internal let equationType: QSD.EquationType
-        @usableFromInline
-        internal let hamiltonian: Hamiltonian
-        @usableFromInline
-        internal let constantChannels: [_PreparedConstantMarkovianChannel]
-        @usableFromInline
-        internal let dynamicChannels: [_PreparedDynamicMarkovianChannel]
-        @usableFromInline
-        internal let noiseProcesses: [StandardGaussianWhiteNoiseProcess]
+	@usableFromInline
+	internal struct QSDRightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable,
+		SDERHSFunction
+	{
+		@usableFromInline
+		internal let equationType: QSD.EquationType
+		@usableFromInline
+		internal let hamiltonian: Hamiltonian
+		@usableFromInline
+		internal let channels: [PreparedChannel]
+		@usableFromInline
+		internal var randomNumberGenerator: TrajectoryRandomNumberGenerator
 
-        @usableFromInline
-        internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var adjointBuffer: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        internal var productBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var collapseBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var adjointBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		internal var productBuffer: UniqueMatrix<Complex<Double>>
 
-        @inlinable
-        internal init(_ problem: borrowing PureStateProblem<Hamiltonian>, equationType: QSD.EquationType, noiseProcesses: [StandardGaussianWhiteNoiseProcess]) {
-            let dimension = problem.system.dimension
-            precondition(dimension > 0, "The quantum-system dimension must be positive")
-            let markovianChannelCount = problem.markovianChannels.count
-            precondition(markovianChannelCount == noiseProcesses.count, "There must be equal number of markovian channels and noise processes")
+		@inlinable
+		internal init(
+			_ problem: borrowing PureStateProblem<Hamiltonian>,
+			equationType: QSD.EquationType,
+			seed: UInt64,
+			trajectoryID: UInt64
+		) {
+			let dimension = problem.system.dimension
+			precondition(dimension > 0, "The quantum-system dimension must be positive")
 
-            var constantChannels: [_PreparedConstantMarkovianChannel] = []
-            var dynamicChannels: [_PreparedDynamicMarkovianChannel] = []
-            constantChannels.reserveCapacity(problem.markovianChannels.count)
-            dynamicChannels.reserveCapacity(problem.markovianChannels.count)
+			var channels: [PreparedChannel] = []
+			channels.reserveCapacity(problem.markovianChannels.count)
+			for channel in problem.markovianChannels {
+				if let prepared = _PreparedConstantMarkovianChannel(
+					channel,
+					dimension: dimension
+				) {
+					channels.append(.constant(prepared))
+				} else {
+					channels.append(
+						.dynamic(
+							_PreparedDynamicMarkovianChannel(
+								channel,
+								dimension: dimension
+							)
+						)
+					)
+				}
+			}
 
-            for channel in problem.markovianChannels {
-                if let prepared = _PreparedConstantMarkovianChannel(
-                    channel,
-                    dimension: dimension
-                ) {
-                    constantChannels.append(prepared)
-                } else {
-                    dynamicChannels.append(
-                        _PreparedDynamicMarkovianChannel(
-                            channel,
-                            dimension: dimension
-                        )
-                    )
-                }
-            }
-            precondition(constantChannels.count + dynamicChannels.count == noiseProcesses.count)
-            self.equationType = equationType
-            self.hamiltonian = problem.system.hamiltonian
-            self.constantChannels = constantChannels
-            self.dynamicChannels = dynamicChannels
-            self.noiseProcesses = noiseProcesses
-            self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)
-            self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
-            self.adjointBuffer = .zeros(rows: dimension, columns: dimension)
-            self.productBuffer = .zeros(rows: dimension, columns: dimension)
-        }
-        
-        @inlinable
-        internal mutating func drift(t: Double, y: borrowing StateVector, into dy: inout StateVector) {
-            hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
-            hamiltonianBuffer.dotBLAS(y.state, multiplied: -.i, into: &dy.state)
-            
-            for channel in constantChannels {
-                // Sample rate
-                let rate = channel.rate(t)
-                // Apply -rate/2 C^dagger C \phi + dy -> dy
-                channel.lossOperator.dotBLAS(y.state, multiplied: Complex(-0.5 * rate), addingInto: &dy.state)
-                // Apply Girsanov shift of the noise: rate * <C^dagger> C \phi + dy -> dy
-                if equationType == .nonLinear || equationType == .nonLinearNormalized {
-                    let expectationValue = y.state.inner(metric: channel.collapseOperatorAdjoint, y.state) / y.state.normSquared
-                    channel.collapseOperator.dotBLAS(y.state, multiplied: rate * expectationValue, addingInto: &dy.state)
-                }
-                // Apply normalization factor for non-linear normalized QSD: -rate/2 <C^dagger C> \phi + dy -> dy
-                if equationType == .nonLinearNormalized {
-                    let expectationValue = y.state.inner(metric: channel.lossOperator, y.state) / y.state.normSquared
-                    dy.state.add(y.state, multiplied: -0.5 * rate * expectationValue)
-                }
-            }
-            for channel in dynamicChannels {
-                // Sample rate
-                let rate = channel.rate(t)
-                // Obtain C, C^dagger and C^dagger C
-                channel.insert(t: t, into: &collapseBuffer)
-                for row in 0..<collapseBuffer.rows {
-                    for column in 0..<collapseBuffer.columns {
-                        adjointBuffer[unchecked: column, unchecked: row] = collapseBuffer[unchecked: row, unchecked: column].conjugate
-                    }
-                }
-                adjointBuffer.dotBLAS(collapseBuffer, into: &productBuffer)
-                // Apply -rate/2 C^dagger C \phi + dy -> dy
-                productBuffer.dotBLAS(y.state, multiplied: Complex(-0.5 * rate), addingInto: &dy.state)
-                // Apply Girsanov shift of the noise: rate * <C^dagger> C \phi + dy -> dy
-                if equationType == .nonLinear || equationType == .nonLinearNormalized {
-                    let expectationValue = y.state.inner(metric: adjointBuffer, y.state) / y.state.normSquared
-                    collapseBuffer.dotBLAS(y.state, multiplied: rate * expectationValue, addingInto: &dy.state)
-                }
-                // Apply normalization factor for non-linear normalized QSD: -rate/2 <C^dagger C> \phi + dy -> dy
-                if equationType == .nonLinearNormalized {
-                    let expectationValue = y.state.inner(metric: productBuffer, y.state) / y.state.normSquared
-                    dy.state.add(y.state, multiplied: -0.5 * rate * expectationValue)
-                }
-            }
-        }
-        
-        @inlinable
-        internal mutating func diffusion(t: Double, y: borrowing StateVector, channel: Int, into dy: inout StateVector) {
-            dy.state.zeroComponents()
-            
-            for channel in constantChannels {
-                let rate = channel.rate(t)
-                let coefficient: Double = .sqrt(0.5 * rate)
-                // Apply: coefficient * C_i(t) \phi + dy -> dy
-                channel.collapseOperator.dotBLAS(y.state, multiplied: Complex(coefficient), addingInto: &dy.state)
-                
-                // For normalized QSD, apply: -coefficient * <C_i(t)> \phi + dy -> dy
-                if equationType == .nonLinearNormalized {
-                    let expectationValue = y.state.inner(metric: channel.collapseOperator, y.state) / y.state.normSquared
-                    dy.state.add(y.state, multiplied: -coefficient * expectationValue)
-                }
-            }
-            for channel in dynamicChannels {
-                let rate = channel.rate(t)
-                let coefficient: Double = .sqrt(0.5 * rate)
-                channel.insert(t: t, into: &collapseBuffer)
-                // Apply: coefficient * C_i(t) \phi + dy -> dy
-                collapseBuffer.dotBLAS(y.state, multiplied: Complex(coefficient), addingInto: &dy.state)
-                
-                // For normalized QSD, apply: -coefficient * <C_i(t)> \phi + dy -> dy
-                if equationType == .nonLinearNormalized {
-                    let expectationValue = y.state.inner(metric: collapseBuffer, y.state) / y.state.normSquared
-                    dy.state.add(y.state, multiplied: -coefficient * expectationValue)
-                }
-            }
-        }
-        
-        @inlinable
-        internal mutating func sampleNormalizedNoises(t: Double, stepSize: Double, into noises: inout MutableSpan<Complex<Double>>) {
-            precondition(noises.count == noiseProcesses.count, "There must be equal count of noises and noise processes")
-            for i in noises.indices {
-                noises[unchecked: i] = noiseProcesses[i].sample(t)
-            }
-        }
-    }
+			self.equationType = equationType
+			self.hamiltonian = problem.system.hamiltonian
+			self.channels = channels
+			self.randomNumberGenerator = TrajectoryRandomNumberGenerator(
+				seed: seed,
+				trajectoryID: trajectoryID
+			)
+			self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)
+			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
+			self.adjointBuffer = .zeros(rows: dimension, columns: dimension)
+			self.productBuffer = .zeros(rows: dimension, columns: dimension)
+		}
+
+		@inlinable
+		internal mutating func drift(
+			t: Double,
+			y: borrowing StateVector,
+			into dy: inout StateVector
+		) {
+			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
+			hamiltonianBuffer.dotBLAS(y.state, multiplied: -.i, into: &dy.state)
+
+			let normSquared: Double
+			switch equationType {
+			case .linear:
+				normSquared = 1
+			case .nonLinear, .nonLinearNormalized:
+				normSquared = y.state.normSquared
+				precondition(
+					normSquared.isFinite && normSquared > .zero,
+					"Non-linear QSD requires a finite, nonzero state norm"
+				)
+			}
+
+			for channel in channels {
+				switch channel {
+				case .constant(let channel):
+					Self.accumulateDrift(
+						equationType: equationType,
+						rate: Self.checkedRate(channel.rate(t)),
+						collapseOperator: channel.collapseOperator,
+						collapseOperatorAdjoint: channel
+							.collapseOperatorAdjoint,
+						lossOperator: channel.lossOperator,
+						y: y,
+						normSquared: normSquared,
+						into: &dy
+					)
+
+				case .dynamic(let channel):
+					channel.insert(t: t, into: &collapseBuffer)
+					for row in 0..<collapseBuffer.rows {
+						for column in 0..<collapseBuffer.columns {
+							adjointBuffer[
+								unchecked: column, unchecked: row] =
+								collapseBuffer[
+									unchecked: row,
+									unchecked: column
+								].conjugate
+						}
+					}
+					adjointBuffer.dotBLAS(collapseBuffer, into: &productBuffer)
+					Self.accumulateDrift(
+						equationType: equationType,
+						rate: Self.checkedRate(channel.rate(t)),
+						collapseOperator: collapseBuffer,
+						collapseOperatorAdjoint: adjointBuffer,
+						lossOperator: productBuffer,
+						y: y,
+						normSquared: normSquared,
+						into: &dy
+					)
+				}
+			}
+		}
+
+		@inlinable
+		internal mutating func diffusion(
+			t: Double,
+			y: borrowing StateVector,
+			channel channelIndex: Int,
+			into dy: inout StateVector
+		) {
+			precondition(
+				channels.indices.contains(channelIndex), "Invalid QSD noise channel"
+			)
+			dy.state.zeroComponents()
+
+			let normSquared: Double
+			switch equationType {
+			case .linear, .nonLinear:
+				normSquared = 1
+			case .nonLinearNormalized:
+				normSquared = y.state.normSquared
+				precondition(
+					normSquared.isFinite && normSquared > .zero,
+					"Normalized QSD requires a finite, nonzero state norm"
+				)
+			}
+
+			switch channels[channelIndex] {
+			case .constant(let channel):
+				Self.assignDiffusion(
+					equationType: equationType,
+					rate: Self.checkedRate(channel.rate(t)),
+					collapseOperator: channel.collapseOperator,
+					y: y,
+					normSquared: normSquared,
+					into: &dy
+				)
+
+			case .dynamic(let channel):
+				channel.insert(t: t, into: &collapseBuffer)
+				Self.assignDiffusion(
+					equationType: equationType,
+					rate: Self.checkedRate(channel.rate(t)),
+					collapseOperator: collapseBuffer,
+					y: y,
+					normSquared: normSquared,
+					into: &dy
+				)
+			}
+		}
+
+		@inlinable
+		internal mutating func sampleNormalizedNoises(
+			t: Double,
+			stepSize: Double,
+			into noises: inout MutableSpan<Complex<Double>>
+		) {
+			precondition(
+				noises.count == channels.count,
+				"There must be one noise value for each Markovian channel"
+			)
+			for index in noises.indices {
+				let sample: Complex<Double> = randomNumberGenerator.nextNormal()
+				noises[unchecked: index] = sample
+			}
+		}
+
+		@inlinable
+		@inline(always)
+		internal static func checkedRate(_ rate: Double) -> Double {
+			precondition(
+				rate.isFinite && rate >= .zero,
+				"A Markovian-channel rate must be finite and nonnegative"
+			)
+			return rate
+		}
+
+		@inlinable
+		internal static func accumulateDrift(
+			equationType: QSD.EquationType,
+			rate: Double,
+			collapseOperator: borrowing UniqueMatrix<Complex<Double>>,
+			collapseOperatorAdjoint: borrowing UniqueMatrix<Complex<Double>>,
+			lossOperator: borrowing UniqueMatrix<Complex<Double>>,
+			y: borrowing StateVector,
+			normSquared: Double,
+			into dy: inout StateVector
+		) {
+			guard rate != .zero else { return }
+
+			// The numerical generator samples the real and imaginary parts of
+			// each complex Wiener value with unit variance, hence sqrt(rate / 2).
+			lossOperator.dotBLAS(
+				y.state,
+				multiplied: Complex(-0.5 * rate),
+				addingInto: &dy.state
+			)
+
+			switch equationType {
+			case .linear:
+				return
+
+			case .nonLinear, .nonLinearNormalized:
+				let expectationAdjoint =
+					y.state.inner(metric: collapseOperatorAdjoint, y.state)
+					/ normSquared
+				collapseOperator.dotBLAS(
+					y.state,
+					multiplied: rate * expectationAdjoint,
+					addingInto: &dy.state
+				)
+
+				guard case .nonLinearNormalized = equationType else { return }
+
+				let expectation = expectationAdjoint.conjugate
+				let lossExpectation =
+					y.state.inner(metric: lossOperator, y.state).real
+					/ normSquared
+
+				let scalar =
+					rate * (0.5 * lossExpectation - expectation.lengthSquared)
+				dy.state.add(y.state, multiplied: scalar)
+			}
+		}
+
+		@inlinable
+		internal static func assignDiffusion(
+			equationType: QSD.EquationType,
+			rate: Double,
+			collapseOperator: borrowing UniqueMatrix<Complex<Double>>,
+			y: borrowing StateVector,
+			normSquared: Double,
+			into dy: inout StateVector
+		) {
+			guard rate != .zero else { return }
+			let coefficient = (0.5 * rate).squareRoot()
+			collapseOperator.dotBLAS(
+				y.state,
+				multiplied: Complex(coefficient),
+				addingInto: &dy.state
+			)
+
+			guard equationType == .nonLinearNormalized else { return }
+			let expectation =
+				y.state.inner(metric: collapseOperator, y.state) / normSquared
+			dy.state.add(y.state, multiplied: -coefficient * expectation)
+		}
+	}
 }

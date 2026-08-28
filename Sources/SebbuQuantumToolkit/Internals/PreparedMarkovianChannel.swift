@@ -4,6 +4,23 @@
 import Numerics
 import SebbuScience
 
+@usableFromInline
+internal enum PreparedChannel: Sendable {
+    case constant(_PreparedConstantMarkovianChannel)
+    case dynamic(_PreparedDynamicMarkovianChannel)
+    
+    @inlinable
+    @inline(always)
+    internal func rate(_ t: Double) -> Double {
+        switch self {
+        case .constant(let c):
+            c.rate(t)
+        case .dynamic(let d):
+            d.rate(t)
+        }
+    }
+}
+
 /// Precomputed matrices for a time-independent collapse operator.
 ///
 /// A reference type is intentional here. It lets the containing RHS use an

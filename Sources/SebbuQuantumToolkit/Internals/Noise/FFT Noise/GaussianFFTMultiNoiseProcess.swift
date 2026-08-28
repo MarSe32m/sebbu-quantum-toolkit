@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-public struct GaussianFFTMultiNoiseProcessGenerator: MultiNoiseProcessGenerator, Sendable {
+public struct GaussianFFTMultiNoiseProcessGenerator: Sendable {
     @usableFromInline
     internal let tMax: Double
     @usableFromInline
@@ -30,7 +30,7 @@ public struct GaussianFFTMultiNoiseProcessGenerator: MultiNoiseProcessGenerator,
     
     @inlinable
     @inline(always)
-    public func generate(seed: UInt32) -> [GaussianFFTNoiseProcess] {
+    public func generate<Generator: RandomNumberGenerator>(generator: inout Generator) -> [GaussianFFTNoiseProcess] {
         // Set frequency resoluation based on tMax
         let deltaOmega = min(deltaOmegaMax, .pi / tMax)
         
@@ -48,7 +48,6 @@ public struct GaussianFFTMultiNoiseProcessGenerator: MultiNoiseProcessGenerator,
         
         // Generate correlated Gaussian coefficients
         var signals: [[Complex<Double>]] = []
-        var generator = NumPyRandom(seed: seed)
         var A: Matrix<Complex<Double>> = .zeros(rows: 1, columns: 1)
         for (index, omega) in omegaSpace.enumerated() {
             let J = spectralDensity(omega)
@@ -62,7 +61,7 @@ public struct GaussianFFTMultiNoiseProcessGenerator: MultiNoiseProcessGenerator,
             let sqrtD: Matrix<Complex<Double>> = .diagonal(from: eigenValues.map { Complex(($0 * deltaOmega).squareRoot()) })
             let U: Matrix<Complex<Double>> = .from(columns: eigenVectors.map { $0.components })
             U.dot(sqrtD, into: &A)
-            let x: Vector<Complex<Double>> = .init(generator.nextNormal(count: signals.count, mean: 0, stdev: .sqrt(0.5)))
+            let x: Vector<Complex<Double>> = .init(generator.nextNormal(count: signals.count, stdev: .sqrt(0.5)))
             let xi = A.dot(x)
             for i in 0..<xi.count {
                 signals[i][index] = xi[i]

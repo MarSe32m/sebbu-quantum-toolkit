@@ -6,116 +6,12 @@ import NumericsExtensions
 import SebbuScience
 import DequeModule
 
-@frozen
-public struct UniformDequeLinearInterpolator<Element> {
-    @usableFromInline
-    internal var _start: Double
-        
-    public let step: Double
-    
-    @usableFromInline
-    internal let inverseStep: Double
-    
-    @usableFromInline
-    internal var _y: Deque<Element>
-    
-    @inlinable
-    public var start: Double { _start }
-    
-    @inlinable
-    public var y: Deque<Element> {
-        _read { yield _y }
-    }
-    
-    @inlinable
-    public var count: Int {
-        _y.count
-    }
-    
-    @inlinable
-    public init(start: Double, step: Double, y: [Element]) {
-        precondition(!y.isEmpty, "`y` must not be empty")
-        self._start = start
-        self.step = step
-        self.inverseStep = 1.0 / step
-        self._y = .init(y)
-    }
-    
-    @inlinable
-    public mutating func popFirst() -> Element? {
-        if y.count == 1 { return nil }
-        _start += step
-        return _y.popFirst()
-    }
-    
-    @inlinable
-    public mutating func popLast() -> Element? {
-        if y.count == 1 { return nil }
-        _start -= step
-        return _y.popLast()
-    }
-    
-    @inlinable
-    public mutating func prepend(_ element: Element) {
-        _y.prepend(element)
-        _start -= step
-    }
-    
-    @inlinable
-    public mutating func append(_ element: Element) {
-        _y.append(element)
-        _start += step
-    }
-}
-
-public extension UniformDequeLinearInterpolator<Double> {
-    @inlinable
-    @inline(always)
-    func callAsFunction(_ t: Double) -> Double? {
-        sample(t)
-    }
-    
-    @inlinable
-    func sample(_ t: Double) -> Double? {
-        if t < _start { return nil }
-        if t == _start { return y[0] }
-        let u = (t - _start) * inverseStep
-        var k = Int(u)
-        if k > _y.count - 1 { return nil }
-        if k == _y.count - 1 { return y.last! }
-        if k < 0 { k = 0 }
-        let theta = u - Double(k)
-        return (1.0 - theta) * _y[k] + theta * _y[k + 1]
-    }
-}
-
-public extension UniformDequeLinearInterpolator<Complex<Double>> {
-    @inlinable
-    @inline(always)
-    func callAsFunction(_ t: Double) -> Complex<Double>? {
-        sample(t)
-    }
-    
-    @inlinable
-    func sample(_ t: Double) -> Complex<Double>? {
-        if t < _start { return nil }
-        if t == _start { return y[0] }
-        let u = (t - _start) * inverseStep
-        var k = Int(u)
-        if k > _y.count - 1 { return nil }
-        if k == _y.count - 1 { return y.last! }
-        if k < 0 { k = 0 }
-        let theta = u - Double(k)
-        return (1.0 - theta) * _y[k] + theta * _y[k + 1]
-    }
-}
-
 public final class UniformSlidingWindowOrnsteinUhlenbeckProcess: ComplexNoiseProcess {
     @usableFromInline
     internal var interpolator: UniformDequeLinearInterpolator<Complex<Double>>
     
     @usableFromInline
-    internal var generator: NumPyRandom
+    internal var generator: Philox4x64
     
     @usableFromInline
     internal let r: [Complex<Double>]
@@ -133,10 +29,9 @@ public final class UniformSlidingWindowOrnsteinUhlenbeckProcess: ComplexNoisePro
     internal let windowSize: Int
     
     @inlinable
-    public init(G: [Double], W: [Complex<Double>], windowDuration: Double, start: Double, step: Double, seed: UInt32 = .random(in: .min ... .max)) {
+    public init(G: [Double], W: [Complex<Double>], windowDuration: Double, start: Double, step: Double, generator: consuming Philox4x64) {
         precondition(G.count == W.count, "The count of G and W must be equal.")
         let windowSize = Int(windowDuration / step) + 1
-        var generator = NumPyRandom(seed: seed)
         var samples: [Complex<Double>] = .init(repeating: .zero, count: windowSize)
         var _x: [Complex<Double>] = []
         var _r: [Complex<Double>] = []
@@ -167,16 +62,17 @@ public final class UniformSlidingWindowOrnsteinUhlenbeckProcess: ComplexNoisePro
     }
     
     @inlinable
-    public convenience init(G: Double, W: Complex<Double>, windowDuration: Double, start: Double, step: Double, seed: UInt32 = .random(in: .min ... .max)) {
-        self.init(G: [G], W: [W], windowDuration: windowDuration, start: start, step: step, seed: seed)
+    public convenience init(G: [Double], W: [Complex<Double>], windowDuration: Double, start: Double, step: Double, seed: UInt64) {
+        let generator = Philox4x64(seed: seed)
+        self.init(G: G, W: W, windowDuration: windowDuration, start: start, step: step, generator: generator)
     }
     
     @inlinable
     @inline(always)
     public func sample(_ t: Double) -> Complex<Double> {
         if t < interpolator.start { preconditionFailure("Asking for a sample before the start.") }
-        if interpolator.count > windowSize { _ = interpolator.popFirst() }
         while true {
+            if interpolator.count > windowSize { _ = interpolator.popFirst() }
             let sample = interpolator.sample(t)
             if let sample { return isAntithetic ? -sample : sample }
             var newSample: Complex<Double> = .zero
@@ -206,7 +102,7 @@ public final class UniformSlidingWindowOrnsteinUhlenbeckProcess: ComplexNoisePro
     }
 }
 
-public struct UniformSlidingWindowOrnsteinUhlenbeckProcessGenerator: NoiseProcessGenerator, Sendable {
+public struct UniformSlidingWindowOrnsteinUhlenbeckProcessGenerator: Sendable {
     @usableFromInline
     internal let G: [Double]
     
@@ -238,8 +134,14 @@ public struct UniformSlidingWindowOrnsteinUhlenbeckProcessGenerator: NoiseProces
     
     @inlinable
     @inline(always)
-    public func generate(seed: UInt32) -> UniformSlidingWindowOrnsteinUhlenbeckProcess {
+    public func generate(seed: UInt64) -> UniformSlidingWindowOrnsteinUhlenbeckProcess {
         UniformSlidingWindowOrnsteinUhlenbeckProcess(G: G, W: W, windowDuration: windowDuration, start: start, step: step, seed: seed)
+    }
+    
+    @inlinable
+    @inline(always)
+    public func generate(generator: consuming Philox4x64) -> UniformSlidingWindowOrnsteinUhlenbeckProcess {
+        UniformSlidingWindowOrnsteinUhlenbeckProcess(G: G, W: W, windowDuration: windowDuration, start: start, step: step, generator: generator)
     }
     
 }

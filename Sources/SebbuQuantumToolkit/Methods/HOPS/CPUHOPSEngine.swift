@@ -9,7 +9,7 @@ public struct CPUHOPSEngine: Sendable {
     public init() {}
 }
 
-extension CPUHOPSEngine: HOPS.HierarchyProvidingRandomNumberGeneratorDrivenImplementation {
+extension CPUHOPSEngine: HOPS.Implementation {
     @inlinable
     public func solveWithHierarchy<Hamiltonian, RNG>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG, observing observer: (Double, borrowing HOPS.HierarchyStateView) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator {
         throw ImplementationError.notImplemented

@@ -9,14 +9,13 @@ public struct GaussianFFTThermalBCFNoiseProcess: ComplexNoiseProcess, Sendable {
     internal let spline: CubicHermiteSpline<Complex<Double>>
     
     @inlinable
-    public init(temperature: Double, tMax: Double, dtMax: Double = 0.01, deltaOmegaMax: Double = 0.01, omegaMax: Double? = nil, seed: UInt32 = .random(in: .min ... .max), spectralDensity: @escaping (Double) -> Double) {
+    public init<Generator: RandomNumberGenerator>(temperature: Double, tMax: Double, dtMax: Double = 0.01, deltaOmegaMax: Double = 0.01, omegaMax: Double? = nil, generator: inout Generator, spectralDensity: @escaping (Double) -> Double) {
         // With zero temperature, this is just the same as the typical FFT process
         if temperature == .zero {
-            let process = GaussianFFTNoiseProcess(tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, spectralDensity: spectralDensity)
+            let process = GaussianFFTNoiseProcess(tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, generator: &generator, spectralDensity: spectralDensity)
             self.spline = process.spline
             return
         }
-        var generator = NumPyRandom(seed: seed)
         // Sample the z minus process
         let zMinusProcess = GaussianFFTNoiseProcess(tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, generator: &generator) { omega in
             (GaussianFFTThermalBCFNoiseProcess.boseEinstein(omega, temperature) + 1) * spectralDensity(omega)
@@ -62,7 +61,7 @@ public struct GaussianFFTThermalBCFNoiseProcess: ComplexNoiseProcess, Sendable {
     
 }
 
-public struct GaussianFFTThermalBCFNoiseProcessGenerator: NoiseProcessGenerator, Sendable {
+public struct GaussianFFTThermalBCFNoiseProcessGenerator: Sendable {
     @usableFromInline
     internal let temperature: Double
     @usableFromInline
@@ -87,14 +86,8 @@ public struct GaussianFFTThermalBCFNoiseProcessGenerator: NoiseProcessGenerator,
     }
     
     @inlinable
-    @inline(__always)
-    public func generate() -> sending GaussianFFTThermalBCFNoiseProcess {
-        GaussianFFTThermalBCFNoiseProcess(temperature: temperature, tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, spectralDensity: spectralDensity)
-    }
-    
-    @inlinable
     @inline(always)
-    public func generate(seed: UInt32) -> GaussianFFTThermalBCFNoiseProcess {
-        GaussianFFTThermalBCFNoiseProcess(temperature: temperature, tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, seed: seed, spectralDensity: spectralDensity)
+    public func generate<Generator: RandomNumberGenerator>(generator: inout Generator) -> GaussianFFTThermalBCFNoiseProcess {
+        GaussianFFTThermalBCFNoiseProcess(temperature: temperature, tMax: tMax, dtMax: dtMax, deltaOmegaMax: deltaOmegaMax, omegaMax: omegaMax, generator: &generator, spectralDensity: spectralDensity)
     }
 }

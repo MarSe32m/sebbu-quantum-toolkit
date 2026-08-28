@@ -10,7 +10,7 @@ public struct CPUMCWFEngine: Sendable {
     public init() {}
 }
 
-extension CPUMCWFEngine: MCWF.RandomNumberGeneratorDrivenImplementation {
+extension CPUMCWFEngine: MCWF.Implementation {
     @inlinable
     @discardableResult
     public func solve<Hamiltonian>(problem: PureStateProblem<Hamiltonian>, configuration: MCWF.Configuration, propagation: PropagationOptions<IntegrationOptions>, seed: UInt64, trajectoryID: UInt64, observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction {

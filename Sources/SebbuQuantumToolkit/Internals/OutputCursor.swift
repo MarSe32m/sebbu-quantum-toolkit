@@ -144,6 +144,31 @@ internal struct OutputCursor {
 		}
 	}
 
+	/// Returns the next fixed output time that an integrator must land on.
+	///
+	/// Deterministic integrators can interpolate inside an accepted step, but
+	/// stochastic integrators generally cannot do so without retaining the
+	/// driving Brownian path. Such integrators use this value as a hard step
+	/// boundary and then call ``nextTime(through:)`` after accepting the step.
+	@inlinable
+	internal var nextRequiredStepBoundary: Double? {
+		switch schedule {
+		case .everyAcceptedStep:
+			return nil
+
+		case .times(let times):
+			guard explicitTimeIndex < times.count else { return nil }
+			return times[explicitTimeIndex]
+
+		case .uniform(let step):
+			let time = timeSpan.start + Double(uniformTimeIndex) * step
+			return time <= timeSpan.end ? time : nil
+
+		case .final:
+			return emittedFinalState ? nil : timeSpan.end
+		}
+	}
+
 	/// Returns the next scheduled time no later than an accepted step end.
 	@inlinable
 	internal mutating func nextTime(through acceptedStepEnd: Double) -> Double? {

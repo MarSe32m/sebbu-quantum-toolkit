@@ -11,10 +11,8 @@ extension CPUGKSLEngine {
 	{
 		@usableFromInline
 		internal let hamiltonian: Hamiltonian
-		@usableFromInline
-		internal let constantChannels: [_PreparedConstantMarkovianChannel]
-		@usableFromInline
-		internal let dynamicChannels: [_PreparedDynamicMarkovianChannel]
+        @usableFromInline
+        internal let channels: [PreparedChannel]
 
 		@usableFromInline
 		internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
@@ -32,30 +30,28 @@ extension CPUGKSLEngine {
 			let dimension = problem.system.dimension
 			precondition(dimension > 0, "The quantum-system dimension must be positive")
 
-			var constantChannels: [_PreparedConstantMarkovianChannel] = []
-			var dynamicChannels: [_PreparedDynamicMarkovianChannel] = []
-			constantChannels.reserveCapacity(problem.markovianChannels.count)
-			dynamicChannels.reserveCapacity(problem.markovianChannels.count)
-
-			for channel in problem.markovianChannels {
-				if let prepared = _PreparedConstantMarkovianChannel(
-					channel,
-					dimension: dimension
-				) {
-					constantChannels.append(prepared)
-				} else {
-					dynamicChannels.append(
-						_PreparedDynamicMarkovianChannel(
-							channel,
-							dimension: dimension
-						)
-					)
-				}
-			}
+            var channels: [PreparedChannel] = []
+            channels.reserveCapacity(problem.markovianChannels.count)
+            for channel in problem.markovianChannels {
+                if let prepared = _PreparedConstantMarkovianChannel(
+                    channel,
+                    dimension: dimension
+                ) {
+                    channels.append(.constant(prepared))
+                } else {
+                    channels.append(
+                        .dynamic(
+                            _PreparedDynamicMarkovianChannel(
+                                channel,
+                                dimension: dimension
+                            )
+                        )
+                    )
+                }
+            }
 
 			self.hamiltonian = problem.system.hamiltonian
-			self.constantChannels = constantChannels
-			self.dynamicChannels = dynamicChannels
+            self.channels = channels
 			self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)
 			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
 			self.adjointBuffer = .zeros(rows: dimension, columns: dimension)
@@ -73,8 +69,6 @@ extension CPUGKSLEngine {
 			// channel storage from overlapping the inout accesses to scratch
 			// matrices in `self`. Their arrays and matrices retain COW storage.
 			let hamiltonian = self.hamiltonian
-			let constantChannels = self.constantChannels
-			let dynamicChannels = self.dynamicChannels
 
 			// -i[H(t), rho]
 			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
@@ -90,73 +84,69 @@ extension CPUGKSLEngine {
 			)
 
 			// gamma * (C rho C^dagger - 1/2 {C^dagger C, rho})
-			for channel in constantChannels {
-				let rate = channel.rate(t)
-				Self.validate(rate: rate)
-				if rate == .zero { continue }
+            for channel in channels {
+                let rate = channel.rate(t)
+                let lossScale = Complex(-0.5 * rate)
+                Self.validate(rate: rate)
+                if rate == .zero { continue }
+                
+                switch channel {
+                case .constant(let channel):
+                    channel.collapseOperator.dotBLAS(
+                        y.densityMatrix,
+                        into: &productBuffer
+                    )
+                    productBuffer.dotBLAS(
+                        channel.collapseOperatorAdjoint,
+                        multiplied: Complex(rate),
+                        addingInto: &dy.densityMatrix
+                    )
 
-				channel.collapseOperator.dotBLAS(
-					y.densityMatrix,
-					into: &productBuffer
-				)
-				productBuffer.dotBLAS(
-					channel.collapseOperatorAdjoint,
-					multiplied: Complex(rate),
-					addingInto: &dy.densityMatrix
-				)
+                    channel.lossOperator.dotBLAS(
+                        y.densityMatrix,
+                        multiplied: lossScale,
+                        addingInto: &dy.densityMatrix
+                    )
+                    y.densityMatrix.dotBLAS(
+                        channel.lossOperator,
+                        multiplied: lossScale,
+                        addingInto: &dy.densityMatrix
+                    )
+                case .dynamic(let channel):
+                    channel.insert(t: t, into: &collapseBuffer)
+                    for row in 0..<collapseBuffer.rows {
+                        for column in 0..<collapseBuffer.columns {
+                            adjointBuffer[column, row] =
+                                collapseBuffer[row, column].conjugate
+                        }
+                    }
 
-				let lossScale = Complex(-0.5 * rate)
-				channel.lossOperator.dotBLAS(
-					y.densityMatrix,
-					multiplied: lossScale,
-					addingInto: &dy.densityMatrix
-				)
-				y.densityMatrix.dotBLAS(
-					channel.lossOperator,
-					multiplied: lossScale,
-					addingInto: &dy.densityMatrix
-				)
-			}
+                    adjointBuffer.dotBLAS(
+                        collapseBuffer,
+                        into: &productBuffer
+                    )
+                    collapseBuffer.dotBLAS(
+                        y.densityMatrix,
+                        into: &temporaryBuffer
+                    )
+                    temporaryBuffer.dotBLAS(
+                        adjointBuffer,
+                        multiplied: Complex(rate),
+                        addingInto: &dy.densityMatrix
+                    )
 
-			for channel in dynamicChannels {
-				let rate = channel.rate(t)
-				Self.validate(rate: rate)
-				if rate == .zero { continue }
-
-				channel.insert(t: t, into: &collapseBuffer)
-				for row in 0..<collapseBuffer.rows {
-					for column in 0..<collapseBuffer.columns {
-						adjointBuffer[column, row] =
-							collapseBuffer[row, column].conjugate
-					}
-				}
-
-				adjointBuffer.dotBLAS(
-					collapseBuffer,
-					into: &productBuffer
-				)
-				collapseBuffer.dotBLAS(
-					y.densityMatrix,
-					into: &temporaryBuffer
-				)
-				temporaryBuffer.dotBLAS(
-					adjointBuffer,
-					multiplied: Complex(rate),
-					addingInto: &dy.densityMatrix
-				)
-
-				let lossScale = Complex(-0.5 * rate)
-				productBuffer.dotBLAS(
-					y.densityMatrix,
-					multiplied: lossScale,
-					addingInto: &dy.densityMatrix
-				)
-				y.densityMatrix.dotBLAS(
-					productBuffer,
-					multiplied: lossScale,
-					addingInto: &dy.densityMatrix
-				)
-			}
+                    productBuffer.dotBLAS(
+                        y.densityMatrix,
+                        multiplied: lossScale,
+                        addingInto: &dy.densityMatrix
+                    )
+                    y.densityMatrix.dotBLAS(
+                        productBuffer,
+                        multiplied: lossScale,
+                        addingInto: &dy.densityMatrix
+                    )
+                }
+            }
 		}
 
 		@inlinable
