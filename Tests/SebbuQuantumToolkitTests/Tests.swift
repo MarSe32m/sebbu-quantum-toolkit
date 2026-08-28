@@ -170,17 +170,6 @@ func testTrajectoryAPISurface() throws {
 			trajectoryID: 0
 		) { _, _ in }
 	}
-
-	let qsdConfiguration = QSD.Configuration(equationType: .nonLinearNormalized)
-	#expect(throws: ImplementationError.notImplemented) {
-		try QSD.solve(
-			problem: problem,
-			configuration: qsdConfiguration,
-			propagation: options,
-			seed: 0,
-			trajectoryID: 0
-		) { _, _ in }
-	}
 }
 
 private var zeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {

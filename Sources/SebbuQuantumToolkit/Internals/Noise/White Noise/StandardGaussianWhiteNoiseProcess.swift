@@ -4,6 +4,7 @@
 import Numerics
 import SebbuScience
 
+//TODO: Maybe this should be generic over RandomNumberGenerator?
 public final class StandardGaussianWhiteNoiseProcess: ComplexWhiteNoiseProcess, @unchecked Sendable {
     @usableFromInline
     internal var generator: NumPyRandom
@@ -13,7 +14,6 @@ public final class StandardGaussianWhiteNoiseProcess: ComplexWhiteNoiseProcess, 
         self.generator = NumPyRandom(seed: seed)
     }
 
-    
     @inlinable
     @inline(always)
     public func sample(_ t: Double) -> Complex<Double> {

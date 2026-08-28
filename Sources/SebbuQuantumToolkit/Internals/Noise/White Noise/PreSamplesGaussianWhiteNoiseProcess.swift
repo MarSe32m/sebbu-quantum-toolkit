@@ -4,6 +4,7 @@
 import Numerics
 import SebbuScience
 
+//TODO: Maybe this should be generic over RandomNumberGenerator?
 public struct PreSampledGaussianWhiteNoiseProcess: ComplexWhiteNoiseProcess, @unchecked Sendable {
     @usableFromInline
     internal let interpolator: NearestNeighbourInterpolator<Complex<Double>>

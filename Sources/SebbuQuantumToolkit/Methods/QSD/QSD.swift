@@ -9,6 +9,7 @@ public enum QSD: Sendable {}
 extension QSD {
 	public enum EquationType: Sendable {
 		case linear
+        case nonLinear
 		case nonLinearNormalized
 	}
 

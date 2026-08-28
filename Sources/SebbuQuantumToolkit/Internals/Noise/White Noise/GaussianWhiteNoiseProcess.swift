@@ -4,6 +4,7 @@
 import Numerics
 import SebbuScience
 
+//TODO: Maybe this should be generic over RandomNumberGenerator?
 public class GaussianWhiteNoiseProcess: ComplexWhiteNoiseProcess {
     @usableFromInline
     internal let mean: ComplexTimeFunction
