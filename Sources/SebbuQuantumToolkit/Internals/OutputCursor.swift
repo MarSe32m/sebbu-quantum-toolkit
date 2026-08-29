@@ -169,6 +169,35 @@ internal struct OutputCursor {
 		}
 	}
 
+	/// Returns the next fixed output time strictly before `upperBound`.
+	///
+	/// Event-driven propagators use this to emit dense-output samples which
+	/// precede a discontinuity. The state at the discontinuity itself can then
+	/// be emitted separately, after the jump has been applied. Accepted-step
+	/// and final-only schedules have no pre-event sample to return.
+	@inlinable
+	internal mutating func nextTime(before upperBound: Double) -> Double? {
+		switch schedule {
+		case .everyAcceptedStep, .final:
+			return nil
+
+		case .times(let times):
+			guard explicitTimeIndex < times.count else { return nil }
+			let time = times[explicitTimeIndex]
+			guard time < upperBound else { return nil }
+			explicitTimeIndex += 1
+			return time
+
+		case .uniform(let step):
+			let time = timeSpan.start + Double(uniformTimeIndex) * step
+			guard time < upperBound && time <= timeSpan.end else {
+				return nil
+			}
+			uniformTimeIndex += 1
+			return time
+		}
+	}
+
 	/// Returns the next scheduled time no later than an accepted step end.
 	@inlinable
 	internal mutating func nextTime(through acceptedStepEnd: Double) -> Double? {

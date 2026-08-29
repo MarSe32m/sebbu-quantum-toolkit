@@ -62,7 +62,8 @@ extension CPUQSDEngine {
 			self.channels = channels
 			self.randomNumberGenerator = TrajectoryRandomNumberGenerator(
 				seed: seed,
-				trajectoryID: trajectoryID
+				trajectoryID: trajectoryID,
+                purpose: .gaussianWhiteNoise
 			)
 			self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)
 			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)

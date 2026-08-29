@@ -47,7 +47,7 @@ public struct TrajectoryExecution: Sendable {
 	public init(
 		trajectories count: Int,
 		startingAt firstTrajectoryID: UInt64 = 0,
-		seed: UInt64,
+        seed: UInt64 = .random(in: .min ... .max),
 		parallelism: TrajectoryParallelism = .automatic,
 		batchSize: Int? = nil
 	) {

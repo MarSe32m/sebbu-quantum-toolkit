@@ -133,45 +133,6 @@ func gkslEveryAcceptedStepSchedule() throws {
 	}
 }
 
-@Test("Unimplemented trajectory façades retain their API surface")
-func testTrajectoryAPISurface() throws {
-	let hamiltonian = ConstantHamiltonian(
-		Matrix<Complex<Double>>(
-			elements: [.zero, .one, .one, .one],
-			rows: 2,
-			columns: 2
-		)
-	)
-	let system = QuantumSystem(dimension: 2, hamiltonian: hamiltonian)
-	let problem = PureStateProblem(
-		initialState: Vector<Complex<Double>>([.zero, .one]),
-		system: system,
-		markovianChannels: [
-			MarkovianChannel(
-				rate: .constant(0.1),
-				collapseOperator: loweringOperator
-			)
-		]
-	)
-	let options = propagationOptions(end: 1, output: .final)
-
-	let mcwfConfiguration = MCWF.Configuration(
-		jumpAlgorithm: .waitingTime(
-			eventTolerance: 1e-10,
-			maximumEventIterations: 64
-		)
-	)
-	#expect(throws: ImplementationError.notImplemented) {
-		try MCWF.solve(
-			problem: problem,
-			configuration: mcwfConfiguration,
-			propagation: options,
-			seed: 0,
-			trajectoryID: 0
-		) { _, _ in }
-	}
-}
-
 private var zeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {
 	QuantumSystem(
 		Matrix<Complex<Double>>(

@@ -9,13 +9,21 @@ public enum MCWF: Sendable {}
 
 public extension MCWF {
 	enum JumpAlgorithm: Sendable {
-		/// Integrate the cumulative hazard and locate its crossing.
+		/// Integrate the cumulative hazard and locate the sampled waiting-time
+		/// threshold inside an accepted ODE step.
+		///
+		/// `eventTolerance` is an absolute tolerance in simulation-time units.
 		case waitingTime(
 			eventTolerance: Double,
 			maximumEventIterations: Int
 		)
 
-		/// Test for jumps over discrete integration intervals.
+		/// Test for a jump at the end of every accepted integration interval.
+		///
+		/// The interval jump probability is obtained from the integrated hazard,
+		/// `1 - exp(-Delta Lambda)`, and at most one jump is applied per interval.
+		/// `IntegrationOptions.maximumStepSize` therefore controls the temporal
+		/// resolution of the discrete-time approximation.
 		case discreteTime
 	}
 
@@ -28,6 +36,18 @@ public extension MCWF {
 				maximumEventIterations: 64
 			)
 		) {
+			if case .waitingTime(let eventTolerance, let maximumEventIterations) =
+				jumpAlgorithm
+			{
+				precondition(
+					eventTolerance.isFinite && eventTolerance > .zero,
+					"The MCWF event tolerance must be positive and finite"
+				)
+				precondition(
+					maximumEventIterations > 0,
+					"The maximum MCWF event-iteration count must be positive"
+				)
+			}
 			self.jumpAlgorithm = jumpAlgorithm
 		}
 	}

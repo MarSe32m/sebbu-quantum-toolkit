@@ -6,7 +6,7 @@ import SebbuScience
 import Numerics
 import SebbuQuantumToolkit
 
-public func testGKLSRadiativeDamping(endTime: Double) {
+public func exampleGKSLRadiativeDamping(endTime: Double) {
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, -.one, -.one, .one], rows: 2, columns: 2)
     )
@@ -52,7 +52,7 @@ public func testGKLSRadiativeDamping(endTime: Double) {
                 propagation: propagationOptions
             ) { time, rho in
                 X.append(2 * rho[0, 1].real)
-                Y.append(-2 * rho[0, 1].imaginary)
+                Y.append(2 * rho[0, 1].imaginary)
                 Z.append(rho[0, 0].real - rho[1, 1].real)
                 return .proceed
             }
@@ -72,7 +72,7 @@ public func testGKLSRadiativeDamping(endTime: Double) {
     plt.close()
 }
 
-public func testResonanceFluorescenceSpectrum() {
+public func exampleGKSLResonanceFluorescenceSpectrum() {
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, Complex(0.5), Complex(0.5), .zero], rows: 2, columns: 2)
     )
@@ -88,7 +88,7 @@ public func testResonanceFluorescenceSpectrum() {
         system: system,
         markovianChannels: [markovianChannel]
     )
-    let tSteady = 1000.0
+    let tSteady = 200.0
     var propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: tSteady),
         output: .final,
