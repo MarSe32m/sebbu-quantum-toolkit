@@ -43,40 +43,24 @@ public func exampleQSDRadiativeDamping(endTime: Double) {
         )
     )
     let configuration = QSD.Configuration(equationType: .nonLinearNormalized)
-    let trajectories = 2048
+    let trajectories = 4096
     var X: [Double] = []
     var Y: [Double] = []
     var Z: [Double] = []
     do {
         let executionTime = try ContinuousClock().measure {
-            for id: UInt64 in 0..<UInt64(trajectories) {
-                var _x: [Double] = []
-                var _y: [Double] = []
-                var _z: [Double] = []
-                try QSD.solve(
-                    problem: problem,
-                    configuration: configuration,
-                    propagation: propagationOptions,
-                    seed: 1234,
-                    trajectoryID: id
-                ) { time, state in
-                    let stateNormSquared = state.normSquared
-                    _x.append((2 * state[0] * state[1].conjugate).real / (stateNormSquared * Double(trajectories)))
-                    _y.append((2 * state[0] * state[1].conjugate).imaginary / (stateNormSquared * Double(trajectories)))
-                    _z.append((state[0].lengthSquared - state[1].lengthSquared) / (stateNormSquared * Double(trajectories)))
-                    return .proceed
-                }
-                if X.isEmpty {
-                    X = _x
-                    Y = _y
-                    Z = _z
-                } else {
-                    for i in X.indices {
-                        X[i] += _x[i]
-                        Y[i] += _y[i]
-                        Z[i] += _z[i]
-                    }
-                }
+            try QSD.solveEnsemble(
+                problem: problem,
+                configuration: configuration,
+                propagation: propagationOptions,
+                execution: TrajectoryExecution(
+                    trajectories: trajectories,
+                    seed: 1234
+                )
+            ) { _, densityMatrix in
+                X.append(2 * densityMatrix[0, 1].real)
+                Y.append(2 * densityMatrix[0, 1].imaginary)
+                Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
             }
         }
         print("QSD simulation took:", executionTime)

@@ -71,6 +71,11 @@ public extension MCWF {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
+		/// Solves and averages the requested trajectories into density matrices.
+		///
+		/// The callback is invoked serially in output-time order after the parallel
+		/// reduction. A fixed output schedule is required because independent
+		/// trajectories need a common set of sampling times.
 		@discardableResult
 		func solveEnsemble<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
@@ -84,6 +89,7 @@ public extension MCWF {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
+		/// Solves independent trajectories. The callback can run concurrently.
         @discardableResult
         func solveTrajectories<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,

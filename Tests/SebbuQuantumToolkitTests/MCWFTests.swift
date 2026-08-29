@@ -3,6 +3,7 @@
 
 import Numerics
 import SebbuScience
+import Synchronization
 import Testing
 
 @testable import SebbuQuantumToolkit
@@ -105,7 +106,7 @@ struct CPUMCWFEngineTests {
 			observations.append(
 				(time, state[0].lengthSquared, state[1].lengthSquared)
 			)
-            return .proceed
+			return .proceed
 		}
 
 		let sampledUniform = (Double(UInt64(1) << 52) + 0.5) * 0x1.0p-53
@@ -140,7 +141,7 @@ struct CPUMCWFEngineTests {
 			observations.append(
 				(time, state[0].lengthSquared, state[1].lengthSquared)
 			)
-            return .proceed
+			return .proceed
 		}
 
 		#expect(observations.count == 3)
@@ -211,7 +212,7 @@ struct CPUMCWFEngineTests {
 			rng: &randomNumberGenerator
 		) { _, state in
 			finalState = [state[0], state[1], state[2]]
-            return .proceed
+			return .proceed
 		}
 
 		#expect(finalState.count == 3)
@@ -245,6 +246,121 @@ struct CPUMCWFEngineTests {
 		}
 	}
 
+	@Test("solveTrajectories runs the requested IDs on a shared output schedule")
+	func solveTrajectories() throws {
+		let outputTimes = [0.0, 0.03, 0.07]
+		let problem = mcwfProblem(markovianChannels: [])
+		let observations = Mutex<[UInt64: [Double]]>([:])
+		let execution = TrajectoryExecution(
+			trajectoryIDs: UInt64(11)..<15,
+			randomness: .seeded(0xDEAD_BEEF),
+			parallelism: .maximumConcurrentTasks(2),
+			batchSize: 2
+		)
+
+		let summary = try MCWF.solveTrajectories(
+			problem: problem,
+			configuration: .init(),
+			propagation: mcwfPropagationOptions(
+				end: 0.1,
+				output: .times(outputTimes),
+				maximumStep: 0.04
+			),
+			execution: execution
+		) { trajectoryID, time, _ in
+			observations.withLock { values in
+				values[trajectoryID, default: []].append(time)
+			}
+		}
+
+		let recorded = observations.withLock { $0 }
+		#expect(recorded.count == execution.trajectoryIDs.count)
+		for trajectoryID in execution.trajectoryIDs {
+			#expect(recorded[trajectoryID] == outputTimes)
+		}
+		#expect(summary.trajectoryIDs == execution.trajectoryIDs)
+		#expect(summary.masterSeed == 0xDEAD_BEEF)
+		#expect(summary.propagation.finalTime == 0.1)
+		#expect(summary.propagation.endReason == .reachedEndTime)
+	}
+
+	@Test("Ensemble reduction is reproducible across parallelism choices")
+	func ensembleParallelismReplay() throws {
+		let problem = mcwfProblem(
+			initialState: [.zero, .one],
+			markovianChannels: [mcwfAmplitudeDampingChannel(rate: 0.8)]
+		)
+		let propagation = mcwfPropagationOptions(
+			end: 0.5,
+			output: .final,
+			maximumStep: 0.02
+		)
+
+		func solve(parallelism: TrajectoryParallelism) throws
+			-> Matrix<Complex<Double>>
+		{
+			var result = Matrix<Complex<Double>>.zeros(rows: 2, columns: 2)
+			try MCWF.solveEnsemble(
+				problem: problem,
+				configuration: .init(),
+				propagation: propagation,
+				execution: TrajectoryExecution(
+					trajectories: 64,
+					seed: 0xBADC_0DE,
+					parallelism: parallelism,
+					batchSize: 4
+				)
+			) { _, densityMatrix in
+				result = Matrix(copying: densityMatrix)
+			}
+			return result
+		}
+
+		let serial = try solve(parallelism: .serial)
+		let parallel = try solve(parallelism: .maximumConcurrentTasks(4))
+        #expect(serial.isApproximatelyEqual(to: parallel, absoluteTolerance: 1e-15))
+	}
+
+	@Test("solveEnsemble reports averaged density matrices on the fixed schedule")
+	func fixedScheduleEnsemble() throws {
+		let outputTimes = [0.0, 0.03, 0.07]
+		let problem = mcwfProblem(
+			initialState: [.zero, Complex(2)],
+			markovianChannels: []
+		)
+		var observedTimes: [Double] = []
+		var observedMatrices: [Matrix<Complex<Double>>] = []
+
+		let summary = try MCWF.solveEnsemble(
+			problem: problem,
+			configuration: .init(),
+			propagation: mcwfPropagationOptions(
+				end: 0.1,
+				output: .times(outputTimes),
+				maximumStep: 0.04
+			),
+			execution: TrajectoryExecution(
+				trajectories: 4,
+				seed: 123,
+				parallelism: .maximumConcurrentTasks(2),
+				batchSize: 2
+			)
+		) { time, densityMatrix in
+			observedTimes.append(time)
+			observedMatrices.append(Matrix(copying: densityMatrix))
+		}
+
+		#expect(observedTimes == outputTimes)
+		#expect(observedMatrices.count == outputTimes.count)
+		for densityMatrix in observedMatrices {
+			#expect(densityMatrix[0, 0].length < 1e-14)
+			#expect(densityMatrix[0, 1].length < 1e-14)
+			#expect(densityMatrix[1, 0].length < 1e-14)
+			#expect((densityMatrix[1, 1] - .one).length < 1e-14)
+		}
+		#expect(summary.propagation.finalTime == 0.1)
+	}
+
 	@Test("Both jump algorithms reproduce amplitude damping in ensemble")
 	func amplitudeDampingEnsemble() throws {
 		let rate = 0.7
@@ -263,22 +379,23 @@ struct CPUMCWFEngineTests {
 
 		for algorithm in mcwfAlgorithms {
 			var excitedPopulation = 0.0
-			for trajectoryID in 0..<trajectoryCount {
-				try MCWF.solve(
-					problem: problem,
-					configuration: .init(jumpAlgorithm: algorithm),
-					propagation: propagation,
+			let summary = try MCWF.solveEnsemble(
+				problem: problem,
+				configuration: .init(jumpAlgorithm: algorithm),
+				propagation: propagation,
+				execution: TrajectoryExecution(
+					trajectories: trajectoryCount,
 					seed: 0xC0FF_EE,
-					trajectoryID: UInt64(trajectoryID),
-					observing: { _, state in
-						excitedPopulation += state[1].lengthSquared
-						return .proceed
-					}
+					parallelism: .maximumConcurrentTasks(4),
+					batchSize: 16
 				)
+			) { _, densityMatrix in
+				excitedPopulation = densityMatrix[1, 1].real
 			}
 
-			let ensembleAverage = excitedPopulation / Double(trajectoryCount)
-			#expect(abs(ensembleAverage - expectedExcitedPopulation) < 0.06)
+			#expect(abs(excitedPopulation - expectedExcitedPopulation) < 0.06)
+			#expect(summary.propagation.finalTime == end)
+			#expect(summary.propagation.endReason == .reachedEndTime)
 		}
 	}
 

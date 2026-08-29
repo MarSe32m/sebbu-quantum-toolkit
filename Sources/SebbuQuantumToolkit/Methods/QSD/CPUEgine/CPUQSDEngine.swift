@@ -8,7 +8,7 @@ public struct CPUQSDEngine: QSD.Implementation, QSD.TwoTimeCorrelationImplementa
 	@inlinable
 	public init() {}
 
-	public enum SolverError: Error, Equatable {
+	public enum SolverError: Error, Equatable, Sendable {
 		case invalidStateNorm(time: Double)
 	}
 }

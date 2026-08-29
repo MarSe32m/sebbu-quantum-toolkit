@@ -3,6 +3,7 @@
 
 import Numerics
 import SebbuScience
+import Synchronization
 import Testing
 
 @testable import SebbuQuantumToolkit
@@ -118,6 +119,146 @@ struct CPUQSDEngineTests {
 		}
 	}
 
+	@Test("solveTrajectories runs the requested IDs on a shared output schedule")
+	func solveTrajectories() throws {
+		let outputTimes = [0.0, 0.03, 0.07]
+		let problem = qsdProblem(markovianChannels: [])
+		let observations = Mutex<[UInt64: [Double]]>([:])
+		let execution = TrajectoryExecution(
+			trajectoryIDs: UInt64(5)..<9,
+			randomness: .seeded(0xCAFE_BABE),
+			parallelism: .maximumConcurrentTasks(2),
+			batchSize: 2
+		)
+
+		let summary = try QSD.solveTrajectories(
+			problem: problem,
+			configuration: .init(equationType: .linear),
+			propagation: qsdPropagationOptions(
+				end: 0.1,
+				output: .times(outputTimes),
+				maximumStep: 0.04
+			),
+			execution: execution
+		) { trajectoryID, time, _ in
+			observations.withLock { values in
+				values[trajectoryID, default: []].append(time)
+			}
+		}
+
+		let recorded = observations.withLock { $0 }
+		#expect(recorded.count == execution.trajectoryIDs.count)
+		for trajectoryID in execution.trajectoryIDs {
+			#expect(recorded[trajectoryID] == outputTimes)
+		}
+		#expect(summary.trajectoryIDs == execution.trajectoryIDs)
+		#expect(summary.masterSeed == 0xCAFE_BABE)
+		#expect(summary.propagation.finalTime == 0.1)
+		#expect(summary.propagation.endReason == .reachedEndTime)
+	}
+
+	@Test("Ensembles reject trajectory-dependent accepted-step output")
+	func ensembleRejectsAcceptedStepOutput() {
+		let problem = qsdProblem(markovianChannels: [])
+		let execution = TrajectoryExecution(
+			trajectories: 2,
+			seed: 1,
+			parallelism: .serial
+		)
+
+		#expect(
+			throws: TrajectoryEnsembleError.everyAcceptedStepOutputIsNotSupported
+		) {
+			try QSD.solveEnsemble(
+				problem: problem,
+				configuration: .init(equationType: .linear),
+				propagation: qsdPropagationOptions(
+					end: 0.1,
+					output: .everyAcceptedStep,
+					maximumStep: 0.02
+				),
+				execution: execution
+			) { _, _ in }
+		}
+	}
+
+	@Test("solveEnsemble reports averaged density matrices on the fixed schedule")
+	func fixedScheduleEnsemble() throws {
+		let outputTimes = [0.0, 0.03, 0.07]
+		let problem = qsdProblem(
+			initialState: [.one, .one],
+			markovianChannels: []
+		)
+		var observedTimes: [Double] = []
+		var observedMatrices: [Matrix<Complex<Double>>] = []
+
+		let summary = try QSD.solveEnsemble(
+			problem: problem,
+			configuration: .init(equationType: .nonLinearNormalized),
+			propagation: qsdPropagationOptions(
+				end: 0.1,
+				output: .times(outputTimes),
+				maximumStep: 0.04
+			),
+			execution: TrajectoryExecution(
+				trajectories: 4,
+				seed: 123,
+				parallelism: .maximumConcurrentTasks(2),
+				batchSize: 2
+			)
+		) { time, densityMatrix in
+			observedTimes.append(time)
+			observedMatrices.append(Matrix(copying: densityMatrix))
+		}
+
+		#expect(observedTimes == outputTimes)
+		#expect(observedMatrices.count == outputTimes.count)
+		for densityMatrix in observedMatrices {
+			for element in densityMatrix.elements {
+				#expect((element - Complex(0.5)).length < 1e-14)
+			}
+		}
+		#expect(summary.propagation.finalTime == 0.1)
+	}
+
+	@Test("Ensemble reduction is reproducible across parallelism choices")
+	func ensembleParallelismReplay() throws {
+		let component = Complex<Double>(1 / 2.0.squareRoot())
+		let problem = qsdProblem(
+			initialState: [component, component],
+			markovianChannels: [amplitudeDampingChannel(rate: 0.8)]
+		)
+		let propagation = qsdPropagationOptions(
+			end: 0.1,
+			output: .final,
+			maximumStep: 0.002
+		)
+
+		func solve(parallelism: TrajectoryParallelism) throws
+			-> Matrix<Complex<Double>>
+		{
+			var result = Matrix<Complex<Double>>.zeros(rows: 2, columns: 2)
+			try QSD.solveEnsemble(
+				problem: problem,
+				configuration: .init(equationType: .nonLinearNormalized),
+				propagation: propagation,
+				execution: TrajectoryExecution(
+					trajectories: 64,
+					seed: 0xA11C_E,
+					parallelism: parallelism,
+					batchSize: 4
+				)
+			) { _, densityMatrix in
+				result = Matrix(copying: densityMatrix)
+			}
+			return result
+		}
+
+		let serial = try solve(parallelism: .serial)
+		let parallel = try solve(parallelism: .maximumConcurrentTasks(4))
+        #expect(serial.isApproximatelyEqual(to: parallel, absoluteTolerance: 1e-14))
+	}
+
 	@Test("Adjacent trajectory IDs do not use shifted copies of one stream")
 	func trajectoryStreamsAreSeparated() {
 		var first = TrajectoryRandomNumberGenerator(
@@ -154,7 +295,7 @@ struct CPUQSDEngineTests {
 			trajectoryID: 3
 		) { _, state in
 			maximumNormError = Swift.max(maximumNormError, abs(state.normSquared - 1))
-            return .proceed
+			return .proceed
 		}
 
 		#expect(maximumNormError < 5e-14)
@@ -251,29 +392,23 @@ struct CPUQSDEngineTests {
 
 		for equationType in qsdEquationTypes {
 			var excitedPopulation = 0.0
-			for trajectoryID in 0..<trajectoryCount {
-				try QSD.solve(
-					problem: problem,
-					configuration: .init(equationType: equationType),
-					propagation: propagation,
+			let summary = try QSD.solveEnsemble(
+				problem: problem,
+				configuration: .init(equationType: equationType),
+				propagation: propagation,
+				execution: TrajectoryExecution(
+					trajectories: trajectoryCount,
 					seed: 0xC0FF_EE,
-					trajectoryID: UInt64(trajectoryID),
-					observing: { _, state in
-						let normalization: Double
-						switch equationType {
-						case .linear:
-							normalization = 1
-						case .nonLinear, .nonLinearNormalized:
-							normalization = state.normSquared
-						}
-						excitedPopulation +=
-							state[1].lengthSquared / normalization
-						return .proceed
-					})
+					parallelism: .maximumConcurrentTasks(4),
+					batchSize: 16
+				)
+			) { _, densityMatrix in
+				excitedPopulation = densityMatrix[1, 1].real
 			}
 
-			let ensembleAverage = excitedPopulation / Double(trajectoryCount)
-			#expect(abs(ensembleAverage - expectedExcitedPopulation) < 0.06)
+			#expect(abs(excitedPopulation - expectedExcitedPopulation) < 0.06)
+			#expect(summary.propagation.finalTime == end)
+			#expect(summary.propagation.endReason == .reachedEndTime)
 		}
 	}
 }
@@ -356,7 +491,7 @@ private func finalQSDState(
 		trajectoryID: trajectoryID
 	) { _, state in
 		result = [state[0], state[1]]
-        return .proceed
+		return .proceed
 	}
 	return result
 }
