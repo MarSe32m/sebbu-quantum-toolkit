@@ -15,7 +15,7 @@ import Musl
 internal enum Platform: Sendable {
     static let activeProcessorCount: Int = {
         #if canImport(WinSDK)
-        let count = GetActiveProcssorCount(WORD(ALL_PROCESSOR_GROUPS))
+        let count = GetActiveProcessorCount(WORD(ALL_PROCESSOR_GROUPS))
         #elseif canImport(Darwin) || canImport(Glibc) || canImport(Musl)
         let count = sysconf(Int32(_SC_NPROCESSORS_ONLN))
         #else
