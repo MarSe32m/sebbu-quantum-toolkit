@@ -22,6 +22,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.9"),
+        .package(url: "https://github.com/MarSe32m/sebbu-blas", from: "0.2.0"),
         .package(url: "https://github.com/MarSe32m/sebbu-cuda", from: "0.0.1"),
         .package(url: "https://github.com/MarSe32m/sebbu-collections", from: "0.0.1"),
         .package(url: "https://github.com/MarSe32m/sebbu-python-kit", from: "0.0.1"),
@@ -33,6 +34,7 @@ let package = Package(
             name: "SebbuQuantumToolkit",
             dependencies: [
                 .product(name: "SebbuScience", package: "sebbu-science"),
+                .product(name: "SebbuBLAS", package: "sebbu-blas"),
                 .product(name: "SebbuCollections", package: "sebbu-collections"),
                 .product(name: "Numerics", package: "swift-numerics"),
                 .product(name: "BasicContainers", package: "swift-collections")

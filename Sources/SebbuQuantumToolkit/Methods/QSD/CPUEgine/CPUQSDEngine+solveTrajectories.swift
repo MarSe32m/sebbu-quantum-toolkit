@@ -4,6 +4,7 @@
 import Numerics
 import SebbuCollections
 import SebbuScience
+import SebbuBLAS
 
 extension CPUQSDEngine {
 	@discardableResult
@@ -19,6 +20,10 @@ extension CPUQSDEngine {
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        let currentThreadCount = BLAS.getNumThreads()
+        BLAS.setNumThreads(1)
+        defer { BLAS.setNumThreads(currentThreadCount) }
+        
 		let masterSeed = execution.resolvedMasterSeed()
 		let parallelism = Swift.min(
 			execution.resolvedMaximumConcurrentTasks,

@@ -5,6 +5,7 @@ import Numerics
 import NumericsExtensions
 import SebbuCollections
 import SebbuScience
+import SebbuBLAS
 
 extension CPUMCWFEngine {
 	@discardableResult
@@ -20,6 +21,10 @@ extension CPUMCWFEngine {
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        let currentThreadCount = BLAS.getNumThreads()
+        BLAS.setNumThreads(1)
+        defer { BLAS.setNumThreads(currentThreadCount) }
+        
 		let masterSeed = execution.resolvedMasterSeed()
 		let parallelism = Swift.min(
 			execution.resolvedMaximumConcurrentTasks,

@@ -6,6 +6,7 @@ import SebbuCollections
 import SebbuScience
 import Synchronization
 import BasicContainers
+import SebbuBLAS
 
 extension CPUQSDEngine {
 	@discardableResult
@@ -19,6 +20,10 @@ extension CPUQSDEngine {
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        let currentThreadCount = BLAS.getNumThreads()
+        BLAS.setNumThreads(1)
+        defer { BLAS.setNumThreads(currentThreadCount) }
+        
 		let outputTimes = try _fixedEnsembleOutputTimes(
 			timeSpan: propagation.timeSpan,
 			schedule: propagation.output

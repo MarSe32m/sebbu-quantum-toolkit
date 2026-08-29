@@ -96,7 +96,7 @@ extension TrajectoryExecution {
 		case .serial:
 			return 1
 		case .automatic:
-            return .max
+            return Swift.min(Platform.activeProcessorCount, trajectoryIDs.count)
 		case .maximumConcurrentTasks(let tasks):
 			precondition(
 				tasks > 0, "The maximum concurrent task count must be positive")
