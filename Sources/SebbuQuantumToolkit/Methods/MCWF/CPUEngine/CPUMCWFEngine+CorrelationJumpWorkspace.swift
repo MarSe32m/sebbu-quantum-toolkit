@@ -15,7 +15,9 @@ extension CPUMCWFEngine {
 		@usableFromInline
         internal var guideAction: UniqueVector<Complex<Double>>
 		@usableFromInline
-        internal var companionAction: UniqueVector<Complex<Double>>
+		internal var ketAction: UniqueVector<Complex<Double>>
+		@usableFromInline
+		internal var braAction: UniqueVector<Complex<Double>>
 		@usableFromInline
         internal var weights: [Double]
 
@@ -27,7 +29,8 @@ extension CPUMCWFEngine {
 				columns: dimension
 			)
 			self.guideAction = .zero(dimension)
-			self.companionAction = .zero(dimension)
+			self.ketAction = .zero(dimension)
+			self.braAction = .zero(dimension)
 			self.weights = [Double](repeating: .zero, count: channels.count)
 		}
 
@@ -80,10 +83,15 @@ extension CPUMCWFEngine {
 				at: time,
 				state: state.guide
 			)
-			applyToCompanion(
+			applyToKet(
 				selectedChannel,
 				at: time,
-				state: state.companion
+				state: state.ket
+			)
+			applyToBra(
+				selectedChannel,
+				at: time,
+				state: state.bra
 			)
 			let normSquared = guideAction.normSquared
 			guard normSquared.isFinite && normSquared > .zero else {
@@ -94,8 +102,12 @@ extension CPUMCWFEngine {
 				from: guideAction,
 				multiplied: inverseNorm
 			)
-			state.companion.copyComponents(
-				from: companionAction,
+			state.ket.copyComponents(
+				from: ketAction,
+				multiplied: inverseNorm
+			)
+			state.bra.copyComponents(
+				from: braAction,
 				multiplied: inverseNorm
 			)
 		}
@@ -119,7 +131,7 @@ extension CPUMCWFEngine {
 
         @inlinable
         @inline(always)
-		internal mutating func applyToCompanion(
+		internal mutating func applyToKet(
 			_ channel: PreparedChannel,
 			at time: Double,
 			state: borrowing UniqueVector<Complex<Double>>
@@ -128,12 +140,28 @@ extension CPUMCWFEngine {
 			case .constant(let channel):
 				channel.collapseOperator.dotBLAS(
 					state,
-					into: &companionAction
+					into: &ketAction
 				)
 
 			case .dynamic(let channel):
 				channel.insert(t: time, into: &collapseBuffer)
-				collapseBuffer.dotBLAS(state, into: &companionAction)
+				collapseBuffer.dotBLAS(state, into: &ketAction)
+			}
+		}
+
+		@inlinable
+		@inline(always)
+		internal mutating func applyToBra(
+			_ channel: PreparedChannel,
+			at time: Double,
+			state: borrowing UniqueVector<Complex<Double>>
+		) {
+			switch channel {
+			case .constant(let channel):
+				channel.collapseOperator.dotBLAS(state, into: &braAction)
+			case .dynamic(let channel):
+				channel.insert(t: time, into: &collapseBuffer)
+				collapseBuffer.dotBLAS(state, into: &braAction)
 			}
 		}
 

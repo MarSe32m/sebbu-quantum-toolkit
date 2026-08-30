@@ -25,7 +25,9 @@ extension CPUMCWFEngine {
 		@usableFromInline
         internal var guideAction: UniqueVector<Complex<Double>>
 		@usableFromInline
-        internal var companionAction: UniqueVector<Complex<Double>>
+		internal var ketAction: UniqueVector<Complex<Double>>
+		@usableFromInline
+		internal var braAction: UniqueVector<Complex<Double>>
 
         @inlinable
 		internal init(
@@ -49,7 +51,8 @@ extension CPUMCWFEngine {
 			)
 			self.lossBuffer = .zeros(rows: dimension, columns: dimension)
 			self.guideAction = .zero(dimension)
-			self.companionAction = .zero(dimension)
+			self.ketAction = .zero(dimension)
+			self.braAction = .zero(dimension)
 		}
 
 		@inlinable
@@ -71,9 +74,14 @@ extension CPUMCWFEngine {
 				into: &dy.guide
 			)
 			hamiltonianBuffer.dotBLAS(
-				y.companion,
+				y.ket,
 				multiplied: -.i,
-				into: &dy.companion
+				into: &dy.ket
+			)
+			hamiltonianBuffer.dotBLAS(
+				y.bra,
+				multiplied: -.i,
+				into: &dy.bra
 			)
 
 			var totalHazardRate = 0.0
@@ -89,7 +97,8 @@ extension CPUMCWFEngine {
 						y: y,
 						normSquared: normSquared,
 						guideAction: &guideAction,
-						companionAction: &companionAction,
+						ketAction: &ketAction,
+						braAction: &braAction,
 						dy: &dy,
 						totalHazardRate: &totalHazardRate
 					)
@@ -113,7 +122,8 @@ extension CPUMCWFEngine {
 						y: y,
 						normSquared: normSquared,
 						guideAction: &guideAction,
-						companionAction: &companionAction,
+						ketAction: &ketAction,
+						braAction: &braAction,
 						dy: &dy,
 						totalHazardRate: &totalHazardRate
 					)
@@ -122,7 +132,8 @@ extension CPUMCWFEngine {
 
 			let normalizationDrift = Complex(0.5 * totalHazardRate)
 			dy.guide.add(y.guide, multiplied: normalizationDrift)
-			dy.companion.add(y.companion, multiplied: normalizationDrift)
+			dy.ket.add(y.ket, multiplied: normalizationDrift)
+			dy.bra.add(y.bra, multiplied: normalizationDrift)
 			dy.hazard = totalHazardRate
 		}
 
@@ -134,12 +145,14 @@ extension CPUMCWFEngine {
 			y: borrowing CorrelationState,
 			normSquared: Double,
 			guideAction: inout UniqueVector<Complex<Double>>,
-			companionAction: inout UniqueVector<Complex<Double>>,
+			ketAction: inout UniqueVector<Complex<Double>>,
+			braAction: inout UniqueVector<Complex<Double>>,
 			dy: inout CorrelationState,
 			totalHazardRate: inout Double
 		) {
 			lossOperator.dotBLAS(y.guide, into: &guideAction)
-			lossOperator.dotBLAS(y.companion, into: &companionAction)
+			lossOperator.dotBLAS(y.ket, into: &ketAction)
+			lossOperator.dotBLAS(y.bra, into: &braAction)
 
 			let rawExpectation = y.guide.inner(guideAction).real / normSquared
 			precondition(
@@ -161,7 +174,8 @@ extension CPUMCWFEngine {
 
 			let coefficient = Complex(-0.5 * rate)
 			dy.guide.add(guideAction, multiplied: coefficient)
-			dy.companion.add(companionAction, multiplied: coefficient)
+			dy.ket.add(ketAction, multiplied: coefficient)
+			dy.bra.add(braAction, multiplied: coefficient)
 		}
 
         @inlinable

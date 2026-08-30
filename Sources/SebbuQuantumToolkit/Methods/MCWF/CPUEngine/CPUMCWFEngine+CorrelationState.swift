@@ -10,28 +10,40 @@ extension CPUMCWFEngine {
 		@usableFromInline
         internal var guide: UniqueVector<Complex<Double>>
 		@usableFromInline
-        internal var companion: UniqueVector<Complex<Double>>
+		internal var ket: UniqueVector<Complex<Double>>
+		@usableFromInline
+		internal var bra: UniqueVector<Complex<Double>>
 		@usableFromInline
         internal var hazard: Double
 
         @inlinable
 		internal init(guide: Vector<Complex<Double>>) {
 			self.guide = .init(copying: guide)
-			self.companion = .zero(guide.count)
+			self.ket = .zero(guide.count)
+			self.bra = .zero(guide.count)
+			self.hazard = .zero
+		}
+
+		@inlinable
+		internal init(guideAndDyad guide: Vector<Complex<Double>>) {
+			self.guide = .init(copying: guide)
+			self.ket = .init(copying: guide)
+			self.bra = .init(copying: guide)
 			self.hazard = .zero
 		}
 
         @inlinable
 		internal init(dimension: Int) {
 			self.guide = .zero(dimension)
-			self.companion = .zero(dimension)
+			self.ket = .zero(dimension)
+			self.bra = .zero(dimension)
 			self.hazard = .zero
 		}
 
 		@inlinable
         internal var norm: Double {
 			Swift.max(
-				Swift.max(guide.norm, companion.norm),
+				Swift.max(Swift.max(guide.norm, ket.norm), bra.norm),
 				abs(hazard)
 			)
 		}
@@ -43,8 +55,11 @@ extension CPUMCWFEngine {
 			.hypot(
 				guide.euclideanDistance(to: other.guide),
 				.hypot(
-					companion.euclideanDistance(to: other.companion),
-					hazard - other.hazard
+					ket.euclideanDistance(to: other.ket),
+					.hypot(
+						bra.euclideanDistance(to: other.bra),
+						hazard - other.hazard
+					)
 				)
 			)
 		}
@@ -82,27 +97,47 @@ extension CPUMCWFEngine {
 					if !sumOfSquares.isFinite { return .infinity }
 				}
 
-				let companionDifference =
-					(companion[index] - lowerOrderEstimate.companion[index])
+				let ketDifference =
+					(ket[index] - lowerOrderEstimate.ket[index])
 					.length
-				let companionScale =
+				let ketScale =
 					absoluteTolerance
 					+ relativeTolerance
 					* Swift.max(
-						companion[index].length,
-						stepStart.companion[index].length
+						ket[index].length,
+						stepStart.ket[index].length
 					)
 				guard
-					companionDifference.isFinite,
-					companionScale.isFinite,
-					companionScale >= .zero
+					ketDifference.isFinite,
+					ketScale.isFinite,
+					ketScale >= .zero
 				else {
 					return .infinity
 				}
-				if companionScale == .zero {
-					if companionDifference != .zero { return .infinity }
+				if ketScale == .zero {
+					if ketDifference != .zero { return .infinity }
 				} else {
-					let ratio = companionDifference / companionScale
+					let ratio = ketDifference / ketScale
+					sumOfSquares += ratio * ratio
+					if !sumOfSquares.isFinite { return .infinity }
+				}
+
+				let braDifference =
+					(bra[index] - lowerOrderEstimate.bra[index]).length
+				let braScale =
+					absoluteTolerance
+					+ relativeTolerance
+					* Swift.max(
+						bra[index].length,
+						stepStart.bra[index].length
+					)
+				guard braDifference.isFinite, braScale.isFinite, braScale >= .zero else {
+					return .infinity
+				}
+				if braScale == .zero {
+					if braDifference != .zero { return .infinity }
+				} else {
+					let ratio = braDifference / braScale
 					sumOfSquares += ratio * ratio
 					if !sumOfSquares.isFinite { return .infinity }
 				}
@@ -128,14 +163,15 @@ extension CPUMCWFEngine {
 				if !sumOfSquares.isFinite { return .infinity }
 			}
 
-			return (sumOfSquares / Double(2 * guide.count + 1)).squareRoot()
+			return (sumOfSquares / Double(3 * guide.count + 1)).squareRoot()
 		}
 
         @inlinable
         @inline(always)
 		internal mutating func assign(_ other: borrowing CorrelationState) {
 			guide.copyComponents(from: other.guide)
-			companion.copyComponents(from: other.companion)
+			ket.copyComponents(from: other.ket)
+			bra.copyComponents(from: other.bra)
 			hazard = other.hazard
 		}
 
@@ -146,7 +182,8 @@ extension CPUMCWFEngine {
 			multiplied coefficient: Double
 		) {
 			guide.add(other.guide, multiplied: coefficient)
-			companion.add(other.companion, multiplied: coefficient)
+			ket.add(other.ket, multiplied: coefficient)
+			bra.add(other.bra, multiplied: coefficient)
 			hazard += coefficient * other.hazard
 		}
 
@@ -162,9 +199,14 @@ extension CPUMCWFEngine {
 				adding: direction.guide,
 				multiplied: coefficient
 			)
-			companion.copyComponents(
-				from: base.companion,
-				adding: direction.companion,
+			ket.copyComponents(
+				from: base.ket,
+				adding: direction.ket,
+				multiplied: coefficient
+			)
+			bra.copyComponents(
+				from: base.bra,
+				adding: direction.bra,
 				multiplied: coefficient
 			)
 			hazard = base.hazard + coefficient * direction.hazard

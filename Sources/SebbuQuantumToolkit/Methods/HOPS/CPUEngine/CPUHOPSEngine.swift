@@ -48,6 +48,19 @@ extension CPUHOPSEngine: HOPS.TwoTimeCorrelationImplementation {
     }
 }
 
+extension CPUHOPSEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
+	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
+		problem: PureStateProblem<Hamiltonian>,
+		configuration: HOPS.Configuration,
+		request: MultiTimeOrderedCorrelationRequest,
+		propagation: PropagationOptions<IntegrationOptions>,
+		execution: TrajectoryExecution,
+		observing observer: (Double, Complex<Double>) -> PropagationControl
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+		throw ImplementationError.notImplemented
+	}
+}
+
 extension HOPS {
     @inlinable
     @inline(always)

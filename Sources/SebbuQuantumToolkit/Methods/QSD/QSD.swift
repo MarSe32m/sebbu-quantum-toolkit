@@ -94,3 +94,17 @@ public extension QSD {
         where Hamiltonian: HamiltonianFunction
     }
 }
+
+public extension QSD {
+	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
+		@discardableResult
+		func solveMultiTimeOrderedCorrelation<Hamiltonian>(
+			problem: PureStateProblem<Hamiltonian>,
+			configuration: QSD.Configuration,
+			request: MultiTimeOrderedCorrelationRequest,
+			propagation: PropagationOptions<IntegratorConfiguration>,
+			execution: TrajectoryExecution,
+			observing observer: (Double, Complex<Double>) -> PropagationControl
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+	}
+}

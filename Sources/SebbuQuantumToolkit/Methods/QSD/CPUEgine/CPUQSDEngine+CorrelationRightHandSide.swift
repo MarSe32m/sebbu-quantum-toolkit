@@ -99,9 +99,14 @@ extension CPUQSDEngine {
 				into: &dy.guide
 			)
 			hamiltonianBuffer.dotBLAS(
-				y.companion,
+				y.ket,
 				multiplied: -.i,
-				into: &dy.companion
+				into: &dy.ket
+			)
+			hamiltonianBuffer.dotBLAS(
+				y.bra,
+				multiplied: -.i,
+				into: &dy.bra
 			)
 
 			let normSquared: Double
@@ -253,9 +258,14 @@ extension CPUQSDEngine {
 				addingInto: &dy.guide
 			)
 			lossOperator.dotBLAS(
-				y.companion,
+				y.ket,
 				multiplied: lossCoefficient,
-				addingInto: &dy.companion
+				addingInto: &dy.ket
+			)
+			lossOperator.dotBLAS(
+				y.bra,
+				multiplied: lossCoefficient,
+				addingInto: &dy.bra
 			)
 
 			switch equationType {
@@ -273,9 +283,14 @@ extension CPUQSDEngine {
 					addingInto: &dy.guide
 				)
 				collapseOperator.dotBLAS(
-					y.companion,
+					y.ket,
 					multiplied: shiftCoefficient,
-					addingInto: &dy.companion
+					addingInto: &dy.ket
+				)
+				collapseOperator.dotBLAS(
+					y.bra,
+					multiplied: shiftCoefficient,
+					addingInto: &dy.bra
 				)
 
 				guard case .nonLinearNormalized = equationType else {
@@ -289,7 +304,8 @@ extension CPUQSDEngine {
 					rate
 					* (0.5 * lossExpectation - expectation.lengthSquared)
 				dy.guide.add(y.guide, multiplied: scalar)
-				dy.companion.add(y.companion, multiplied: scalar)
+				dy.ket.add(y.ket, multiplied: scalar)
+				dy.bra.add(y.bra, multiplied: scalar)
 			}
 		}
 
@@ -310,9 +326,14 @@ extension CPUQSDEngine {
 				addingInto: &dy.guide
 			)
 			collapseOperator.dotBLAS(
-				y.companion,
+				y.ket,
 				multiplied: Complex(coefficient),
-				addingInto: &dy.companion
+				addingInto: &dy.ket
+			)
+			collapseOperator.dotBLAS(
+				y.bra,
+				multiplied: Complex(coefficient),
+				addingInto: &dy.bra
 			)
 
 			guard equationType == .nonLinearNormalized else { return }
@@ -321,7 +342,8 @@ extension CPUQSDEngine {
 				/ normSquared
 			let shift = -coefficient * expectation
 			dy.guide.add(y.guide, multiplied: shift)
-			dy.companion.add(y.companion, multiplied: shift)
+			dy.ket.add(y.ket, multiplied: shift)
+			dy.bra.add(y.bra, multiplied: shift)
 		}
 	}
 }

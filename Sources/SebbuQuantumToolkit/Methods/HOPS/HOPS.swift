@@ -284,3 +284,17 @@ public extension HOPS {
         where Hamiltonian: HamiltonianFunction
     }
 }
+
+public extension HOPS {
+	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
+		@discardableResult
+		func solveMultiTimeOrderedCorrelation<Hamiltonian>(
+			problem: PureStateProblem<Hamiltonian>,
+			configuration: HOPS.Configuration,
+			request: MultiTimeOrderedCorrelationRequest,
+			propagation: PropagationOptions<IntegratorConfiguration>,
+			execution: TrajectoryExecution,
+			observing observer: (Double, Complex<Double>) -> PropagationControl
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+	}
+}

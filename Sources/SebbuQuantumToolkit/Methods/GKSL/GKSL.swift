@@ -94,5 +94,37 @@ extension GKSL.TwoTimeCorrelationImplementation {
             propagation: propagation,
             observing: observer
         )
-    }
+	}
+}
+
+extension GKSL {
+	public protocol MultiTimeOrderedCorrelationImplementation: Implementation {
+		@discardableResult
+		func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
+			problem: borrowing DensityMatrixProblem<Hamiltonian>,
+			configuration: GKSL.Configuration,
+			request: MultiTimeOrderedCorrelationRequest,
+			propagation: PropagationOptions<IntegratorConfiguration>,
+			observing observer: (Double, Complex<Double>) -> PropagationControl
+		) throws -> PropagationRunSummary
+	}
+}
+
+extension GKSL.MultiTimeOrderedCorrelationImplementation {
+	@discardableResult
+	public func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
+		problem: borrowing PureStateProblem<Hamiltonian>,
+		configuration: GKSL.Configuration = .init(),
+		request: MultiTimeOrderedCorrelationRequest,
+		propagation: PropagationOptions<IntegratorConfiguration>,
+		observing observer: (Double, Complex<Double>) -> PropagationControl
+	) throws -> PropagationRunSummary {
+		try solveMultiTimeOrderedCorrelation(
+			problem: DensityMatrixProblem(problem),
+			configuration: configuration,
+			request: request,
+			propagation: propagation,
+			observing: observer
+		)
+	}
 }

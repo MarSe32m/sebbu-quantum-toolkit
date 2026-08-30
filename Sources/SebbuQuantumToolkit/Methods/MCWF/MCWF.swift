@@ -124,3 +124,17 @@ public extension MCWF {
         where Hamiltonian: HamiltonianFunction
     }
 }
+
+public extension MCWF {
+	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
+		@discardableResult
+		func solveMultiTimeOrderedCorrelation<Hamiltonian>(
+			problem: PureStateProblem<Hamiltonian>,
+			configuration: MCWF.Configuration,
+			request: MultiTimeOrderedCorrelationRequest,
+			propagation: PropagationOptions<IntegratorConfiguration>,
+			execution: TrajectoryExecution,
+			observing observer: (Double, Complex<Double>) -> PropagationControl
+		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+	}
+}

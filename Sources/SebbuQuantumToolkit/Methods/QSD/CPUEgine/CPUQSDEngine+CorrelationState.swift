@@ -10,32 +10,44 @@ extension CPUQSDEngine {
         @usableFromInline
 		internal var guide: UniqueVector<Complex<Double>>
         @usableFromInline
-		internal var companion: UniqueVector<Complex<Double>>
+		internal var ket: UniqueVector<Complex<Double>>
+		@usableFromInline
+		internal var bra: UniqueVector<Complex<Double>>
 
         @inlinable
 		internal init(guide: Vector<Complex<Double>>) {
 			self.guide = .init(copying: guide)
-			self.companion = .zero(guide.count)
+			self.ket = .zero(guide.count)
+			self.bra = .zero(guide.count)
 		}
 
         @inlinable
 		internal init(dimension: Int) {
 			self.guide = .zero(dimension)
-			self.companion = .zero(dimension)
+			self.ket = .zero(dimension)
+			self.bra = .zero(dimension)
+		}
+
+		internal mutating func initializeDyadFromGuide() {
+			let guideCopy = UniqueVector(copying: guide)
+			ket.copyComponents(from: guideCopy)
+			bra.copyComponents(from: guideCopy)
 		}
 
         @inlinable
 		@inline(always)
 		internal mutating func zero() {
 			guide.zeroComponents()
-			companion.zeroComponents()
+			ket.zeroComponents()
+			bra.zeroComponents()
 		}
 
         @inlinable
         @inline(always)
 		internal mutating func assign(_ other: borrowing CorrelationState) {
 			guide.copyComponents(from: other.guide)
-			companion.copyComponents(from: other.companion)
+			ket.copyComponents(from: other.ket)
+			bra.copyComponents(from: other.bra)
 		}
 
         @inlinable
@@ -45,7 +57,8 @@ extension CPUQSDEngine {
 			multiplied coefficient: Double
 		) {
 			guide.add(other.guide, multiplied: coefficient)
-			companion.add(other.companion, multiplied: coefficient)
+			ket.add(other.ket, multiplied: coefficient)
+			bra.add(other.bra, multiplied: coefficient)
 		}
 
         @inlinable
@@ -60,9 +73,14 @@ extension CPUQSDEngine {
 				adding: direction.guide,
 				multiplied: coefficient
 			)
-			companion.copyComponents(
-				from: base.companion,
-				adding: direction.companion,
+			ket.copyComponents(
+				from: base.ket,
+				adding: direction.ket,
+				multiplied: coefficient
+			)
+			bra.copyComponents(
+				from: base.bra,
+				adding: direction.bra,
 				multiplied: coefficient
 			)
 		}
@@ -74,7 +92,8 @@ extension CPUQSDEngine {
 			scaledBy noise: borrowing Complex<Double>
 		) {
 			guide.add(other.guide, multiplied: noise)
-			companion.add(other.companion, multiplied: noise)
+			ket.add(other.ket, multiplied: noise)
+			bra.add(other.bra, multiplied: noise)
 		}
 	}
 }

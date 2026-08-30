@@ -253,5 +253,15 @@ public extension HEOM {
 			) -> PropagationControl
 		) throws -> PropagationRunSummary
 	}
-}
 
+	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
+		@discardableResult
+		func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
+			problem: DensityMatrixProblem<Hamiltonian>,
+			configuration: HEOM.Configuration,
+			request: MultiTimeOrderedCorrelationRequest,
+			propagation: PropagationOptions<IntegratorConfiguration>,
+			observing observer: (Double, Complex<Double>) -> PropagationControl
+		) throws -> PropagationRunSummary
+	}
+}
