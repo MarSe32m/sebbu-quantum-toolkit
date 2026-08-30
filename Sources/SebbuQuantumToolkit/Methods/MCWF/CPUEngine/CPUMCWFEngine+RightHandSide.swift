@@ -5,18 +5,27 @@ import Numerics
 import SebbuScience
 
 extension CPUMCWFEngine {
+    @usableFromInline
 	internal struct RightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable,
 		ODERHSFunction
 	{
+        @usableFromInline
 		internal let hamiltonian: Hamiltonian
+        @usableFromInline
 		internal let channels: [PreparedChannel]
 
-		internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
-		internal var collapseBuffer: UniqueMatrix<Complex<Double>>
-		internal var adjointBuffer: UniqueMatrix<Complex<Double>>
-		internal var lossBuffer: UniqueMatrix<Complex<Double>>
-		internal var operatorAction: UniqueVector<Complex<Double>>
+		@usableFromInline
+        internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+        internal var adjointBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+        internal var lossBuffer: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+        internal var operatorAction: UniqueVector<Complex<Double>>
 
+        @inlinable
 		internal init(
 			hamiltonian: Hamiltonian,
 			channels: [PreparedChannel],
@@ -31,6 +40,7 @@ extension CPUMCWFEngine {
 			self.operatorAction = .zero(dimension)
 		}
 
+        @inlinable
 		internal mutating func evaluate(
 			t: Double,
 			y: borrowing TrajectoryState,
@@ -110,7 +120,8 @@ extension CPUMCWFEngine {
 			dy.hazard = totalHazardRate
 		}
 
-		@inline(__always)
+        @inlinable
+        @inline(always)
 		internal static func checkedRate(_ rate: Double, at time: Double) -> Double {
 			precondition(
 				rate.isFinite && rate >= .zero,
@@ -120,6 +131,7 @@ extension CPUMCWFEngine {
 		}
 	}
 
+    @inlinable
 	internal static func prepareChannels(
 		_ markovianChannels: [MarkovianChannel],
 		dimension: Int

@@ -79,7 +79,6 @@ public func exampleQSDRadiativeDamping(endTime: Double) {
 }
 
 public func exampleQSDResonanceFluorescenceSpectrum() {
-    fatalError("TODO: Implement two-time correlation functions for QSD")
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, Complex(0.5), Complex(0.5), .zero], rows: 2, columns: 2)
     )
@@ -90,12 +89,13 @@ public func exampleQSDResonanceFluorescenceSpectrum() {
         rate: .constant(0.075),
         collapseOperator: .constant(sigmaMinus)
     )
-    let problem = DensityMatrixProblem(
-        initialState: Matrix.init(elements: (0..<4).map { _ in Complex<Double>(0.5) }, rows: 2, columns: 2),
+    let initialComponent = Complex<Double>(1 / 2.0.squareRoot())
+    let problem = PureStateProblem(
+        initialState: Vector([initialComponent, initialComponent]),
         system: system,
         markovianChannels: [markovianChannel]
     )
-    let tSteady = 1000.0
+    let tSteady = 200.0
     var propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: tSteady),
         output: .final,
@@ -130,10 +130,10 @@ public func exampleQSDResonanceFluorescenceSpectrum() {
         observable: .constant(sigmaMinus)
     )
     let times: [Double] = .linearSpace(insertionTime, insertionTime + tSteady, 10000)
-    // We could also construct a new DensityMatrixProblem where the steady state is the initial
-    // state but this is also valid.
+    // Each guide trajectory is thermalized from -tSteady to the insertion.
+    // The companion then uses the same Wiener increments and guide shifts.
     propagationOptions = PropagationOptions(
-        timeSpan: .init(start: -1000, end: times.last!),
+        timeSpan: .init(start: -tSteady, end: times.last!),
         output: .times(times),
         integration: IntegrationOptions(
             minimumStepSize: 1e-8,
@@ -145,10 +145,15 @@ public func exampleQSDResonanceFluorescenceSpectrum() {
     var correlationFunction: [Complex<Double>] = []
     do {
         let executionTime = try ContinuousClock().measure {
-            try GKSL.solveTwoTimeCorrelation(
+            try QSD.solveTwoTimeCorrelation(
                 problem: problem,
+                configuration: .init(equationType: .nonLinear),
                 request: request,
-                propagation: propagationOptions
+                propagation: propagationOptions,
+                execution: TrajectoryExecution(
+                    trajectories: 8192,
+                    seed: 0xC0FFEE
+                )
             ) { t, sample in
                 correlationFunction.append(sample - sigmaMinusExpectation.lengthSquared)
                 return .proceed

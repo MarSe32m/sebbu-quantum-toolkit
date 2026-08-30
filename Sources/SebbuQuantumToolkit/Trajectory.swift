@@ -81,6 +81,7 @@ public struct TrajectoryExecution: Sendable {
 }
 
 extension TrajectoryExecution {
+    @inlinable
 	internal func resolvedMasterSeed() -> UInt64 {
 		switch randomness {
 		case .seeded(let seed):
@@ -90,6 +91,7 @@ extension TrajectoryExecution {
 		}
 	}
 
+    @inlinable
 	internal var resolvedMaximumConcurrentTasks: Int {
 		precondition(!trajectoryIDs.isEmpty, "At least one trajectory is required")
 		switch parallelism {
@@ -104,6 +106,7 @@ extension TrajectoryExecution {
 		}
 	}
 
+    @inlinable
 	internal var resolvedBatchSize: Int {
 		let result = batchSize ?? 1
 		precondition(result > 0, "The trajectory batch size must be positive")
@@ -111,21 +114,49 @@ extension TrajectoryExecution {
 	}
 }
 
+@usableFromInline
 internal struct _TrajectoryFailure: Sendable {
+    @usableFromInline
 	internal let trajectoryID: UInt64
+    @usableFromInline
 	internal let error: any Error
+    
+    @inlinable
+    init(trajectoryID: UInt64, error: any Error) {
+        self.trajectoryID = trajectoryID
+        self.error = error
+    }
 }
 
+@usableFromInline
 internal struct _TrajectorySolveResult: Sendable {
+    @usableFromInline
 	internal let trajectoryID: UInt64
+    @usableFromInline
 	internal let error: (any Error)?
+    
+    @inlinable
+    init(trajectoryID: UInt64, error: (any Error)?) {
+        self.trajectoryID = trajectoryID
+        self.error = error
+    }
 }
 
+@usableFromInline
 internal struct _TrajectoryEnsembleBatchResult: Sendable {
+    @usableFromInline
     internal let trajectoryCount: Int
+    @usableFromInline
 	internal let failure: _TrajectoryFailure?
+    
+    @inlinable
+    init(trajectoryCount: Int, failure: _TrajectoryFailure?) {
+        self.trajectoryCount = trajectoryCount
+        self.failure = failure
+    }
 }
 
+@inlinable
 internal func _fixedEnsembleOutputTimes(
 	timeSpan: SimulationTimeSpan,
 	schedule: OutputSchedule
@@ -145,6 +176,8 @@ internal func _fixedEnsembleOutputTimes(
 	return result
 }
 
+@inlinable
+@inline(always)
 internal func _emptyEnsembleSums(
 	count: Int,
 	dimension: Int
@@ -156,6 +189,7 @@ internal func _emptyEnsembleSums(
     }
 }
 
+@inlinable
 internal func _accumulateStateProjector(
 	_ state: borrowing UniqueVector<Complex<Double>>,
 	normalization: Double,
@@ -179,6 +213,7 @@ internal func _accumulateStateProjector(
 	}
 }
 
+@inlinable
 internal func _mergeEnsembleSums(
 	_ contribution: borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
 	into result: inout UniqueArray<UniqueMatrix<Complex<Double>>>

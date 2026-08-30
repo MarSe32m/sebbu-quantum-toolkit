@@ -2,32 +2,39 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import Numerics
+import NumericsExtensions
 import SebbuScience
 
 extension CPUMCWFEngine {
     @usableFromInline
-	internal struct JumpWorkspace: ~Copyable {
+	internal struct CorrelationJumpWorkspace: ~Copyable {
 		@usableFromInline
         internal let channels: [PreparedChannel]
 		@usableFromInline
         internal var collapseBuffer: UniqueMatrix<Complex<Double>>
 		@usableFromInline
-        internal var actionBuffer: UniqueVector<Complex<Double>>
+        internal var guideAction: UniqueVector<Complex<Double>>
+		@usableFromInline
+        internal var companionAction: UniqueVector<Complex<Double>>
 		@usableFromInline
         internal var weights: [Double]
 
         @inlinable
 		internal init(channels: [PreparedChannel], dimension: Int) {
 			self.channels = channels
-			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
-			self.actionBuffer = .zero(dimension)
+			self.collapseBuffer = .zeros(
+				rows: dimension,
+				columns: dimension
+			)
+			self.guideAction = .zero(dimension)
+			self.companionAction = .zero(dimension)
 			self.weights = [Double](repeating: .zero, count: channels.count)
 		}
 
         @inlinable
 		internal mutating func applyJump<RNG: RandomNumberGenerator>(
 			at time: Double,
-			state: inout TrajectoryState,
+			state: inout CorrelationState,
 			using randomNumberGenerator: inout RNG
 		) throws {
 			var totalWeight = 0.0
@@ -39,12 +46,8 @@ extension CPUMCWFEngine {
 					continue
 				}
 
-				apply(
-					channel,
-					at: time,
-					to: state.wavefunction
-				)
-				let weight = rate * actionBuffer.normSquared
+				applyToGuide(channel, at: time, state: state.guide)
+				let weight = rate * guideAction.normSquared
 				guard weight.isFinite && weight >= .zero else {
 					throw SolverError.invalidJumpWeight(
 						time: time,
@@ -71,29 +74,66 @@ extension CPUMCWFEngine {
 				throw SolverError.noAvailableJump(time: time)
 			}
 
-			apply(
-				channels[selectedIndex],
+			let selectedChannel = channels[selectedIndex]
+			applyToGuide(
+				selectedChannel,
 				at: time,
-				to: state.wavefunction
+				state: state.guide
 			)
-			state.wavefunction.copyComponents(from: actionBuffer)
-			try CPUMCWFEngine.normalize(&state, at: time)
+			applyToCompanion(
+				selectedChannel,
+				at: time,
+				state: state.companion
+			)
+			let normSquared = guideAction.normSquared
+			guard normSquared.isFinite && normSquared > .zero else {
+				throw SolverError.noAvailableJump(time: time)
+			}
+			let inverseNorm = 1 / normSquared.squareRoot()
+			state.guide.copyComponents(
+				from: guideAction,
+				multiplied: inverseNorm
+			)
+			state.companion.copyComponents(
+				from: companionAction,
+				multiplied: inverseNorm
+			)
 		}
 
         @inlinable
         @inline(always)
-		internal mutating func apply(
+		internal mutating func applyToGuide(
 			_ channel: PreparedChannel,
 			at time: Double,
-			to state: borrowing UniqueVector<Complex<Double>>
+			state: borrowing UniqueVector<Complex<Double>>
 		) {
 			switch channel {
 			case .constant(let channel):
-				channel.collapseOperator.dotBLAS(state, into: &actionBuffer)
+				channel.collapseOperator.dotBLAS(state, into: &guideAction)
 
 			case .dynamic(let channel):
 				channel.insert(t: time, into: &collapseBuffer)
-				collapseBuffer.dotBLAS(state, into: &actionBuffer)
+				collapseBuffer.dotBLAS(state, into: &guideAction)
+			}
+		}
+
+        @inlinable
+        @inline(always)
+		internal mutating func applyToCompanion(
+			_ channel: PreparedChannel,
+			at time: Double,
+			state: borrowing UniqueVector<Complex<Double>>
+		) {
+			switch channel {
+			case .constant(let channel):
+				channel.collapseOperator.dotBLAS(
+					state,
+					into: &companionAction
+				)
+
+			case .dynamic(let channel):
+				channel.insert(t: time, into: &collapseBuffer)
+				collapseBuffer.dotBLAS(state, into: &companionAction)
 			}
 		}
 

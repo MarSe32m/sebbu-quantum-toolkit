@@ -129,6 +129,9 @@ extension CPUMCWFEngine {
 
 	@usableFromInline
 	internal struct HazardFunctional: ODEStateLinearFunctional {
+        @inlinable
+        internal init() {}
+        
 		@inlinable
 		@inline(__always)
 		internal func evaluate(_ state: borrowing TrajectoryState) -> Double {

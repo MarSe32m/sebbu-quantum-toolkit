@@ -13,6 +13,7 @@ import Musl
 
 @usableFromInline
 internal enum Platform: Sendable {
+    @usableFromInline
     static let activeProcessorCount: Int = {
         #if canImport(WinSDK)
         let count = GetActiveProcessorCount(WORD(ALL_PROCESSOR_GROUPS))

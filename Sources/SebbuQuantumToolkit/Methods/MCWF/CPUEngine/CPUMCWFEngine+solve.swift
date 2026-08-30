@@ -71,6 +71,7 @@ extension CPUMCWFEngine {
 }
 
 extension CPUMCWFEngine {
+    @inlinable
 	internal func solveTrajectory<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
@@ -388,7 +389,8 @@ extension CPUMCWFEngine {
 		)
 	}
 
-	@inline(__always)
+    @inlinable
+    @inline(always)
 	internal static func validate(configuration: MCWF.Configuration) {
 		if case .waitingTime(let eventTolerance, let maximumEventIterations) =
 			configuration.jumpAlgorithm
@@ -404,7 +406,8 @@ extension CPUMCWFEngine {
 		}
 	}
 
-	@inline(__always)
+    @inlinable
+    @inline(always)
 	internal static func normalize(
 		_ state: inout TrajectoryState,
 		at time: Double
@@ -416,7 +419,8 @@ extension CPUMCWFEngine {
 		state.wavefunction.divideBLAS(by: normSquared.squareRoot())
 	}
 
-	@inline(__always)
+    @inlinable
+    @inline(always)
 	internal static func observeNormalized(
 		time: Double,
 		state: inout TrajectoryState,
@@ -429,7 +433,8 @@ extension CPUMCWFEngine {
 		return observer(time, state.wavefunction)
 	}
 
-	@inline(__always)
+    @inlinable
+    @inline(always)
 	internal static func nextWaitingTime<RNG: RandomNumberGenerator>(
 		using randomNumberGenerator: inout RNG
 	) -> Double {

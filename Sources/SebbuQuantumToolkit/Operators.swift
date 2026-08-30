@@ -7,7 +7,7 @@ import SebbuScience
 public enum TimeFunction<Value: Sendable>: Sendable {
 	case constant(Value)
 	case generated(@Sendable (Double) -> Value)
-
+    
 	@inlinable
 	@inline(always)
 	public func callAsFunction(_ t: Double) -> Value {
@@ -23,6 +23,29 @@ public enum TimeFunction<Value: Sendable>: Sendable {
 public typealias ScalarTimeFunction = TimeFunction<Double>
 public typealias ComplexTimeFunction =
 	TimeFunction<Complex<Double>>
+
+public extension ScalarTimeFunction {
+    @inlinable
+    @inline(always)
+    static func sin(frequency: Double) -> Self {
+        .generated( { .sin(frequency * $0) })
+    }
+    
+    @inlinable
+    @inline(always)
+    static func cos(frequency: Double) -> Self {
+        .generated( { .cos(frequency * $0) })
+    }
+}
+
+public extension ComplexTimeFunction {
+    /// e^{i * `frequency` * t}
+    @inlinable
+    @inline(always)
+    static func exp(frequency: Double) -> Self {
+        .generated( { .init(length: 1, phase: $0 * frequency) })
+    }
+}
 
 public enum TimeDependentOperator: Sendable {
 	case constant(ConstantOperator)

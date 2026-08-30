@@ -5,7 +5,6 @@ import Numerics
 import SebbuScience
 
 extension CPUGKSLEngine: GKSL.TwoTimeCorrelationImplementation {
-    @inlinable
     public func solveTwoTimeCorrelation<Hamiltonian>(
         problem: borrowing DensityMatrixProblem<Hamiltonian>,
         configuration: GKSL.Configuration = .init(),
@@ -20,11 +19,11 @@ extension CPUGKSLEngine: GKSL.TwoTimeCorrelationImplementation {
         let insertionTime = request.insertionTime
         let dimension = problem.system.dimension
 
-        try Self.validate(
-            request: request,
-            timeSpan: propagation.timeSpan,
-            dimension: dimension
-        )
+		try _validateTwoTimeCorrelationRequest(
+			request,
+			timeSpan: propagation.timeSpan,
+			dimension: dimension
+		)
 
         var outputCursor = OutputCursor(
             timeSpan: propagation.timeSpan,
@@ -179,52 +178,6 @@ extension CPUGKSLEngine: GKSL.TwoTimeCorrelationImplementation {
 
 extension CPUGKSLEngine {
 	@inlinable
-    internal static func validate(
-		request: TwoTimeCorrelationRequest,
-		timeSpan: SimulationTimeSpan,
-		dimension: Int
-	) throws {
-		guard request.insertionTime.isFinite else {
-			throw TwoTimeCorrelationError.nonFiniteInsertionTime
-		}
-		guard
-			request.insertionTime >= timeSpan.start
-				&& request.insertionTime <= timeSpan.end
-		else {
-			throw TwoTimeCorrelationError.insertionTimeOutsideTimeSpan(
-				insertionTime: request.insertionTime,
-				start: timeSpan.start,
-				end: timeSpan.end
-			)
-		}
-
-		let insertionOperator: TimeDependentOperator
-		switch request.insertion {
-		case .left(let value), .right(let value):
-			insertionOperator = value
-		}
-
-		if let mismatch = insertionOperator.firstDimensionMismatch(
-			expected: dimension
-		) {
-			throw TwoTimeCorrelationError.insertionOperatorDimensionMismatch(
-				expected: dimension,
-				rows: mismatch.rows,
-				columns: mismatch.columns
-			)
-		}
-		if let mismatch = request.observable.firstDimensionMismatch(
-			expected: dimension
-		) {
-			throw TwoTimeCorrelationError.observableDimensionMismatch(
-				expected: dimension,
-				rows: mismatch.rows,
-				columns: mismatch.columns
-			)
-		}
-	}
-
-	@inlinable
     internal static func apply(
 		_ insertion: CorrelationInsertion,
 		at time: Double,
@@ -290,36 +243,6 @@ extension CPUGKSLEngine {
 			state.densityMatrix,
 			operatorStorage
 		)
-	}
-}
-
-extension TimeDependentOperator {
-	@inlinable
-    internal func firstDimensionMismatch(
-		expected dimension: Int
-	) -> (rows: Int, columns: Int)? {
-		switch self {
-		case .constant(let constantOperator):
-			let matrix = constantOperator.matrix
-			guard matrix.rows != dimension || matrix.columns != dimension else {
-				return nil
-			}
-			return (matrix.rows, matrix.columns)
-
-		case .linearCombination(let expansion):
-			for component in expansion.operators {
-				let matrix = component.matrix
-				if matrix.rows != dimension || matrix.columns != dimension {
-					return (matrix.rows, matrix.columns)
-				}
-			}
-			return nil
-
-		case .generatedDense:
-			// Generated operators materialize into dimensioned caller-owned
-			// storage. Validate that storage after invoking the generator.
-			return nil
-		}
 	}
 }
 
