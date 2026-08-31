@@ -13,11 +13,7 @@ extension CPUMCWFEngine {
 		@usableFromInline
         internal var collapseBuffer: UniqueMatrix<Complex<Double>>
 		@usableFromInline
-        internal var guideAction: UniqueVector<Complex<Double>>
-		@usableFromInline
-		internal var ketAction: UniqueVector<Complex<Double>>
-		@usableFromInline
-		internal var braAction: UniqueVector<Complex<Double>>
+		internal var actionBuffer: UniqueVector<Complex<Double>>
 		@usableFromInline
         internal var weights: [Double]
 
@@ -28,9 +24,7 @@ extension CPUMCWFEngine {
 				rows: dimension,
 				columns: dimension
 			)
-			self.guideAction = .zero(dimension)
-			self.ketAction = .zero(dimension)
-			self.braAction = .zero(dimension)
+			self.actionBuffer = .zero(dimension)
 			self.weights = [Double](repeating: .zero, count: channels.count)
 		}
 
@@ -48,9 +42,16 @@ extension CPUMCWFEngine {
 					weights[index] = .zero
 					continue
 				}
+                    
+                switch channel {
+                case .constant(let channel):
+                    channel.collapseOperator.dotBLAS(state.guide, into: &actionBuffer)
 
-				applyToGuide(channel, at: time, state: state.guide)
-				let weight = rate * guideAction.normSquared
+                case .dynamic(let channel):
+                    channel.insert(t: time, into: &collapseBuffer)
+                    collapseBuffer.dotBLAS(state.guide, into: &actionBuffer)
+                }
+				let weight = rate * actionBuffer.normSquared
 				guard weight.isFinite && weight >= .zero else {
 					throw SolverError.invalidJumpWeight(
 						time: time,
@@ -77,92 +78,41 @@ extension CPUMCWFEngine {
 				throw SolverError.noAvailableJump(time: time)
 			}
 
+            // Perform jump
 			let selectedChannel = channels[selectedIndex]
-			applyToGuide(
-				selectedChannel,
-				at: time,
-				state: state.guide
-			)
-			applyToKet(
-				selectedChannel,
-				at: time,
-				state: state.ket
-			)
-			applyToBra(
-				selectedChannel,
-				at: time,
-				state: state.bra
-			)
-			let normSquared = guideAction.normSquared
-			guard normSquared.isFinite && normSquared > .zero else {
-				throw SolverError.noAvailableJump(time: time)
-			}
-			let inverseNorm = 1 / normSquared.squareRoot()
-			state.guide.copyComponents(
-				from: guideAction,
-				multiplied: inverseNorm
-			)
-			state.ket.copyComponents(
-				from: ketAction,
-				multiplied: inverseNorm
-			)
-			state.bra.copyComponents(
-				from: braAction,
-				multiplied: inverseNorm
-			)
-		}
+            switch selectedChannel {
+            case .constant(let channel):
+                // Perform jump on the guide and record its norm
+                channel.collapseOperator.dotBLAS(state.guide, into: &actionBuffer)
+                let normSquared = actionBuffer.normSquared
+                guard normSquared.isFinite && normSquared > .zero else {
+                    throw SolverError.noAvailableJump(time: time)
+                }
+                let inverseNorm = 1 / normSquared.squareRoot()
+                state.guide.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+                // Apply jump to ket and normalize according to guide
+                channel.collapseOperator.dotBLAS(state.ket, into: &actionBuffer)
+                state.ket.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+                channel.collapseOperator.dotBLAS(state.bra, into: &actionBuffer)
+                state.bra.copyComponents(from: actionBuffer, multiplied: inverseNorm)
 
-        @inlinable
-        @inline(always)
-		internal mutating func applyToGuide(
-			_ channel: PreparedChannel,
-			at time: Double,
-			state: borrowing UniqueVector<Complex<Double>>
-		) {
-			switch channel {
-			case .constant(let channel):
-				channel.collapseOperator.dotBLAS(state, into: &guideAction)
-
-			case .dynamic(let channel):
-				channel.insert(t: time, into: &collapseBuffer)
-				collapseBuffer.dotBLAS(state, into: &guideAction)
-			}
-		}
-
-        @inlinable
-        @inline(always)
-		internal mutating func applyToKet(
-			_ channel: PreparedChannel,
-			at time: Double,
-			state: borrowing UniqueVector<Complex<Double>>
-		) {
-			switch channel {
-			case .constant(let channel):
-				channel.collapseOperator.dotBLAS(
-					state,
-					into: &ketAction
-				)
-
-			case .dynamic(let channel):
-				channel.insert(t: time, into: &collapseBuffer)
-				collapseBuffer.dotBLAS(state, into: &ketAction)
-			}
-		}
-
-		@inlinable
-		@inline(always)
-		internal mutating func applyToBra(
-			_ channel: PreparedChannel,
-			at time: Double,
-			state: borrowing UniqueVector<Complex<Double>>
-		) {
-			switch channel {
-			case .constant(let channel):
-				channel.collapseOperator.dotBLAS(state, into: &braAction)
-			case .dynamic(let channel):
-				channel.insert(t: time, into: &collapseBuffer)
-				collapseBuffer.dotBLAS(state, into: &braAction)
-			}
+            case .dynamic(let channel):
+                // Perform jump on the guide and record its norm
+                channel.insert(t: time, into: &collapseBuffer)
+                collapseBuffer.dotBLAS(state.guide, into: &actionBuffer)
+                let normSquared = actionBuffer.normSquared
+                guard normSquared.isFinite && normSquared > .zero else {
+                    throw SolverError.noAvailableJump(time: time)
+                }
+                let inverseNorm = 1 / normSquared.squareRoot()
+                state.guide.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+                // Apply jump to ket and normalize according to guide
+                collapseBuffer.dotBLAS(state.ket, into: &actionBuffer)
+                state.ket.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+                // Apply jump to bra and normalize according to guide
+                collapseBuffer.dotBLAS(state.bra, into: &actionBuffer)
+                state.bra.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+            }
 		}
 
         @inlinable

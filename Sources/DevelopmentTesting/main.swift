@@ -17,6 +17,6 @@ exampleGKSLRadiativeDamping(endTime: 200)
 exampleMCWFRadiativeDamping(endTime: 200)
 exampleQSDRadiativeDamping(endTime: 200)
 
-exampleGKSLResonanceFluorescenceSpectrum()
 exampleMCWFResonanceFluorescenceSpectrum()
+exampleGKSLResonanceFluorescenceSpectrum()
 exampleQSDResonanceFluorescenceSpectrum()

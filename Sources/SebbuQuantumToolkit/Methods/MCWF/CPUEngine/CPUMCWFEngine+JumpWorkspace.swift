@@ -81,7 +81,8 @@ extension CPUMCWFEngine {
 		}
 
         @inlinable
-        @inline(always)
+        @inline(__always)
+        //@inline(always) TODO: Crashed. Report the bug to swiftlang when you have a reproducer...
 		internal mutating func apply(
 			_ channel: PreparedChannel,
 			at time: Double,
