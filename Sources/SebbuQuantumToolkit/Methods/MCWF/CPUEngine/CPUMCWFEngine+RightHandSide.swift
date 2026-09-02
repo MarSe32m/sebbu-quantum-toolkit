@@ -117,7 +117,7 @@ extension CPUMCWFEngine {
 				y.wavefunction,
 				multiplied: Complex(0.5 * totalHazardRate)
 			)
-			dy.hazard = totalHazardRate
+			dy.cumulativeHazard = totalHazardRate
 		}
 
         @inlinable

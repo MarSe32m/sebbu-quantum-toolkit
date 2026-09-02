@@ -149,161 +149,33 @@ extension CPUMCWFEngine {
 			dimension: dimension
 		)
 
-		var waitingTimeTarget = Double.infinity
-		if case .waitingTime = configuration.jumpAlgorithm, !channels.isEmpty {
-			waitingTimeTarget = Self.nextWaitingTime(using: &rng)
-		}
+		switch configuration.jumpAlgorithm {
+		case .waitingTime(let eventTolerance, let maximumEventIterations):
+			var pdpSolver = UniquePDPSolver(
+				deterministicSolver: solver,
+				jumpKernel: jumpWorkspace,
+				eventTimeTolerance: eventTolerance,
+				maximumEventIterations: maximumEventIterations,
+				using: &rng
+			)
 
-		while solver.t < end {
-			let step = try solver.step(y: &state, upTo: end)
+			while pdpSolver.t < end {
+				let pdpStep: PDPStep
+				do {
+					pdpStep = try pdpSolver.step(y: &state, upTo: end)
+				} catch let error {
+					throw Self.mapPDPSolverError(error)
+				}
 
-			switch configuration.jumpAlgorithm {
-			case .waitingTime(let eventTolerance, let maximumEventIterations):
-				if state.hazard >= waitingTimeTarget {
-					let hazardFunctional = HazardFunctional()
-					let timeScale = Swift.max(
-						1,
-						Swift.max(abs(step.startTime), abs(step.endTime))
-					)
-					let effectiveTolerance = Swift.max(
-						eventTolerance,
-						64 * Double.ulpOfOne * timeScale
-					)
-					var lowerTime = step.startTime
-					var upperTime = step.endTime
-					let lowerValue =
-						solver.interpolateLastStep(
-							at: lowerTime,
-							linearFunctional: hazardFunctional
-						) - waitingTimeTarget
-					let upperValue =
-						solver.interpolateLastStep(
-							at: upperTime,
-							linearFunctional: hazardFunctional
-						) - waitingTimeTarget
-
-					guard lowerValue.isFinite else {
-						throw SolverError.invalidHazard(time: lowerTime)
-					}
-					guard upperValue.isFinite else {
-						throw SolverError.invalidHazard(time: upperTime)
-					}
-
-					let jumpTime: Double
-					if lowerValue == .zero {
-						jumpTime = lowerTime
-					} else if upperValue == .zero {
-						jumpTime = upperTime
-					} else {
-						guard lowerValue < .zero && upperValue > .zero
-						else {
-							throw SolverError.eventNotBracketed(
-								stepStart: step.startTime,
-								stepEnd: step.endTime
-							)
-						}
-
-						var iterations = 0
-						while upperTime - lowerTime > effectiveTolerance,
-							iterations < maximumEventIterations
-						{
-							let middleTime =
-								0.5 * (lowerTime + upperTime)
-							if middleTime == lowerTime
-								|| middleTime == upperTime
-							{
-								break
-							}
-							let middleValue =
-								solver.interpolateLastStep(
-									at: middleTime,
-									linearFunctional:
-										hazardFunctional
-								) - waitingTimeTarget
-							guard middleValue.isFinite else {
-								throw SolverError.invalidHazard(
-									time: middleTime)
-							}
-
-							if middleValue < .zero {
-								lowerTime = middleTime
-							} else {
-								upperTime = middleTime
-							}
-							iterations += 1
-						}
-
-						guard
-							upperTime - lowerTime <= effectiveTolerance
-								|| lowerTime.nextUp >= upperTime
-						else {
-							throw
-								SolverError
-								.eventLocationDidNotConverge(
-									stepStart: step.startTime,
-									stepEnd: step.endTime,
-									iterations: iterations
-								)
-						}
-						jumpTime = 0.5 * (lowerTime + upperTime)
-					}
-
+				switch pdpStep {
+				case .accepted(let step):
 					while let outputTime = outputCursor.nextTime(
-						before: jumpTime)
-					{
-						solver.interpolateLastStep(
-							at: outputTime,
-							into: &outputState
-						)
-						if try Self.observeNormalized(
-							time: outputTime,
-							state: &outputState,
-							observer: observer
-						) == .stop {
-							return PropagationRunSummary(
-								finalTime: outputTime,
-								endReason: .stoppedByObserver
-							)
-						}
-					}
-
-					solver.truncateLastStep(at: jumpTime, restoring: &state)
-					try jumpWorkspace.applyJump(
-						at: jumpTime,
-						state: &state,
-						using: &rng
-					)
-					state.hazard = .zero
-					solver.stateDidChange()
-					waitingTimeTarget = Self.nextWaitingTime(using: &rng)
-
-					while let outputTime = outputCursor.nextTime(
-						through: jumpTime)
-					{
-						precondition(
-							outputTime == jumpTime,
-							"A pre-jump MCWF output time was not emitted before the event"
-						)
-						outputState.assign(state)
-						if try Self.observeNormalized(
-							time: outputTime,
-							state: &outputState,
-							observer: observer
-						) == .stop {
-							return PropagationRunSummary(
-								finalTime: outputTime,
-								endReason: .stoppedByObserver
-							)
-						}
-					}
-				} else {
-					while let outputTime = outputCursor.nextTime(
-						through: step.endTime)
-					{
+						through: step.endTime
+					) {
 						if outputTime == step.endTime {
 							outputState.assign(state)
 						} else {
-							solver.interpolateLastStep(
+							pdpSolver.interpolateLastStep(
 								at: outputTime,
 								into: &outputState
 							)
@@ -319,9 +191,56 @@ extension CPUMCWFEngine {
 							)
 						}
 					}
-				}
 
-			case .discreteTime:
+				case .jumpPending(let jump):
+					while let outputTime = outputCursor.nextTime(
+						before: jump.time
+					) {
+						pdpSolver.interpolateLastStep(
+							at: outputTime,
+							into: &outputState
+						)
+						if try Self.observeNormalized(
+							time: outputTime,
+							state: &outputState,
+							observer: observer
+						) == .stop {
+							return PropagationRunSummary(
+								finalTime: outputTime,
+								endReason: .stoppedByObserver
+							)
+						}
+					}
+
+					try pdpSolver.applyPendingJump(
+						y: &state,
+						using: &rng
+					)
+					while let outputTime = outputCursor.nextTime(
+						through: jump.time
+					) {
+						precondition(
+							outputTime == jump.time,
+							"A pre-jump MCWF output time was not emitted before the event"
+						)
+						outputState.assign(state)
+						if try Self.observeNormalized(
+							time: outputTime,
+							state: &outputState,
+							observer: observer
+						) == .stop {
+							return PropagationRunSummary(
+								finalTime: outputTime,
+								endReason: .stoppedByObserver
+							)
+						}
+					}
+				}
+			}
+
+		case .discreteTime:
+			while solver.t < end {
+				let step = try solver.step(y: &state, upTo: end)
 				while let outputTime = outputCursor.nextTime(before: step.endTime) {
 					solver.interpolateLastStep(
 						at: outputTime,
@@ -341,14 +260,14 @@ extension CPUMCWFEngine {
 
 				let hazardTolerance =
 					128 * Double.ulpOfOne
-					* Swift.max(1, abs(state.hazard))
+					* Swift.max(1, abs(state.cumulativeHazard))
 				guard
-					state.hazard.isFinite,
-					state.hazard >= -hazardTolerance
+					state.cumulativeHazard.isFinite,
+					state.cumulativeHazard >= -hazardTolerance
 				else {
 					throw SolverError.invalidHazard(time: step.endTime)
 				}
-				let integratedHazard = Swift.max(.zero, state.hazard)
+				let integratedHazard = Swift.max(.zero, state.cumulativeHazard)
 				let jumpProbability = 1 - Double.exp(-integratedHazard)
 				if jumpProbability > .zero,
 					rng.nextUnitDouble() < jumpProbability
@@ -359,7 +278,7 @@ extension CPUMCWFEngine {
 						using: &rng
 					)
 				}
-				state.hazard = .zero
+				state.cumulativeHazard = .zero
 				solver.stateDidChange()
 
 				while let outputTime = outputCursor.nextTime(through: step.endTime)
@@ -411,7 +330,7 @@ extension CPUMCWFEngine {
 	internal static func normalize(
 		_ state: inout TrajectoryState,
 		at time: Double
-	) throws {
+	) throws(SolverError) {
 		let normSquared = state.wavefunction.normSquared
 		guard normSquared.isFinite && normSquared > .zero else {
 			throw SolverError.invalidStateNorm(time: time)
@@ -431,14 +350,6 @@ extension CPUMCWFEngine {
 	) throws -> PropagationControl {
 		try normalize(&state, at: time)
 		return observer(time, state.wavefunction)
-	}
-
-    @inlinable
-    @inline(always)
-	internal static func nextWaitingTime<RNG: RandomNumberGenerator>(
-		using randomNumberGenerator: inout RNG
-	) -> Double {
-		-Double.log(randomNumberGenerator.nextUnitDoubleOpen())
 	}
 }
 

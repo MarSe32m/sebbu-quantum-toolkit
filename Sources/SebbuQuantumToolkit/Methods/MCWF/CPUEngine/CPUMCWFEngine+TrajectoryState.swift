@@ -6,27 +6,29 @@ import SebbuScience
 
 extension CPUMCWFEngine {
 	@usableFromInline
-	internal struct TrajectoryState: ~Copyable, AdaptiveStepODESolverState {
+	internal struct TrajectoryState: ~Copyable, AdaptiveStepODESolverState,
+		PDPState
+	{
 		@usableFromInline
 		internal var wavefunction: UniqueVector<Complex<Double>>
 		@usableFromInline
-		internal var hazard: Double
+		internal var cumulativeHazard: Double
 
 		@inlinable
 		internal init(_ state: Vector<Complex<Double>>) {
 			self.wavefunction = .init(copying: state)
-			self.hazard = .zero
+			self.cumulativeHazard = .zero
 		}
 
 		@inlinable
 		internal init(dimension: Int) {
 			self.wavefunction = .zero(dimension)
-			self.hazard = .zero
+			self.cumulativeHazard = .zero
 		}
 
 		@inlinable
 		internal var norm: Double {
-			Swift.max(wavefunction.norm, abs(hazard))
+			Swift.max(wavefunction.norm, abs(cumulativeHazard))
 		}
 
 		@inlinable
@@ -35,7 +37,7 @@ extension CPUMCWFEngine {
 		) -> Double {
 			.hypot(
 				wavefunction.euclideanDistance(to: other.wavefunction),
-				hazard - other.hazard
+				cumulativeHazard - other.cumulativeHazard
 			)
 		}
 
@@ -72,10 +74,10 @@ extension CPUMCWFEngine {
 				if !sumOfSquares.isFinite { return .infinity }
 			}
 
-			let hazardDifference = abs(hazard - lowerOrderEstimate.hazard)
+			let hazardDifference = abs(cumulativeHazard - lowerOrderEstimate.cumulativeHazard)
 			let hazardScale =
 				absoluteTolerance
-				+ relativeTolerance * Swift.max(abs(hazard), abs(stepStart.hazard))
+				+ relativeTolerance * Swift.max(abs(cumulativeHazard), abs(stepStart.cumulativeHazard))
 			guard
 				hazardDifference.isFinite,
 				hazardScale.isFinite,
@@ -98,7 +100,7 @@ extension CPUMCWFEngine {
 		@inline(__always)
 		internal mutating func assign(_ other: borrowing TrajectoryState) {
 			wavefunction.copyComponents(from: other.wavefunction)
-			hazard = other.hazard
+			cumulativeHazard = other.cumulativeHazard
 		}
 
 		@inlinable
@@ -108,7 +110,7 @@ extension CPUMCWFEngine {
 			multiplied coefficient: Double
 		) {
 			wavefunction.add(other.wavefunction, multiplied: coefficient)
-			hazard += coefficient * other.hazard
+			cumulativeHazard += coefficient * other.cumulativeHazard
 		}
 
 		@inlinable
@@ -123,19 +125,7 @@ extension CPUMCWFEngine {
 				adding: direction.wavefunction,
 				multiplied: coefficient
 			)
-			hazard = base.hazard + coefficient * direction.hazard
-		}
-	}
-
-	@usableFromInline
-	internal struct HazardFunctional: ODEStateLinearFunctional {
-        @inlinable
-        internal init() {}
-        
-		@inlinable
-		@inline(__always)
-		internal func evaluate(_ state: borrowing TrajectoryState) -> Double {
-			state.hazard
+			cumulativeHazard = base.cumulativeHazard + coefficient * direction.cumulativeHazard
 		}
 	}
 }

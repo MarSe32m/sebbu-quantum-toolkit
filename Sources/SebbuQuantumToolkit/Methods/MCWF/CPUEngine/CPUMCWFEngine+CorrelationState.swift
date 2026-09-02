@@ -6,7 +6,9 @@ import SebbuScience
 
 extension CPUMCWFEngine {
     @usableFromInline
-	internal struct CorrelationState: ~Copyable, AdaptiveStepODESolverState {
+	internal struct CorrelationState: ~Copyable, AdaptiveStepODESolverState,
+		PDPState
+	{
 		@usableFromInline
         internal var guide: UniqueVector<Complex<Double>>
 		@usableFromInline
@@ -14,14 +16,14 @@ extension CPUMCWFEngine {
 		@usableFromInline
 		internal var bra: UniqueVector<Complex<Double>>
 		@usableFromInline
-        internal var hazard: Double
+        internal var cumulativeHazard: Double
 
         @inlinable
 		internal init(guide: Vector<Complex<Double>>) {
 			self.guide = .init(copying: guide)
 			self.ket = .zero(guide.count)
 			self.bra = .zero(guide.count)
-			self.hazard = .zero
+			self.cumulativeHazard = .zero
 		}
 
 		@inlinable
@@ -29,7 +31,7 @@ extension CPUMCWFEngine {
 			self.guide = .init(copying: guide)
 			self.ket = .init(copying: guide)
 			self.bra = .init(copying: guide)
-			self.hazard = .zero
+			self.cumulativeHazard = .zero
 		}
 
         @inlinable
@@ -37,14 +39,14 @@ extension CPUMCWFEngine {
 			self.guide = .zero(dimension)
 			self.ket = .zero(dimension)
 			self.bra = .zero(dimension)
-			self.hazard = .zero
+			self.cumulativeHazard = .zero
 		}
 
 		@inlinable
         internal var norm: Double {
 			Swift.max(
 				Swift.max(Swift.max(guide.norm, ket.norm), bra.norm),
-				abs(hazard)
+				abs(cumulativeHazard)
 			)
 		}
 
@@ -58,7 +60,7 @@ extension CPUMCWFEngine {
 					ket.euclideanDistance(to: other.ket),
 					.hypot(
 						bra.euclideanDistance(to: other.bra),
-						hazard - other.hazard
+						cumulativeHazard - other.cumulativeHazard
 					)
 				)
 			)
@@ -143,11 +145,11 @@ extension CPUMCWFEngine {
 				}
 			}
 
-			let hazardDifference = abs(hazard - lowerOrderEstimate.hazard)
+			let hazardDifference = abs(cumulativeHazard - lowerOrderEstimate.cumulativeHazard)
 			let hazardScale =
 				absoluteTolerance
 				+ relativeTolerance
-				* Swift.max(abs(hazard), abs(stepStart.hazard))
+				* Swift.max(abs(cumulativeHazard), abs(stepStart.cumulativeHazard))
 			guard
 				hazardDifference.isFinite,
 				hazardScale.isFinite,
@@ -172,7 +174,7 @@ extension CPUMCWFEngine {
 			guide.copyComponents(from: other.guide)
 			ket.copyComponents(from: other.ket)
 			bra.copyComponents(from: other.bra)
-			hazard = other.hazard
+			cumulativeHazard = other.cumulativeHazard
 		}
 
         @inlinable
@@ -184,7 +186,7 @@ extension CPUMCWFEngine {
 			guide.add(other.guide, multiplied: coefficient)
 			ket.add(other.ket, multiplied: coefficient)
 			bra.add(other.bra, multiplied: coefficient)
-			hazard += coefficient * other.hazard
+			cumulativeHazard += coefficient * other.cumulativeHazard
 		}
 
         @inlinable
@@ -209,21 +211,7 @@ extension CPUMCWFEngine {
 				adding: direction.bra,
 				multiplied: coefficient
 			)
-			hazard = base.hazard + coefficient * direction.hazard
-		}
-	}
-    
-    @usableFromInline
-    internal struct CorrelationHazardFunctional: ODEStateLinearFunctional {
-        @inlinable
-        internal init() {}
-        
-        @inlinable
-        @inline(always)
-		internal func evaluate(
-			_ state: borrowing CorrelationState
-		) -> Double {
-			state.hazard
+			cumulativeHazard = base.cumulativeHazard + coefficient * direction.cumulativeHazard
 		}
 	}
 }

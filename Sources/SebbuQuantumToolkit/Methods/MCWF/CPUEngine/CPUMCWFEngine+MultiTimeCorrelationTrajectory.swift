@@ -126,112 +126,101 @@ extension CPUMCWFEngine {
 			channels: channels,
 			dimension: dimension
 		)
-		var waitingTarget = Double.infinity
-		if case .waitingTime = configuration.jumpAlgorithm, !channels.isEmpty {
-			waitingTarget = Self.nextWaitingTime(using: &rng)
-		}
+		switch configuration.jumpAlgorithm {
+		case .waitingTime(let eventTolerance, let maximumEventIterations):
+			var pdpSolver = UniquePDPSolver(
+				deterministicSolver: solver,
+				jumpKernel: jumpWorkspace,
+				eventTimeTolerance: eventTolerance,
+				maximumEventIterations: maximumEventIterations,
+				using: &rng
+			)
 
-		while solver.t < end {
-			let limit = insertionIndex < request.insertions.count
-				? request.insertions[insertionIndex].time : end
-			let step = try solver.step(y: &state, upTo: limit)
+			while pdpSolver.t < end {
+				let limit = insertionIndex < request.insertions.count
+					? request.insertions[insertionIndex].time : end
+				let pdpStep: PDPStep
+				do {
+					pdpStep = try pdpSolver.step(y: &state, upTo: limit)
+				} catch let error {
+					throw Self.mapPDPSolverError(error)
+				}
 
-			switch configuration.jumpAlgorithm {
-			case .waitingTime(let eventTolerance, let maximumIterations):
-				if state.hazard >= waitingTarget {
-					let functional = CorrelationHazardFunctional()
-					let timeScale = Swift.max(
-						1,
-						Swift.max(abs(step.startTime), abs(step.endTime))
-					)
-					let tolerance = Swift.max(
-						eventTolerance,
-						64 * Double.ulpOfOne * timeScale
-					)
-					var lower = step.startTime
-					var upper = step.endTime
-					let lowerValue = solver.interpolateLastStep(
-						at: lower,
-						linearFunctional: functional
-					) - waitingTarget
-					let upperValue = solver.interpolateLastStep(
-						at: upper,
-						linearFunctional: functional
-					) - waitingTarget
-					guard lowerValue.isFinite else {
-						throw SolverError.invalidHazard(time: lower)
-					}
-					guard upperValue.isFinite else {
-						throw SolverError.invalidHazard(time: upper)
-					}
-
-					let jumpTime: Double
-					if lowerValue == .zero {
-						jumpTime = lower
-					} else if upperValue == .zero {
-						jumpTime = upper
-					} else {
-						guard lowerValue < .zero && upperValue > .zero else {
-							throw SolverError.eventNotBracketed(
-								stepStart: step.startTime,
-								stepEnd: step.endTime
-							)
-						}
-						var iterations = 0
-						while upper - lower > tolerance,
-							iterations < maximumIterations
-						{
-							let middle = 0.5 * (lower + upper)
-							if middle == lower || middle == upper { break }
-							let value = solver.interpolateLastStep(
-								at: middle,
-								linearFunctional: functional
-							) - waitingTarget
-							guard value.isFinite else {
-								throw SolverError.invalidHazard(time: middle)
+				switch pdpStep {
+				case .accepted(let step):
+					if insertionIndex == request.insertions.count {
+						while let time = outputCursor.nextTime(
+							through: step.endTime
+						) {
+							if time == step.endTime {
+								try emit(time, state)
+							} else {
+								pdpSolver.interpolateLastStep(
+									at: time,
+									into: &outputState
+								)
+								try emit(time, outputState)
 							}
-							if value < .zero { lower = middle } else { upper = middle }
-							iterations += 1
 						}
-						guard upper - lower <= tolerance || lower.nextUp >= upper else {
-							throw SolverError.eventLocationDidNotConverge(
-								stepStart: step.startTime,
-								stepEnd: step.endTime,
-								iterations: iterations
-							)
-						}
-						jumpTime = 0.5 * (lower + upper)
 					}
 
+				case .jumpPending(let jump):
 					if insertionIndex == request.insertions.count {
-						while let time = outputCursor.nextTime(before: jumpTime) {
-							solver.interpolateLastStep(at: time, into: &outputState)
+						while let time = outputCursor.nextTime(
+							before: jump.time
+						) {
+							pdpSolver.interpolateLastStep(
+								at: time,
+								into: &outputState
+							)
 							try emit(time, outputState)
 						}
 					}
-					solver.truncateLastStep(at: jumpTime, restoring: &state)
-					try jumpWorkspace.applyJump(at: jumpTime, state: &state, using: &rng)
-					state.hazard = .zero
-					solver.stateDidChange()
-					waitingTarget = Self.nextWaitingTime(using: &rng)
+					try pdpSolver.applyPendingJump(
+						y: &state,
+						using: &rng
+					)
 					if insertionIndex == request.insertions.count {
-						while let time = outputCursor.nextTime(through: jumpTime) {
-							precondition(time == jumpTime)
+						while let time = outputCursor.nextTime(
+							through: jump.time
+						) {
+							precondition(time == jump.time)
 							try emit(time, state)
-						}
-					}
-				} else if insertionIndex == request.insertions.count {
-					while let time = outputCursor.nextTime(through: step.endTime) {
-						if time == step.endTime {
-							try emit(time, state)
-						} else {
-							solver.interpolateLastStep(at: time, into: &outputState)
-							try emit(time, outputState)
 						}
 					}
 				}
 
-			case .discreteTime:
+				if insertionIndex < request.insertions.count,
+					pdpSolver.t == request.insertions[insertionIndex].time
+				{
+					let event = request.insertions[insertionIndex]
+					try _applyMultiTimeCorrelationInsertion(
+						event.insertion,
+						index: insertionIndex,
+						at: event.time,
+						dimension: dimension,
+						ket: &state.ket,
+						bra: &state.bra,
+						operatorStorage: &operatorStorage,
+						actionStorage: &actionStorage
+					)
+					insertionIndex += 1
+					pdpSolver.stateDidChange()
+					if insertionIndex == request.insertions.count {
+						while let time = outputCursor.nextTime(
+							through: event.time
+						) {
+							try emit(time, state)
+						}
+					}
+				}
+			}
+
+		case .discreteTime:
+			while solver.t < end {
+				let limit = insertionIndex < request.insertions.count
+					? request.insertions[insertionIndex].time : end
+				let step = try solver.step(y: &state, upTo: limit)
 				if insertionIndex == request.insertions.count {
 					while let time = outputCursor.nextTime(before: step.endTime) {
 						solver.interpolateLastStep(at: time, into: &outputState)
@@ -239,11 +228,11 @@ extension CPUMCWFEngine {
 					}
 				}
 				let hazardTolerance =
-					128 * Double.ulpOfOne * Swift.max(1, abs(state.hazard))
-				guard state.hazard.isFinite, state.hazard >= -hazardTolerance else {
+					128 * Double.ulpOfOne * Swift.max(1, abs(state.cumulativeHazard))
+				guard state.cumulativeHazard.isFinite, state.cumulativeHazard >= -hazardTolerance else {
 					throw SolverError.invalidHazard(time: step.endTime)
 				}
-				let probability = 1 - Double.exp(-Swift.max(.zero, state.hazard))
+				let probability = 1 - Double.exp(-Swift.max(.zero, state.cumulativeHazard))
 				if probability > .zero, rng.nextUnitDouble() < probability {
 					try jumpWorkspace.applyJump(
 						at: step.endTime,
@@ -251,7 +240,7 @@ extension CPUMCWFEngine {
 						using: &rng
 					)
 				}
-				state.hazard = .zero
+				state.cumulativeHazard = .zero
 				solver.stateDidChange()
 				if insertionIndex == request.insertions.count {
 					while let time = outputCursor.nextTime(through: step.endTime) {
@@ -259,27 +248,29 @@ extension CPUMCWFEngine {
 						try emit(time, state)
 					}
 				}
-			}
 
-			if insertionIndex < request.insertions.count,
-				solver.t == request.insertions[insertionIndex].time
-			{
-				let event = request.insertions[insertionIndex]
-				try _applyMultiTimeCorrelationInsertion(
-					event.insertion,
-					index: insertionIndex,
-					at: event.time,
-					dimension: dimension,
-					ket: &state.ket,
-					bra: &state.bra,
-					operatorStorage: &operatorStorage,
-					actionStorage: &actionStorage
-				)
-				insertionIndex += 1
-				solver.stateDidChange()
-				if insertionIndex == request.insertions.count {
-					while let time = outputCursor.nextTime(through: event.time) {
-						try emit(time, state)
+				if insertionIndex < request.insertions.count,
+					solver.t == request.insertions[insertionIndex].time
+				{
+					let event = request.insertions[insertionIndex]
+					try _applyMultiTimeCorrelationInsertion(
+						event.insertion,
+						index: insertionIndex,
+						at: event.time,
+						dimension: dimension,
+						ket: &state.ket,
+						bra: &state.bra,
+						operatorStorage: &operatorStorage,
+						actionStorage: &actionStorage
+					)
+					insertionIndex += 1
+					solver.stateDidChange()
+					if insertionIndex == request.insertions.count {
+						while let time = outputCursor.nextTime(
+							through: event.time
+						) {
+							try emit(time, state)
+						}
 					}
 				}
 			}

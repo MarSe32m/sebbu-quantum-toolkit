@@ -21,7 +21,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.10"),
+        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.11"),
         .package(url: "https://github.com/MarSe32m/sebbu-blas", from: "0.2.0"),
         .package(url: "https://github.com/MarSe32m/sebbu-cuda", from: "0.0.1"),
         .package(url: "https://github.com/MarSe32m/sebbu-collections", from: "0.0.1"),

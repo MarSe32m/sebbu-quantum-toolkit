@@ -7,7 +7,12 @@ import SebbuScience
 
 extension CPUMCWFEngine {
     @usableFromInline
-	internal struct CorrelationJumpWorkspace: ~Copyable {
+	internal struct CorrelationJumpWorkspace: ~Copyable, PDPJumpKernel {
+		@usableFromInline
+		internal typealias State = CorrelationState
+		@usableFromInline
+		internal typealias Failure = SolverError
+
 		@usableFromInline
         internal let channels: [PreparedChannel]
 		@usableFromInline
@@ -33,7 +38,7 @@ extension CPUMCWFEngine {
 			at time: Double,
 			state: inout CorrelationState,
 			using randomNumberGenerator: inout RNG
-		) throws {
+		) throws(SolverError) {
 			var totalWeight = 0.0
 			for index in channels.indices {
 				let channel = channels[index]
@@ -113,6 +118,15 @@ extension CPUMCWFEngine {
                 collapseBuffer.dotBLAS(state.bra, into: &actionBuffer)
                 state.bra.copyComponents(from: actionBuffer, multiplied: inverseNorm)
             }
+		}
+
+		@inlinable
+		internal mutating func sampleAndApplyJump<RNG: RandomNumberGenerator>(
+            at time: Double,
+			to state: inout CorrelationState,
+			using rng: inout RNG
+		) throws(SolverError) {
+			try applyJump(at: time, state: &state, using: &rng)
 		}
 
         @inlinable

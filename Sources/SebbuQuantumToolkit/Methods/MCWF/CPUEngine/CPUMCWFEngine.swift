@@ -20,4 +20,31 @@ public struct CPUMCWFEngine: MCWF.Implementation, MCWF.TwoTimeCorrelationImpleme
 		case invalidJumpWeight(time: Double, channel: Int)
 		case noAvailableJump(time: Double)
 	}
+
+	@inlinable
+	internal static func mapPDPSolverError(
+		_ error: PDPSolverError
+	) -> any Error {
+		switch error {
+		case .deterministic(let error):
+			return error
+		case .invalidCumulativeHazard(let time, _):
+			return SolverError.invalidHazard(time: time)
+		case .eventNotBracketed(let start, let end, _, _, _):
+			return SolverError.eventNotBracketed(
+				stepStart: start,
+				stepEnd: end
+			)
+		case .eventLocationDidNotConverge(
+			let start,
+			let end,
+			let iterations
+		):
+			return SolverError.eventLocationDidNotConverge(
+				stepStart: start,
+				stepEnd: end,
+				iterations: iterations
+			)
+		}
+	}
 }

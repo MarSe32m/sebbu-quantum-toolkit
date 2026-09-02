@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MarSe32m/sebbu-science",
       "state" : {
-        "revision" : "1e9043d1868ed4d81e9b9f59d9db45dd37f1b74f",
-        "version" : "0.4.10"
+        "revision" : "1e73c12bb57e10651430e8bd046297827ce67d46",
+        "version" : "0.4.11"
       }
     },
     {

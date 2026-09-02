@@ -134,7 +134,7 @@ extension CPUMCWFEngine {
 			dy.guide.add(y.guide, multiplied: normalizationDrift)
 			dy.ket.add(y.ket, multiplied: normalizationDrift)
 			dy.bra.add(y.bra, multiplied: normalizationDrift)
-			dy.hazard = totalHazardRate
+			dy.cumulativeHazard = totalHazardRate
 		}
 
         @inlinable

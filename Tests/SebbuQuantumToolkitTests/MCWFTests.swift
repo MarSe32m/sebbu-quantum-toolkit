@@ -119,6 +119,46 @@ struct CPUMCWFEngineTests {
 		#expect(abs(observations[1].ground - 1) < 1e-14)
 	}
 
+	@Test("Waiting-time MCWF preserves a hazard threshold near zero")
+	func waitingTimeNearZeroThreshold() throws {
+		let rate = 1e-9
+		let problem = mcwfProblem(
+			initialState: [.zero, .one],
+			markovianChannels: [mcwfAmplitudeDampingChannel(rate: rate)]
+		)
+		var randomNumberGenerator = ScriptedRandomNumberGenerator(
+			[.max, 0, 0]
+		)
+		var observations: [(time: Double, ground: Double)] = []
+
+		try MCWF.solveTrajectory(
+			problem: problem,
+			configuration: .init(
+				jumpAlgorithm: .waitingTime(
+					eventTolerance: 1e-14,
+					maximumEventIterations: 64
+				)
+			),
+			propagation: mcwfPropagationOptions(
+				end: 1e-5,
+				output: .everyAcceptedStep,
+				maximumStep: 1e-5
+			),
+			rng: &randomNumberGenerator
+		) { time, state in
+			observations.append((time, state[0].lengthSquared))
+			return .proceed
+		}
+
+		let distanceFromOne = 0.5 * 0x1.0p-53
+		let expectedJumpTime = -Double.log(onePlus: -distanceFromOne) / rate
+		#expect(observations.count == 2)
+		#expect(observations[0].time > 0)
+		#expect(abs(observations[0].time - expectedJumpTime) < 1e-13)
+		#expect(abs(observations[0].ground - 1) < 1e-14)
+		#expect(observations[1].time == 1e-5)
+	}
+
 	@Test("Discrete-time MCWF emits pre-jump interiors and a post-jump endpoint")
 	func discreteTimeJumpAndOutputOrdering() throws {
 		let problem = mcwfProblem(
