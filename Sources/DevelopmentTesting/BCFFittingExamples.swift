@@ -21,7 +21,7 @@ func BCFFittingExample() {
     }
     
     do {
-        try identialEntriesBath(count: 3, correlation: 0.5)
+        try identialEntriesBath(count: 3, correlation: 0.33)
     } catch {
         print("BCF with identical entries failed with error:", error)
     }
@@ -40,7 +40,9 @@ fileprivate func singleBath() throws {
     plt.show()
     plt.close()
     
-    let result = try CorrelatedBathFitter.fitBathCorrelation(times: tau, values: bcf, options: .init(maximumPencilPoleCount: 3, maximumFunctionEvaluations: 10000))
+    let result = try CorrelatedBathFitter.fitBathCorrelation(times: tau, options: .init(maximumPencilPoleCount: 3, maximumFunctionEvaluations: 10000)) { t in
+        BCF(t) { _spectralDensity($0, amplitude: 0.027, cutoff: 1.447, ohmicity: 3) }
+    }
     print(result.model.poleCount)
     tau = .linearSpace(-10, 10, 1000)
     bcf = tau.map { BCF($0) { _spectralDensity($0, amplitude: 0.027, cutoff: 1.447, ohmicity: 3) } }

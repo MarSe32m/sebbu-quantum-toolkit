@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Sebastian Toivonen
 // SPDX-License-Identifier: Apache-2.0
 
-import Foundation
 import Numerics
 import SebbuScience
 
@@ -101,6 +100,22 @@ public enum CorrelatedBathFitter {
 		/// Relative distance below which initial matrix-pencil poles are merged.
 		public var duplicatePoleTolerance: Double
 
+		/// Enables a realization-level rank-revealing restart after nonlinear
+		/// fitting. The restart groups fitted one-sided BCF poles, factors each
+		/// matrix residue by SVD, and refits the resulting lower-order physical
+		/// latent model before ordinary one-at-a-time pruning.
+		public var performMinimalRealizationReduction: Bool
+
+		/// Relative pole distance used by the fitted-realization reduction.
+		/// Nonzero values permit tolerance-controlled merging of nearby poles;
+		/// every proposed reduction is accepted only after nonlinear refitting
+		/// satisfies the normal fit-error bound.
+		public var minimalRealizationPoleTolerance: Double
+
+		/// Relative singular-value threshold used to determine the rank of each
+		/// grouped one-sided BCF residue matrix.
+		public var minimalRealizationRankTolerance: Double
+
 		/// Relative tolerance for Hermiticity and small negative eigenvalues.
 		/// Only violations within this tolerance are projected away.
 		public var physicalityTolerance: Double
@@ -129,6 +144,9 @@ public enum CorrelatedBathFitter {
 			matrixPencilResidueRankTolerance: Double = 1e-7,
 			matrixPencilHankelRankTolerance: Double = 1e-8,
 			duplicatePoleTolerance: Double = 1e-5,
+			performMinimalRealizationReduction: Bool = true,
+			minimalRealizationPoleTolerance: Double = 1e-5,
+			minimalRealizationRankTolerance: Double = 1e-8,
 			physicalityTolerance: Double = 1e-10,
 			channelScales: [Double]? = nil,
 			pencilParameter: Int? = nil,
@@ -147,6 +165,12 @@ public enum CorrelatedBathFitter {
 			self.matrixPencilResidueRankTolerance = matrixPencilResidueRankTolerance
 			self.matrixPencilHankelRankTolerance = matrixPencilHankelRankTolerance
 			self.duplicatePoleTolerance = duplicatePoleTolerance
+			self.performMinimalRealizationReduction =
+				performMinimalRealizationReduction
+			self.minimalRealizationPoleTolerance =
+				minimalRealizationPoleTolerance
+			self.minimalRealizationRankTolerance =
+				minimalRealizationRankTolerance
 			self.physicalityTolerance = physicalityTolerance
 			self.channelScales = channelScales
 			self.pencilParameter = pencilParameter
@@ -166,6 +190,12 @@ public enum CorrelatedBathFitter {
 		public let initialRelativeRMSError: Double
 		public let relativeRMSError: Double
 		public let maximumRelativeError: Double
+		/// Smallest numerical realization order identified during fitting.
+		public let rankRevealedPoleCount: Int
+		/// Pole states removed by accepted rank-revealing restarts.
+		public let acceptedRankRevealingRemovals: Int
+		/// Number of lower-order rank-revealing restarts optimized.
+		public let rankRevealingTrials: Int
 		public let acceptedPoleRemovals: Int
 		public let pruningTrials: Int
 		public let functionEvaluations: Int
@@ -180,6 +210,9 @@ public enum CorrelatedBathFitter {
 			initialRelativeRMSError: Double,
 			relativeRMSError: Double,
 			maximumRelativeError: Double,
+			rankRevealedPoleCount: Int,
+			acceptedRankRevealingRemovals: Int,
+			rankRevealingTrials: Int,
 			acceptedPoleRemovals: Int,
 			pruningTrials: Int,
 			functionEvaluations: Int,
@@ -193,6 +226,10 @@ public enum CorrelatedBathFitter {
 			self.initialRelativeRMSError = initialRelativeRMSError
 			self.relativeRMSError = relativeRMSError
 			self.maximumRelativeError = maximumRelativeError
+			self.rankRevealedPoleCount = rankRevealedPoleCount
+			self.acceptedRankRevealingRemovals =
+				acceptedRankRevealingRemovals
+			self.rankRevealingTrials = rankRevealingTrials
 			self.acceptedPoleRemovals = acceptedPoleRemovals
 			self.pruningTrials = pruningTrials
 			self.functionEvaluations = functionEvaluations
@@ -211,17 +248,32 @@ public enum CorrelatedBathFitter {
 		}
 	}
 
-    /// Fits positive-lag BCF samples directly in the time domain.
+	/// Fits positive-lag BCF samples directly in the time domain.
+	public static func fitBathCorrelation(
+		times: [Double],
+		values: [Complex<Double>],
+		weights: [Double]? = nil,
+		options: Options = Options()
+	) throws -> Result {
+		try fit(
+			domain: .bathCorrelation,
+			axis: times,
+			values: values.map { Matrix(elements: [$0], rows: 1, columns: 1) },
+			weights: weights,
+			options: options
+		)
+	}
+
+    /// Samples and fits a matrix-valued BCF closure.
     public static func fitBathCorrelation(
         times: [Double],
-        values: [Complex<Double>],
         weights: [Double]? = nil,
-        options: Options = Options()
+        options: Options = Options(),
+        evaluating bathCorrelation: (Double) -> Complex<Double>
     ) throws -> Result {
-        try fit(
-            domain: .bathCorrelation,
-            axis: times,
-            values: values.map { Matrix(elements: [$0], rows: 1, columns: 1) },
+        try fitBathCorrelation(
+            times: times,
+            values: times.map(bathCorrelation),
             weights: weights,
             options: options
         )
@@ -500,6 +552,11 @@ extension CorrelatedBathFitter {
 		let estimatedError: Double
 	}
 
+	fileprivate struct RankRevealingReduction {
+		let revealedPoleCount: Int
+		let state: ModelState?
+	}
+
 	fileprivate static func fit(
 		domain: Domain,
 		axis: [Double],
@@ -528,6 +585,9 @@ extension CorrelatedBathFitter {
 					initialRelativeRMSError: 0,
 					relativeRMSError: 0,
 					maximumRelativeError: 0,
+					rankRevealedPoleCount: 0,
+					acceptedRankRevealingRemovals: 0,
+					rankRevealingTrials: 0,
 					acceptedPoleRemovals: 0,
 					pruningTrials: 0,
 					functionEvaluations: 0,
@@ -584,10 +644,49 @@ extension CorrelatedBathFitter {
 		)
 
 		var acceptedRemovals = 0
+		var acceptedRankRevealingRemovals = 0
+		var rankRevealingTrials = 0
+		var rankRevealedPoleCount = initialPoleCount
 		var pruningTrials = 0
 		var totalFunctionEvaluations = optimized.functionEvaluations
 
-		while optimized.state.poleCount > options.minimumPoleCount {
+		while true {
+			if options.performMinimalRealizationReduction {
+				let reduction = try makeRankRevealingReduction(
+					from: optimized.state,
+					target: target,
+					options: options
+				)
+				rankRevealedPoleCount = min(
+					rankRevealedPoleCount,
+					reduction.revealedPoleCount
+				)
+				if let candidate = reduction.state {
+					rankRevealingTrials += 1
+					if let trial = try? optimize(
+						candidate,
+						target: target,
+						options: options
+					) {
+						totalFunctionEvaluations +=
+							trial.functionEvaluations
+						if trial.state.poleCount
+							< optimized.state.poleCount,
+							trial.relativeRMS <= acceptableError
+						{
+							acceptedRankRevealingRemovals +=
+								optimized.state.poleCount
+								- trial.state.poleCount
+							optimized = trial
+							continue
+						}
+					}
+				}
+			}
+
+			guard optimized.state.poleCount > options.minimumPoleCount else {
+				break
+			}
 			var removals: [RemovalCandidate] = []
 			for bath in optimized.state.baths.indices {
 				for pole in optimized.state.baths[bath].poles.indices {
@@ -646,12 +745,102 @@ extension CorrelatedBathFitter {
 				initialRelativeRMSError: initialError,
 				relativeRMSError: optimized.relativeRMS,
 				maximumRelativeError: optimized.maximumRelative,
+				rankRevealedPoleCount: min(
+					rankRevealedPoleCount,
+					optimized.state.poleCount
+				),
+				acceptedRankRevealingRemovals:
+					acceptedRankRevealingRemovals,
+				rankRevealingTrials: rankRevealingTrials,
 				acceptedPoleRemovals: acceptedRemovals,
 				pruningTrials: pruningTrials,
 				functionEvaluations: totalFunctionEvaluations,
 				converged: optimized.converged,
 				optimizerInfo: optimized.info
 			)
+		)
+	}
+
+	fileprivate static func makeRankRevealingReduction(
+		from state: ModelState,
+		target: Target,
+		options: Options
+	) throws -> RankRevealingReduction {
+		let analysis: CorrelatedBathModel.MinimalRealizationAnalysis
+		do {
+			analysis = try state.model.analyzeMinimalRealization(
+				poleTolerance: options.minimalRealizationPoleTolerance,
+				rankTolerance: options.minimalRealizationRankTolerance
+			)
+		} catch {
+			throw FittingError.linearAlgebraFailure(String(describing: error))
+		}
+
+		let revealedPoleCount = analysis.minimalPoleCount
+		guard revealedPoleCount >= options.minimumPoleCount,
+			revealedPoleCount < state.poleCount
+		else {
+			return RankRevealingReduction(
+				revealedPoleCount: revealedPoleCount,
+				state: nil
+			)
+		}
+
+		var candidates = analysis.poleGroups.compactMap {
+			group -> PencilCandidate? in
+			guard group.numericalRank > 0 else { return nil }
+			let score = frobeniusNorm(group.residue)
+			guard score > 0 else { return nil }
+			return PencilCandidate(
+				pole: group.pole,
+				residue: group.residue,
+				score: score
+			)
+		}
+		candidates.sort { $0.score > $1.score }
+		guard !candidates.isEmpty else {
+			return RankRevealingReduction(
+				revealedPoleCount: revealedPoleCount,
+				state: nil
+			)
+		}
+
+		let inferredBathCount = try inferLatentBathCount(
+			target: target,
+			requested: nil,
+			candidates: candidates,
+			tolerance: options.minimalRealizationRankTolerance
+		)
+		let latentBathCount = max(
+			1,
+			min(
+				state.baths.count,
+				inferredBathCount,
+				revealedPoleCount
+			)
+		)
+		var reductionOptions = options
+		reductionOptions.matrixPencilResidueRankTolerance =
+			options.minimalRealizationRankTolerance
+		let reducedState = try makeInitialState(
+			candidates: candidates,
+			alphaZero: state.model.bathCorrelation(at: 0),
+			channelCount: state.channelCount,
+			latentBathCount: latentBathCount,
+			options: reductionOptions
+		)
+		guard reducedState.poleCount >= options.minimumPoleCount,
+			reducedState.poleCount < state.poleCount,
+			reducedState.parameterCount <= target.residualCount
+		else {
+			return RankRevealingReduction(
+				revealedPoleCount: revealedPoleCount,
+				state: nil
+			)
+		}
+		return RankRevealingReduction(
+			revealedPoleCount: revealedPoleCount,
+			state: reducedState
 		)
 	}
 
@@ -670,6 +859,10 @@ extension CorrelatedBathFitter {
 			options.matrixPencilHankelRankTolerance > 0,
 			options.duplicatePoleTolerance.isFinite,
 			options.duplicatePoleTolerance >= 0,
+			options.minimalRealizationPoleTolerance.isFinite,
+			options.minimalRealizationPoleTolerance >= 0,
+			options.minimalRealizationRankTolerance.isFinite,
+			options.minimalRealizationRankTolerance >= 0,
 			options.physicalityTolerance.isFinite,
 			options.physicalityTolerance > 0,
 			options.pencilParameter.map({ $0 > 0 }) ?? true,

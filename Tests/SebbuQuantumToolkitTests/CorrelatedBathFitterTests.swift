@@ -39,6 +39,138 @@ struct CorrelatedBathFitterTests {
 		}
 	}
 
+	@Test("Minimal-realization analysis removes an unobservable all-pass pole")
+	func detectsAllPassRedundancy() throws {
+		let redundantPole = 0.4
+		let physicalPole = 1.1
+		let denominator = physicalPole - redundantPole
+		let redundant = CorrelatedBathModel(
+			channelCount: 1,
+			latentBaths: [
+				CorrelatedBathModel.LatentBath(
+					poles: [Complex(redundantPole), Complex(physicalPole)],
+					residues: Matrix(
+						elements: [
+							Complex(-2 * redundantPole / denominator),
+							Complex(
+								(redundantPole + physicalPole)
+									/ denominator),
+						],
+						rows: 1,
+						columns: 2
+					)
+				)
+			]
+		)
+		let minimal = CorrelatedBathModel(
+			channelCount: 1,
+			latentBaths: [
+				CorrelatedBathModel.LatentBath(
+					poles: [Complex(physicalPole)],
+					residues: Matrix(
+						elements: [.one],
+						rows: 1,
+						columns: 1
+					)
+				)
+			]
+		)
+
+		let analysis = try redundant.analyzeMinimalRealization(
+			poleTolerance: 0,
+			rankTolerance: 1e-10
+		)
+		#expect(analysis.originalPoleCount == 2)
+		#expect(analysis.poleGroups.count == 2)
+		#expect(analysis.observablePoleGroupCount == 1)
+		#expect(analysis.minimalPoleCount == 1)
+
+		for frequency in stride(from: -3.0, through: 3.0, by: 0.17) {
+			expectMatricesClose(
+				redundant.spectralDensity(at: frequency),
+				minimal.spectralDensity(at: frequency),
+				tolerance: 2e-13
+			)
+		}
+		for lag in stride(from: 0.0, through: 3.0, by: 0.13) {
+			expectMatricesClose(
+				redundant.bathCorrelation(at: lag),
+				minimal.bathCorrelation(at: lag),
+				tolerance: 2e-13
+			)
+		}
+	}
+
+	@Test("Minimal-realization analysis keeps a full-rank repeated pole")
+	func keepsFullRankRepeatedPole() throws {
+		let pole = Complex<Double>(0.7, -0.2)
+		let model = CorrelatedBathModel(
+			channelCount: 2,
+			latentBaths: [
+				CorrelatedBathModel.LatentBath(
+					poles: [pole],
+					residues: Matrix(
+						elements: [.one, .zero],
+						rows: 2,
+						columns: 1
+					)
+				),
+				CorrelatedBathModel.LatentBath(
+					poles: [pole],
+					residues: Matrix(
+						elements: [.zero, .one],
+						rows: 2,
+						columns: 1
+					)
+				),
+			]
+		)
+
+		let analysis = try model.analyzeMinimalRealization(
+			poleTolerance: 0,
+			rankTolerance: 1e-10
+		)
+		#expect(analysis.originalPoleCount == 2)
+		#expect(analysis.poleGroups.count == 1)
+		#expect(analysis.poleGroups[0].numericalRank == 2)
+		#expect(analysis.minimalPoleCount == 2)
+	}
+
+	@Test("Rank-revealing restart removes a redundant latent input")
+	func rankRevealingRestart() throws {
+		let expected = CorrelatedBathModel(
+			channelCount: 1,
+			latentBaths: [
+				CorrelatedBathModel.LatentBath(
+					poles: [Complex(0.63, 0.27)],
+					residues: Matrix(
+						elements: [Complex(0.91, -0.24)],
+						rows: 1,
+						columns: 1
+					)
+				)
+			]
+		)
+		let times = (0..<40).map { Double($0) * 0.08 }
+
+		let result = try CorrelatedBathFitter.fitBathCorrelation(
+			times: times,
+			values: times.map(expected.bathCorrelation(at:)),
+			options: fittingOptions(
+				maximumPencilPoleCount: 2,
+				latentBathCount: 2,
+				targetRelativeRMSError: 2e-6
+			)
+		)
+
+		#expect(result.diagnostics.initialPoleCount == 2)
+		#expect(result.diagnostics.rankRevealedPoleCount == 1)
+		#expect(result.diagnostics.rankRevealingTrials >= 1)
+		#expect(result.diagnostics.acceptedRankRevealingRemovals == 1)
+		#expect(result.diagnostics.finalPoleCount == 1)
+		#expect(result.diagnostics.relativeRMSError < 2e-6)
+	}
+
 	@Test("BCF samples recover the minimal shared two-pole model")
 	func fitBathCorrelation() throws {
 		let expected = twoPoleCorrelatedModel
@@ -59,6 +191,7 @@ struct CorrelatedBathFitterTests {
 
 		#expect(result.model.latentBaths.count == 1)
 		#expect(result.model.poleCount == 2)
+		#expect(result.diagnostics.rankRevealedPoleCount == 2)
 		#expect(result.diagnostics.relativeRMSError < 2e-6)
 		#expect(result.diagnostics.finalPoleCount < 3)
 
