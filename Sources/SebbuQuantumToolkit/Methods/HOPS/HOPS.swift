@@ -206,7 +206,7 @@ public extension HOPS {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         @discardableResult
-        func solve<Hamiltonian>(
+        func solveTrajectory<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,

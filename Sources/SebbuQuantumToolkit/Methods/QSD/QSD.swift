@@ -28,7 +28,7 @@ public extension QSD {
 	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
-		func solve<Hamiltonian>(
+		func solveTrajectory<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,

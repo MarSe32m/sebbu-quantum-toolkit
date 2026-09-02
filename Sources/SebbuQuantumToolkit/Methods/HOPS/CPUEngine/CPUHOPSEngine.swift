@@ -21,12 +21,12 @@ extension CPUHOPSEngine: HOPS.Implementation {
     }
     
     @inlinable
-    public func solve<Hamiltonian, RNG>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator {
+    public func solveTrajectory<Hamiltonian, RNG>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator {
         throw ImplementationError.notImplemented
     }
     
     @inlinable
-    public func solve<Hamiltonian>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<IntegrationOptions>, seed: UInt64, trajectoryID: UInt64, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction {
+    public func solveTrajectory<Hamiltonian>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<IntegrationOptions>, seed: UInt64, trajectoryID: UInt64, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction {
         throw ImplementationError.notImplemented
     }
     
@@ -81,17 +81,17 @@ extension HOPS {
     @inlinable
     @inline(always)
     @discardableResult
-    public func solve<Hamiltonian, RNG>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<CPUHOPSEngine.IntegratorConfiguration>, rng: inout RNG, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator {
+    public func solveTrajectory<Hamiltonian, RNG>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<CPUHOPSEngine.IntegratorConfiguration>, rng: inout RNG, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction, RNG : RandomNumberGenerator {
         let engine = CPUHOPSEngine()
-        return try engine.solve(problem: problem, configuration: configuration, propagation: propagation, rng: &rng, observing: observer)
+        return try engine.solveTrajectory(problem: problem, configuration: configuration, propagation: propagation, rng: &rng, observing: observer)
     }
     
     @inlinable
     @inline(always)
     @discardableResult
-    public func solve<Hamiltonian>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<CPUHOPSEngine.IntegratorConfiguration>, seed: UInt64, trajectoryID: UInt64, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction {
+    public func solveTrajectory<Hamiltonian>(problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration, propagation: PropagationOptions<CPUHOPSEngine.IntegratorConfiguration>, seed: UInt64, trajectoryID: UInt64, observing observer: (Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>) -> PropagationControl) throws -> TrajectoryRunSummary where Hamiltonian : HamiltonianFunction {
         let engine = CPUHOPSEngine()
-        return try engine.solve(problem: problem, configuration: configuration, propagation: propagation, seed: seed, trajectoryID: trajectoryID, observing: observer)
+        return try engine.solveTrajectory(problem: problem, configuration: configuration, propagation: propagation, seed: seed, trajectoryID: trajectoryID, observing: observer)
     }
     
     @inlinable

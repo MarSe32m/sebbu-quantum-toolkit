@@ -13,6 +13,8 @@ PythonLibrary.useLibrary(at: "/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0")
 //TODO: Set library path on Windows machine
 #endif
 
+BCFFittingExample()
+
 exampleGKSLRadiativeDamping(endTime: 200)
 exampleMCWFRadiativeDamping(endTime: 200)
 exampleQSDRadiativeDamping(endTime: 200)

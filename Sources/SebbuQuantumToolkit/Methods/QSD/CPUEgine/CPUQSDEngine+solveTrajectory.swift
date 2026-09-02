@@ -7,7 +7,7 @@ import SebbuScience
 extension CPUQSDEngine {
     @inlinable
     @discardableResult
-    public func solve<Hamiltonian>(
+    public func solveTrajectory<Hamiltonian>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
@@ -23,7 +23,7 @@ extension CPUQSDEngine {
             "UInt64.max cannot be represented in the half-open trajectory-ID range"
         )
 
-        let propagationSummary = try solveTrajectory(
+        let propagationSummary = try _solveTrajectory(
             problem: problem,
             configuration: configuration,
             propagation: propagation,
@@ -41,7 +41,7 @@ extension CPUQSDEngine {
     
     @inlinable
     @discardableResult
-    public func solve<Hamiltonian, RNG>(
+    public func solveTrajectory<Hamiltonian, RNG>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
@@ -51,7 +51,7 @@ extension CPUQSDEngine {
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-        return try solveTrajectory(
+        return try _solveTrajectory(
             problem: problem,
             configuration: configuration,
             propagation: propagation,
@@ -62,7 +62,7 @@ extension CPUQSDEngine {
     }
     
     @inlinable
-    internal func solveTrajectory<Hamiltonian>(
+    internal func _solveTrajectory<Hamiltonian>(
         problem: borrowing PureStateProblem<Hamiltonian>,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
@@ -201,7 +201,7 @@ extension QSD {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solve<Hamiltonian>(
+    public static func solveTrajectory<Hamiltonian>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: Configuration,
         propagation: PropagationOptions<CPUQSDEngine.IntegratorConfiguration>,
@@ -213,7 +213,7 @@ extension QSD {
         ) -> PropagationControl
     ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
         let implementation = CPUQSDEngine()
-        return try implementation.solve(
+        return try implementation.solveTrajectory(
             problem: problem,
             configuration: configuration,
             propagation: propagation,
@@ -226,7 +226,7 @@ extension QSD {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solve<Hamiltonian, RNG>(
+    public static func solveTrajectory<Hamiltonian, RNG>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: Configuration,
         propagation: PropagationOptions<CPUQSDEngine.IntegratorConfiguration>,
@@ -237,7 +237,7 @@ extension QSD {
         ) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
         let implementation = CPUQSDEngine()
-        return try implementation.solve(
+        return try implementation.solveTrajectory(
             problem: problem,
             configuration: configuration,
             propagation: propagation,
@@ -249,7 +249,7 @@ extension QSD {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solve<Hamiltonian>(
+    public static func solveTrajectory<Hamiltonian>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: Configuration,
         propagation: PropagationOptions<CPUQSDEngine.IntegratorConfiguration>,
@@ -260,7 +260,7 @@ extension QSD {
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
         let implementation = CPUQSDEngine()
         var rng = SystemRandomNumberGenerator()
-        return try implementation.solve(
+        return try implementation.solveTrajectory(
             problem: problem,
             configuration: configuration,
             propagation: propagation,

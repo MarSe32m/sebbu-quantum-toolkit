@@ -6,7 +6,7 @@ import SebbuScience
 
 extension CPUMCWFEngine {
 	@discardableResult
-	public func solve<Hamiltonian>(
+	public func solveTrajectory<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -49,7 +49,7 @@ extension CPUMCWFEngine {
 	/// returns a ``PropagationRunSummary`` rather than a
 	/// ``TrajectoryRunSummary``.
 	@discardableResult
-	public func solve<Hamiltonian, RNG>(
+	public func solveTrajectory<Hamiltonian, RNG>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -60,7 +60,7 @@ extension CPUMCWFEngine {
 		) -> PropagationControl
 	) throws -> PropagationRunSummary
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-		try solveTrajectory(
+		try _solveTrajectory(
 			problem: problem,
 			configuration: configuration,
 			propagation: propagation,
@@ -72,7 +72,7 @@ extension CPUMCWFEngine {
 
 extension CPUMCWFEngine {
     @inlinable
-	internal func solveTrajectory<Hamiltonian, RNG>(
+	internal func _solveTrajectory<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -446,7 +446,7 @@ extension MCWF {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solve<Hamiltonian>(
+	public static func solveTrajectory<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration = .init(),
 		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
@@ -458,7 +458,7 @@ extension MCWF {
 		) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
 		let implementation = CPUMCWFEngine()
-		return try implementation.solve(
+		return try implementation.solveTrajectory(
 			problem: problem,
 			configuration: configuration,
 			propagation: propagation,
@@ -471,7 +471,7 @@ extension MCWF {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solve<Hamiltonian, RNG>(
+	public static func solveTrajectory<Hamiltonian, RNG>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration = .init(),
 		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
@@ -483,7 +483,7 @@ extension MCWF {
 	) throws -> PropagationRunSummary
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
 		let implementation = CPUMCWFEngine()
-		return try implementation.solve(
+		return try implementation.solveTrajectory(
 			problem: problem,
 			configuration: configuration,
 			propagation: propagation,
@@ -507,7 +507,7 @@ extension MCWF {
     where Hamiltonian: HamiltonianFunction {
         let implementation = CPUMCWFEngine()
         var rng = SystemRandomNumberGenerator()
-        return try implementation.solve(
+        return try implementation.solveTrajectory(
             problem: problem,
             configuration: configuration,
             propagation: propagation,

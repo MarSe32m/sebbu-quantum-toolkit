@@ -34,7 +34,7 @@ extension CPUQSDEngine {
 			blockSize: execution.resolvedBatchSize
 		) { trajectoryID in
 			do {
-				let summary = try solveTrajectory(
+				let summary = try _solveTrajectory(
 					problem: problem,
 					configuration: configuration,
 					propagation: propagation,

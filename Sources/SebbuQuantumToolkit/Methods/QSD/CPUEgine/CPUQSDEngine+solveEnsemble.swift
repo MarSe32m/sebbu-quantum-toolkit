@@ -52,7 +52,7 @@ extension CPUQSDEngine {
             while trajectoryID < execution.trajectoryIDs.upperBound {
                 var sampleIndex = 0
                 do {
-                    let summary = try solveTrajectory(
+                    let summary = try _solveTrajectory(
                         problem: problem,
                         configuration: configuration,
                         propagation: propagation,

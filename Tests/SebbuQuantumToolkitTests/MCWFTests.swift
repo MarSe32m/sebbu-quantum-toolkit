@@ -21,7 +21,7 @@ struct CPUMCWFEngineTests {
 		for algorithm in mcwfAlgorithms {
 			var observedTimes: [Double] = []
 			var observedStates: [[Complex<Double>]] = []
-			let summary = try MCWF.solve(
+			let summary = try MCWF.solveTrajectory(
 				problem: problem,
 				configuration: .init(jumpAlgorithm: algorithm),
 				propagation: mcwfPropagationOptions(
@@ -55,7 +55,7 @@ struct CPUMCWFEngineTests {
 		let problem = mcwfProblem(markovianChannels: [])
 		var observedTimes: [Double] = []
 
-		let summary = try MCWF.solve(
+		let summary = try MCWF.solveTrajectory(
 			problem: problem,
 			configuration: .init(),
 			propagation: mcwfPropagationOptions(
@@ -88,7 +88,7 @@ struct CPUMCWFEngineTests {
 		)
 		var observations: [(time: Double, ground: Double, excited: Double)] = []
 
-		try MCWF.solve(
+		try MCWF.solveTrajectory(
 			problem: problem,
 			configuration: .init(
 				jumpAlgorithm: .waitingTime(
@@ -128,7 +128,7 @@ struct CPUMCWFEngineTests {
 		var randomNumberGenerator = ScriptedRandomNumberGenerator([0, 0])
 		var observations: [(time: Double, ground: Double, excited: Double)] = []
 
-		try MCWF.solve(
+		try MCWF.solveTrajectory(
 			problem: problem,
 			configuration: .init(jumpAlgorithm: .discreteTime),
 			propagation: mcwfPropagationOptions(
@@ -201,7 +201,7 @@ struct CPUMCWFEngineTests {
 		)
 		var finalState: [Complex<Double>] = []
 
-		try MCWF.solve(
+		try MCWF.solveTrajectory(
 			problem: problem,
 			configuration: .init(),
 			propagation: mcwfPropagationOptions(
@@ -407,7 +407,7 @@ struct CPUMCWFEngineTests {
 		)
 
 		#expect(throws: CPUMCWFEngine.SolverError.invalidStateNorm(time: 0)) {
-			try MCWF.solve(
+			try MCWF.solveTrajectory(
 				problem: problem,
 				configuration: .init(),
 				propagation: mcwfPropagationOptions(
@@ -488,7 +488,7 @@ private func finalMCWFState(
 	trajectoryID: UInt64
 ) throws -> [Complex<Double>] {
 	var result: [Complex<Double>] = []
-	try MCWF.solve(
+	try MCWF.solveTrajectory(
 		problem: problem,
 		configuration: .init(jumpAlgorithm: algorithm),
 		propagation: mcwfPropagationOptions(

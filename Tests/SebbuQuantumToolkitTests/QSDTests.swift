@@ -17,7 +17,7 @@ struct CPUQSDEngineTests {
 		var observedTimes: [Double] = []
 		var observedStates: [[Complex<Double>]] = []
 
-		let summary = try QSD.solve(
+		let summary = try QSD.solveTrajectory(
 			problem: problem,
 			configuration: .init(equationType: .linear),
 			propagation: qsdPropagationOptions(
@@ -49,7 +49,7 @@ struct CPUQSDEngineTests {
 		let problem = qsdProblem(markovianChannels: [])
 		var observedTimes: [Double] = []
 
-		let summary = try QSD.solve(
+		let summary = try QSD.solveTrajectory(
 			problem: problem,
 			configuration: .init(equationType: .linear),
 			propagation: qsdPropagationOptions(
@@ -283,7 +283,7 @@ struct CPUQSDEngineTests {
 		)
 		var maximumNormError = 0.0
 
-		try QSD.solve(
+		try QSD.solveTrajectory(
 			problem: problem,
 			configuration: .init(equationType: .nonLinearNormalized),
 			propagation: qsdPropagationOptions(
@@ -479,7 +479,7 @@ private func finalQSDState(
 	trajectoryID: UInt64
 ) throws -> [Complex<Double>] {
 	var result: [Complex<Double>] = []
-	try QSD.solve(
+	try QSD.solveTrajectory(
 		problem: problem,
 		configuration: .init(equationType: equationType),
 		propagation: qsdPropagationOptions(

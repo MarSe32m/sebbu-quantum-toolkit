@@ -58,7 +58,7 @@ public extension MCWF {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         @discardableResult
-		func solve<Hamiltonian>(
+		func solveTrajectory<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
