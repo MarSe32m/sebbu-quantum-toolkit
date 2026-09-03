@@ -80,6 +80,18 @@ public struct ConstantOperator: Sendable {
 	}
 }
 
+public extension TimeDependentOperator {
+    @inlinable
+    static func constant(_ matrix: Matrix<Complex<Double>>) -> Self {
+        .constant(.init(matrix))
+    }
+    
+    @inlinable
+    static func constant(_ matrix: borrowing UniqueMatrix<Complex<Double>>) -> Self {
+        .constant(.init(matrix))
+    }
+}
+
 public struct OperatorExpansion: Sendable {
 	@usableFromInline
 	package let coefficients: [ComplexTimeFunction]
