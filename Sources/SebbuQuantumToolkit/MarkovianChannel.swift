@@ -15,7 +15,19 @@ public struct MarkovianChannel: Sendable {
 		self.collapseOperator = collapseOperator
 	}
 
-	//TODO: Convenience methods
+    @inlinable
+    public init(rate: Double, collapseOperator: Matrix<Complex<Double>>) {
+        self.rate = .constant(rate)
+        self.collapseOperator = .constant(collapseOperator)
+    }
+    
+    @inlinable
+    public init(rate: Double, collapseOperator: borrowing UniqueMatrix<Complex<Double>>) {
+        self.rate = .constant(rate)
+        self.collapseOperator = .constant(collapseOperator)
+    }
+    
+    //TODO: More convenience methods
 }
 
 public enum MarkovianUnravelling: Sendable {
