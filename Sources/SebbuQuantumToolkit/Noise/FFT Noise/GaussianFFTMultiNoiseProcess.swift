@@ -61,7 +61,10 @@ public struct GaussianFFTMultiNoiseProcessGenerator: Sendable {
             let sqrtD: Matrix<Complex<Double>> = .diagonal(from: eigenValues.map { Complex(($0 * deltaOmega).squareRoot()) })
             let U: Matrix<Complex<Double>> = .from(columns: eigenVectors.map { $0.components })
             U.dot(sqrtD, into: &A)
-            let x: Vector<Complex<Double>> = .init(generator.nextNormal(count: signals.count, stdev: .sqrt(0.5)))
+            let gaussians: [Complex<Double>] = signals.indices.map { _ in
+                generator.nextNormal(stdev: Double(0.5).squareRoot())
+            }
+            let x = Vector(gaussians)
             let xi = A.dot(x)
             for i in 0..<xi.count {
                 signals[i][index] = xi[i]
@@ -70,14 +73,11 @@ public struct GaussianFFTMultiNoiseProcessGenerator: Sendable {
         // FFT
         let noises = signals.map { FFT.fft($0).spectrum }
         
-        // Create valid time grid
-        let tMaxFFT = 2.0 * .pi / deltaOmega
-        let tSpace = [Double].linearSpace(0, tMaxFFT, N)
-        
-        // Trim the noise up to desired tMax
-        let validIndex = tSpace.lastIndex(where: {$0 <= tMax}) ?? 0
-        let trimmedTime = Array(tSpace[0...validIndex])
-        let trimmedNoises = noises.map { Array($0[0...validIndex]) }
+        var lastIndex = max(1, Int((tMax / dt).rounded(.up)))
+        if Double(lastIndex) * dt < tMax { lastIndex += 1 }
+        precondition(lastIndex < N, "The FFT grid must cover tMax.")
+        let trimmedTime = (0...lastIndex).map { Double($0) * dt }
+        let trimmedNoises = noises.map { Array($0[0...lastIndex]) }
         
         // Interpolate
         let splines = trimmedNoises.map { CubicHermiteSpline(x: trimmedTime, y: $0) }

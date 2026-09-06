@@ -4,7 +4,6 @@
 import Numerics
 import NumericsExtensions
 import SebbuScience
-import DequeModule
 
 public final class UniformSlidingWindowOrnsteinUhlenbeckProcess: ComplexNoiseProcess {
     @usableFromInline
