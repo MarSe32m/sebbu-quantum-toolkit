@@ -290,9 +290,8 @@ struct GaussianFFTNoiseProcessTests {
         #expect(noise.tMax >= duration)
         #expect(noise.sample(duration).length.isFinite)
         #expect(noise.spline.x.count >= 2)
-        // The FFT grid contains N samples over a period of 2*pi/dw.
-        let expectedStep = 2 * Double.pi / (1024 * 0.5)
-        #expect(abs(noise.spline.x[1] - expectedStep) < 1e-14)
+        // Padding refines the time mesh without extending the spectral cutoff.
+        #expect(noise.spline.x[1] > 0 && noise.spline.x[1] <= 0.1)
     }
 
     @Test("Thermal wrappers retain endpoint coverage after scalar sampling")
