@@ -39,6 +39,8 @@ extension HOPS {
         public let environment: Environment
         
         public init(environment: Environment, truncation: Truncation) {
+            self.environment = environment
+            let hierarchyDirections = environment.bath.poleCount
             fatalError("TODO: Implement")
         }
 
@@ -88,65 +90,20 @@ extension HOPS {
 }
 
 extension HOPS {
-    public struct BathCorrelationFunction: Sendable {
-        public let W: [Complex<Double>]
-        public let G: [Complex<Double>]
-        public let r: [Complex<Double>]
-        @usableFromInline
-        package let isZero: Bool
-        
-        public static var zero: BathCorrelationFunction {
-            BathCorrelationFunction(W: [], G: [], r: [])
-        }
-        
-        @inlinable
-        public init(W: [Complex<Double>], G: [Complex<Double>], r: [Complex<Double>]) {
-            self.W = W
-            self.G = G
-            self.r = r
-            self.isZero = W.isEmpty && G.isEmpty && r.isEmpty
-        }
-        
-        @inlinable
-        public init(samplingTimes: [Double], fitting bcf: (Double) -> Complex<Double>) {
-            fatalError("TODO: Implement")
-        }
-        
-        @inlinable
-        public init(samplingTimes: [Double], physicallyFitting bcf: (Double) -> Complex<Double>) {
-            fatalError("TODO: Implement")
-        }
-    }
-    
-    public struct BathCorrelationMatrix: Sendable {
-        public let matrix: Matrix<BathCorrelationFunction>
-        
-        @inlinable
-        public init(matrix: Matrix<BathCorrelationFunction>) {
-            precondition(matrix.isSquare, "The bath correlation matrix must be square.")
-            self.matrix = matrix
-        }
-        
-        @usableFromInline
-        package var isDiagonal: Bool {
-            for i in 0..<matrix.rows {
-                for j in 0..<matrix.columns where i != j {
-                    if !matrix[i, j].isZero { return false }
-                }
-            }
-            return true
-        }
-    }
-    
     public struct Environment: Sendable {
         public let couplingOperators: [TimeDependentOperator]
-        public let bathCorrelationMatrix: BathCorrelationMatrix
+        public let bath: CorrelatedBathModel
         
         @inlinable
-        public init(couplingOperators: [TimeDependentOperator], bathCorrelationMatrix: BathCorrelationMatrix) {
-            precondition(couplingOperators.count == bathCorrelationMatrix.matrix.rows, "There must be equal number of coupling operators and bath correlation matrix diagonal elements.")
+        public init(couplingOperators: [TimeDependentOperator], bath: CorrelatedBathModel) {
+            precondition(couplingOperators.count == bath.poleCount, "There must be equal number of coupling operators and bath correlation matrix diagonal elements.")
             self.couplingOperators = couplingOperators
-            self.bathCorrelationMatrix = bathCorrelationMatrix
+            self.bath = bath
+        }
+        
+        @inlinable
+        public init(couplingOperator: TimeDependentOperator, bath: CorrelatedBathModel) {
+            self.init(couplingOperators: [couplingOperator], bath: bath)
         }
     }
     
