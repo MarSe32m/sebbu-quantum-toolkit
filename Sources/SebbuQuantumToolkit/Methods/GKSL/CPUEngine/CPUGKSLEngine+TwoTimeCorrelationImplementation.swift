@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUGKSLEngine: GKSL.TwoTimeCorrelationImplementation {
+extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
     public func solveTwoTimeCorrelation<Hamiltonian>(
         problem: borrowing DensityMatrixProblem<Hamiltonian>,
         configuration: GKSL.Configuration = .init(),
@@ -176,7 +176,7 @@ extension CPUGKSLEngine: GKSL.TwoTimeCorrelationImplementation {
     }
 }
 
-extension CPUGKSLEngine {
+extension GKSL.CPUEngine {
 	@inlinable
     internal static func apply(
 		_ insertion: CorrelationInsertion,
@@ -254,10 +254,10 @@ extension GKSL {
         problem: borrowing DensityMatrixProblem<Hamiltonian>,
         configuration: GKSL.Configuration = .init(),
         request: TwoTimeCorrelationRequest,
-        propagation: PropagationOptions<CPUGKSLEngine.IntegratorConfiguration>,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
-        let implementation = CPUGKSLEngine()
+        let implementation = CPUEngine()
         return try implementation.solveTwoTimeCorrelation(
             problem: problem,
             configuration: configuration,
@@ -274,10 +274,10 @@ extension GKSL {
         problem: borrowing PureStateProblem<Hamiltonian>,
         configuration: GKSL.Configuration = .init(),
         request: TwoTimeCorrelationRequest,
-        propagation: PropagationOptions<CPUGKSLEngine.IntegratorConfiguration>,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
-        let implementation = CPUGKSLEngine()
+        let implementation = CPUEngine()
         return try implementation.solveTwoTimeCorrelation(
             problem: problem,
             configuration: configuration,

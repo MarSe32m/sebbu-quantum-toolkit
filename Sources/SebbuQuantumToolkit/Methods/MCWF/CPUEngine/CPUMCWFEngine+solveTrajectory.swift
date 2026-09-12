@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
 	@discardableResult
 	public func solveTrajectory<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -70,7 +70,7 @@ extension CPUMCWFEngine {
 	}
 }
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
     @inlinable
 	internal func _solveTrajectory<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
@@ -360,7 +360,7 @@ extension MCWF {
 	public static func solveTrajectory<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration = .init(),
-		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		seed: UInt64,
 		trajectoryID: UInt64,
 		observing observer: (
@@ -368,7 +368,7 @@ extension MCWF {
 			borrowing UniqueVector<Complex<Double>>
 		) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		let implementation = CPUMCWFEngine()
+		let implementation = CPUEngine()
 		return try implementation.solveTrajectory(
 			problem: problem,
 			configuration: configuration,
@@ -385,7 +385,7 @@ extension MCWF {
 	public static func solveTrajectory<Hamiltonian, RNG>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration = .init(),
-		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		rng: inout RNG,
 		observing observer: (
 			Double,
@@ -393,7 +393,7 @@ extension MCWF {
 		) -> PropagationControl
 	) throws -> PropagationRunSummary
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
-		let implementation = CPUMCWFEngine()
+		let implementation = CPUEngine()
 		return try implementation.solveTrajectory(
 			problem: problem,
 			configuration: configuration,
@@ -409,14 +409,14 @@ extension MCWF {
     public static func solve<Hamiltonian>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: Configuration = .init(),
-        propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
     ) throws -> PropagationRunSummary
     where Hamiltonian: HamiltonianFunction {
-        let implementation = CPUMCWFEngine()
+        let implementation = CPUEngine()
         var rng = SystemRandomNumberGenerator()
         return try implementation.solveTrajectory(
             problem: problem,

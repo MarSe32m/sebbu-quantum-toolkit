@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
 	@usableFromInline
 	internal struct TrajectoryState: ~Copyable, AdaptiveStepODESolverState,
 		PDPState

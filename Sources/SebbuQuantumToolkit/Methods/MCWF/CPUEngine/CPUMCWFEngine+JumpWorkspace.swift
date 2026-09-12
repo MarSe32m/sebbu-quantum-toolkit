@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
     @usableFromInline
 	internal struct JumpWorkspace: ~Copyable, PDPJumpKernel {
 		@usableFromInline
@@ -82,7 +82,7 @@ extension CPUMCWFEngine {
 				to: state.wavefunction
 			)
 			state.wavefunction.copyComponents(from: actionBuffer)
-			try CPUMCWFEngine.normalize(&state, at: time)
+            try MCWF.CPUEngine.normalize(&state, at: time)
 		}
 
 		@inlinable

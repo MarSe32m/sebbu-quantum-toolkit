@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
 	@discardableResult
 	public func solveTwoTimeCorrelation<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -44,7 +44,7 @@ extension MCWF {
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try CPUMCWFEngine().solveTwoTimeCorrelation(
+		try CPUEngine().solveTwoTimeCorrelation(
 			problem: problem,
 			configuration: configuration,
 			request: request,

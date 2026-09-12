@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
 	internal func solveMultiTimeCorrelationTrajectory<Hamiltonian, RNG>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,

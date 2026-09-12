@@ -446,7 +446,7 @@ struct CPUMCWFEngineTests {
 			markovianChannels: []
 		)
 
-		#expect(throws: CPUMCWFEngine.SolverError.invalidStateNorm(time: 0)) {
+        #expect(throws: MCWF.CPUEngine.SolverError.invalidStateNorm(time: 0)) {
 			try MCWF.solveTrajectory(
 				problem: problem,
 				configuration: .init(),

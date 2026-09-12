@@ -6,7 +6,7 @@ import SebbuBLAS
 import SebbuScience
 import Synchronization
 
-extension CPUMCWFEngine: MCWF.MultiTimeOrderedCorrelationImplementation {
+extension MCWF.CPUEngine: MCWF.MultiTimeOrderedCorrelationImplementation {
 	@discardableResult
 	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -124,7 +124,7 @@ extension MCWF {
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try CPUMCWFEngine().solveMultiTimeOrderedCorrelation(
+		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,
 			request: request,

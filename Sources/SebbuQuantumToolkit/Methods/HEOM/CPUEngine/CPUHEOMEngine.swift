@@ -4,12 +4,14 @@
 import Numerics
 import SebbuScience
 
-public struct CPUHEOMEngine: Sendable {
-    @inlinable
-    public init() {}
+public extension HEOM {
+    struct CPUEngine: Sendable {
+        @inlinable
+        public init() {}
+    }
 }
 
-extension CPUHEOMEngine: HEOM.Implementation {
+extension HEOM.CPUEngine: HEOM.Implementation {
     @inlinable
     @discardableResult
     public func solve<Hamiltonian>(
@@ -22,7 +24,7 @@ extension CPUHEOMEngine: HEOM.Implementation {
     }
 }
 
-extension CPUHEOMEngine: HEOM.HierarchyProvidingImplementation {
+extension HEOM.CPUEngine: HEOM.HierarchyProvidingImplementation {
     @inlinable
     @discardableResult
     public func solveWithHierarchy<Hamiltonian>(

@@ -8,7 +8,7 @@ import BasicContainers
 import Synchronization
 import SebbuBLAS
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
     @discardableResult
     public func solveEnsemble<Hamiltonian>(
         problem: PureStateProblem<Hamiltonian>,
@@ -145,11 +145,11 @@ extension MCWF {
     public static func solveEnsemble<Hamiltonian>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: Configuration,
-        propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         execution: TrajectoryExecution,
         _ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
     ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-        let implementation = CPUMCWFEngine()
+        let implementation = CPUEngine()
         return try implementation.solveEnsemble(
             problem: problem,
             configuration: configuration,

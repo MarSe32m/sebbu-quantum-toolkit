@@ -5,7 +5,7 @@ import Numerics
 import SebbuBLAS
 import SebbuScience
 
-extension CPUQSDEngine {
+extension QSD.CPUEngine {
 	internal func solveMultiTimeCorrelationTrajectory<Hamiltonian>(
 		problem: borrowing PureStateProblem<Hamiltonian>,
 		configuration: QSD.Configuration,

@@ -4,12 +4,15 @@
 import Numerics
 import SebbuScience
 
-public struct CPUGKSLEngine: Sendable {
-	@inlinable
-	public init() {}
+public extension GKSL {
+    struct CPUEngine: Sendable {
+        @inlinable
+        public init() {}
+    }
 }
 
-extension CPUGKSLEngine: GKSL.Implementation {
+
+extension GKSL.CPUEngine: GKSL.Implementation {
     @inlinable
     public func solve<Hamiltonian>(
         problem: borrowing DensityMatrixProblem<Hamiltonian>,
@@ -92,10 +95,10 @@ extension GKSL {
     public static func solve<Hamiltonian>(
         problem: borrowing DensityMatrixProblem<Hamiltonian>,
         configuration: Configuration = .init(),
-        propagation: PropagationOptions<CPUGKSLEngine.IntegratorConfiguration>,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (Double, borrowing UniqueMatrix<Complex<Double>>) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
-        let implementation = CPUGKSLEngine()
+        let implementation = CPUEngine()
         return try implementation.solve(
             problem: problem, configuration: configuration, propagation: propagation,
             observing: observer)
@@ -107,13 +110,13 @@ extension GKSL {
     public static func solve<Hamiltonian: HamiltonianFunction>(
         problem: borrowing PureStateProblem<Hamiltonian>,
         configuration: GKSL.Configuration = .init(),
-        propagation: PropagationOptions<CPUGKSLEngine.IntegratorConfiguration>,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (
             Double,
             borrowing UniqueMatrix<Complex<Double>>
         ) -> PropagationControl
     ) throws -> PropagationRunSummary {
-        let implementation = CPUGKSLEngine()
+        let implementation = CPUEngine()
         return try implementation.solve(
             problem: problem, configuration: configuration, propagation: propagation,
             observing: observer)

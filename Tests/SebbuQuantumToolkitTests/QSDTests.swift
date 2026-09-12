@@ -333,14 +333,14 @@ struct CPUQSDEngineTests {
 				),
 			]
 		)
-		var rhs = CPUQSDEngine.QSDRightHandSide(
+        var rhs = QSD.CPUEngine.QSDRightHandSide(
 			problem,
 			equationType: .linear,
 			seed: 0,
 			trajectoryID: 0
 		)
-		let state = CPUQSDEngine.StateVector(state: problem.initialState)
-		var diffusion = CPUQSDEngine.StateVector(dimension: 2)
+        let state = QSD.CPUEngine.StateVector(state: problem.initialState)
+        var diffusion = QSD.CPUEngine.StateVector(dimension: 2)
 
 		rhs.diffusion(t: 0, y: state, channel: 0, into: &diffusion)
 		#expect(diffusion.state[0] == .zero)
@@ -357,15 +357,15 @@ struct CPUQSDEngineTests {
 			initialState: [Complex(0.3.squareRoot()), Complex(0.7.squareRoot())],
 			markovianChannels: [amplitudeDampingChannel(rate: 0.9)]
 		)
-		var rhs = CPUQSDEngine.QSDRightHandSide(
+        var rhs = QSD.CPUEngine.QSDRightHandSide(
 			problem,
 			equationType: .nonLinearNormalized,
 			seed: 0,
 			trajectoryID: 0
 		)
-		let state = CPUQSDEngine.StateVector(state: problem.initialState)
-		var drift = CPUQSDEngine.StateVector(dimension: 2)
-		var diffusion = CPUQSDEngine.StateVector(dimension: 2)
+        let state = QSD.CPUEngine.StateVector(state: problem.initialState)
+        var drift = QSD.CPUEngine.StateVector(dimension: 2)
+        var diffusion = QSD.CPUEngine.StateVector(dimension: 2)
 
 		rhs.drift(t: 0, y: state, into: &drift)
 		rhs.diffusion(t: 0, y: state, channel: 0, into: &diffusion)

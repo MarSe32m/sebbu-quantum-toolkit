@@ -4,11 +4,13 @@
 import Numerics
 import SebbuScience
 
-public struct CPUQSDEngine: QSD.Implementation, QSD.TwoTimeCorrelationImplementation, Sendable {
-	@inlinable
-	public init() {}
+public extension QSD {
+    struct CPUEngine: QSD.Implementation, QSD.TwoTimeCorrelationImplementation, Sendable {
+        @inlinable
+        public init() {}
 
-	public enum SolverError: Error, Equatable, Sendable {
-		case invalidStateNorm(time: Double)
-	}
+        public enum SolverError: Error, Equatable, Sendable {
+            case invalidStateNorm(time: Double)
+        }
+    }
 }

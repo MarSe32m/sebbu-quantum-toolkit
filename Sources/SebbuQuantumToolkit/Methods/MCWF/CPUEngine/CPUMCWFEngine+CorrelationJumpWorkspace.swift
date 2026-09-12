@@ -5,7 +5,7 @@ import Numerics
 import NumericsExtensions
 import SebbuScience
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
     @usableFromInline
 	internal struct CorrelationJumpWorkspace: ~Copyable, PDPJumpKernel {
 		@usableFromInline

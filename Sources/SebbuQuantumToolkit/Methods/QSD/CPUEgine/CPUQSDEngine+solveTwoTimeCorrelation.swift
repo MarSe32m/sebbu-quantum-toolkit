@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUQSDEngine {
+extension QSD.CPUEngine {
 	@discardableResult
 	public func solveTwoTimeCorrelation<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -44,7 +44,7 @@ extension QSD {
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try CPUQSDEngine().solveTwoTimeCorrelation(
+		try CPUEngine().solveTwoTimeCorrelation(
 			problem: problem,
 			configuration: configuration,
 			request: request,

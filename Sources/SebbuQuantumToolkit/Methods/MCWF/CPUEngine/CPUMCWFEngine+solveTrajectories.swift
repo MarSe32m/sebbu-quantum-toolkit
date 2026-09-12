@@ -7,7 +7,7 @@ import SebbuCollections
 import SebbuScience
 import SebbuBLAS
 
-extension CPUMCWFEngine {
+extension MCWF.CPUEngine {
 	@discardableResult
 	public func solveTrajectories<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -86,7 +86,7 @@ extension MCWF {
 	public static func solveTrajectories<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: MCWF.Configuration,
-		propagation: PropagationOptions<CPUMCWFEngine.IntegratorConfiguration>,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (
@@ -95,7 +95,7 @@ extension MCWF {
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		let implementation = CPUMCWFEngine()
+		let implementation = CPUEngine()
 		return try implementation.solveTrajectories(
 			problem: problem,
 			configuration: configuration,

@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUGKSLEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
+extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
 		problem: borrowing DensityMatrixProblem<Hamiltonian>,
 		configuration: GKSL.Configuration = .init(),
@@ -150,7 +150,7 @@ extension CPUGKSLEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 	}
 }
 
-extension CPUGKSLEngine {
+extension GKSL.CPUEngine {
 	private static func applyMultiTimeInsertion(
 		_ event: TimedCorrelationInsertion,
 		index: Int,
@@ -208,7 +208,7 @@ extension GKSL {
 		propagation: PropagationOptions<IntegrationOptions>,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
-		try CPUGKSLEngine().solveMultiTimeOrderedCorrelation(
+		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,
 			request: request,
@@ -225,7 +225,7 @@ extension GKSL {
 		propagation: PropagationOptions<IntegrationOptions>,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
-		try CPUGKSLEngine().solveMultiTimeOrderedCorrelation(
+		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,
 			request: request,

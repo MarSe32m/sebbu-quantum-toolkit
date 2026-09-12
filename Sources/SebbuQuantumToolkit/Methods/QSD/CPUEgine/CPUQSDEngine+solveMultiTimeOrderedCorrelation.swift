@@ -6,7 +6,7 @@ import SebbuBLAS
 import SebbuScience
 import Synchronization
 
-extension CPUQSDEngine: QSD.MultiTimeOrderedCorrelationImplementation {
+extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 	@discardableResult
 	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -119,7 +119,7 @@ extension QSD {
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		try CPUQSDEngine().solveMultiTimeOrderedCorrelation(
+		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,
 			request: request,

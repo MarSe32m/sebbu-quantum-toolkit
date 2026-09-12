@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension CPUQSDEngine {
+extension QSD.CPUEngine {
     @usableFromInline
 	internal struct CorrelationRightHandSide<
 		Hamiltonian: HamiltonianFunction

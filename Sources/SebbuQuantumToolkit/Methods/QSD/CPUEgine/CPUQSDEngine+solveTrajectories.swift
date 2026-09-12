@@ -6,7 +6,7 @@ import SebbuCollections
 import SebbuScience
 import SebbuBLAS
 
-extension CPUQSDEngine {
+extension QSD.CPUEngine {
 	@discardableResult
 	public func solveTrajectories<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -81,7 +81,7 @@ extension QSD {
 	public static func solveTrajectories<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
-		propagation: PropagationOptions<CPUQSDEngine.IntegratorConfiguration>,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (
@@ -90,7 +90,7 @@ extension QSD {
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		let implementation = CPUQSDEngine()
+		let implementation = CPUEngine()
 		return try implementation.solveTrajectories(
 			problem: problem,
 			configuration: configuration,

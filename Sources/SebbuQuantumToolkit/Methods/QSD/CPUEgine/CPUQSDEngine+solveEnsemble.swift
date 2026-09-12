@@ -8,7 +8,7 @@ import Synchronization
 import BasicContainers
 import SebbuBLAS
 
-extension CPUQSDEngine {
+extension QSD.CPUEngine {
 	@discardableResult
 	public func solveEnsemble<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
@@ -148,14 +148,14 @@ extension QSD {
 	public static func solveEnsemble<Hamiltonian>(
 		problem: PureStateProblem<Hamiltonian>,
 		configuration: Configuration,
-		propagation: PropagationOptions<CPUQSDEngine.IntegratorConfiguration>,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach: (
 			Double,
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		let implementation = CPUQSDEngine()
+		let implementation = CPUEngine()
 		return try implementation.solveEnsemble(
 			problem: problem,
 			configuration: configuration,
