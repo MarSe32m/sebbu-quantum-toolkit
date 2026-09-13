@@ -29,16 +29,27 @@ extension HOPS {
 		public var shiftType: ShiftType
 		public var unravelling: MarkovianUnravelling
 
+		/// Uniform OU mesh spacing. Nil uses the integrator's maximum step.
+		/// Converge this independently of the ODE tolerances. The CPU engine
+		/// retains enough history for every trial step and solver retry.
+		public var noiseStepSize: Double?
+
 		public init(
 			hierarchy: Hierarchy,
 			equationType: EquationType,
 			shiftType: ShiftType = .none,
-			unravelling: MarkovianUnravelling = .diffusive
+			unravelling: MarkovianUnravelling = .diffusive,
+			noiseStepSize: Double? = nil
 		) {
 			self.hierarchy = hierarchy
 			self.equationType = equationType
 			self.shiftType = shiftType
 			self.unravelling = unravelling
+			if let noiseStepSize {
+				precondition(noiseStepSize.isFinite && noiseStepSize > 0,
+					"The OU mesh step must be finite and positive.")
+			}
+			self.noiseStepSize = noiseStepSize
 		}
 	}
 }
