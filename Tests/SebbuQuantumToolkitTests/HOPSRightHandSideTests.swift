@@ -11,8 +11,8 @@ import Testing
 struct HOPSRightHandSideTests {
 	@Test(
 		"Batched physical-operator kernel equals the literal latent equations",
-		arguments: 0..<6)
-	func latentEquation(variant: Int) throws {
+		arguments: 0..<6, [0, 2])
+	func latentEquation(variant: Int, depth: Int) throws {
 		let model = hopsFixtureModel()
 		let c = hopsMatrix([Complex(0.1, 0.2), Complex(0.7, -0.3), 0, Complex(-0.2, 0.1)])
 		let h = hopsMatrix([
@@ -20,7 +20,7 @@ struct HOPSRightHandSideTests {
 		])
 		let problem = hopsProblem(h, markovian: [.init(rate: 0.6, collapseOperator: c)])
 		let config = hopsConfiguration(
-			variant, model: model, operators: hopsFixtureOperators, depth: 2)
+			variant, model: model, operators: hopsFixtureOperators, depth: depth)
 		let preparation = try HOPS.CPUEngine.Preparation(
 			problem: problem, configuration: config, propagation: hopsPropagation())
 		var rhs = HOPS.CPUEngine.RightHandSide(
@@ -108,7 +108,7 @@ struct HOPSRightHandSideTests {
 			shiftType: config.shiftType, noiseStepSize: 0.01)
 		let c = hopsMatrix([0, Complex(0.8, 0.2), 0, 0])
 		let staticProblem = hopsProblem(markovian: [
-			.init(rate: 0.4 + t, collapseOperator: factor * c)
+			.init(rate: 0.4 + t, collapseOperator: factor * c + 0.2 * c.conjugateTranspose)
 		])
 		let dynamicProblem = hopsProblem(markovian: [
 			.init(
@@ -119,8 +119,9 @@ struct HOPSRightHandSideTests {
 							coefficients: [
 								.generated {
 									Complex(1 + $0, 0.2 * $0)
-								}
-							], operators: [.init(c)])))
+								},
+								.constant(Complex(0.2))
+							], operators: [.init(c), .init(c.conjugateTranspose)])))
 		])
 		let a = try HOPS.CPUEngine.Preparation(
 			problem: staticProblem, configuration: config,

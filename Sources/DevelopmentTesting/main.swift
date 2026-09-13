@@ -13,10 +13,13 @@ PythonLibrary.useLibrary(at: "/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0")
 //TODO: Set library path on Windows machine
 #endif
 
+exampleQSDRadiativeDamping(endTime: 200)
 exampleHOPSRadiativeDamping(endTime: 200)
 exampleGKSLRadiativeDamping(endTime: 200)
 exampleMCWFRadiativeDamping(endTime: 200)
-exampleQSDRadiativeDamping(endTime: 200)
+
+exampleHOPSIBM(endTime: 200)
+//exampleHEOMIBM(endTime: 200)
 
 exampleMCWFResonanceFluorescenceSpectrum()
 exampleGKSLResonanceFluorescenceSpectrum()

@@ -326,6 +326,23 @@ public enum CorrelatedBathFitter {
 			options: options
 		)
 	}
+    
+    /// Fits Hermitian positive-semidefinite spectral-density samples.
+    /// The nonlinear objective is evaluated directly as `J = H H^dagger`.
+    public static func fitSpectralDensity(
+        frequencies: [Double],
+        values: [Double],
+        weights: [Double]? = nil,
+        options: Options = Options()
+    ) throws -> Result {
+        try fit(
+            domain: .spectralDensity,
+            axis: frequencies,
+            values: values.map { .init(elements: [Complex($0)], rows: 1, columns: 1) },
+            weights: weights,
+            options: options
+        )
+    }
 
 	/// Samples and fits a matrix-valued spectral-density closure.
 	public static func fitSpectralDensity(
@@ -341,6 +358,21 @@ public enum CorrelatedBathFitter {
 			options: options
 		)
 	}
+    
+    /// Samples and fits a scalar-valued spectral-density closure.
+    public static func fitSpectralDensity(
+        frequencies: [Double],
+        weights: [Double]? = nil,
+        options: Options = Options(),
+        evaluating spectralDensity: (Double) -> Double
+    ) throws -> Result {
+        try fitSpectralDensity(
+            frequencies: frequencies,
+            values: frequencies.map(spectralDensity),
+            weights: weights,
+            options: options
+        )
+    }
 }
 
 extension CorrelatedBathFitter {

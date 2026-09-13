@@ -4,62 +4,69 @@
 import Numerics
 import SebbuScience
 
+#if swift(<6.5)
+	import BasicContainers
+#endif
+
 extension HOPS.CPUEngine {
 	/// All expensive, trajectory-independent preparation is shared by an ensemble.
-    @usableFromInline
+	@usableFromInline
 	internal final class Preparation: Sendable {
-        @usableFromInline
+		@usableFromInline
 		struct Direction: Sendable {
 			@usableFromInline
-            let index: Int
+			let index: Int
 			@usableFromInline
-            let upward: Complex<Double>  // R_ip
+			let upward: Complex<Double>  // R_ip
 			@usableFromInline
-            let downward: Complex<Double>  // sum_q K_pq conj(R_iq)
-            
-            @inlinable
-            init(index: Int, upward: Complex<Double>, downward: Complex<Double>) {
-                self.index = index
-                self.upward = upward
-                self.downward = downward
-            }
-		}
+			let downward: Complex<Double>  // sum_q K_pq conj(R_iq)
 
-        @usableFromInline
-		struct BathChannel: Sendable {
-			@usableFromInline
-            let physicalIndex: Int
-			@usableFromInline
-            let op: PreparedOperator
-			@usableFromInline
-            let directions: [Direction]
-            
-            @inlinable
-            init(physicalIndex: Int, op: PreparedOperator, directions: [Direction]) {
-                self.physicalIndex = physicalIndex
-                self.op = op
-                self.directions = directions
-            }
+			@inlinable
+			init(index: Int, upward: Complex<Double>, downward: Complex<Double>) {
+				self.index = index
+				self.upward = upward
+				self.downward = downward
+			}
 		}
 
 		@usableFromInline
-        let configuration: HOPS.Configuration
-		@usableFromInline
-        let dimension: Int
-		@usableFromInline
-        let poles: UniqueVector<Complex<Double>>
-		@usableFromInline
-        let shiftCount: Int
-		@usableFromInline
-        let bathChannels: [BathChannel]
-		@usableFromInline
-        let markovianOperators: [PreparedOperator]
-		@usableFromInline
-        let rates: [ScalarTimeFunction]
-		@usableFromInline
-        let noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator
+		struct BathChannel: ~Copyable, Sendable {
+			@usableFromInline
+			let physicalIndex: Int
+			@usableFromInline
+			let op: PreparedOperator
+			@usableFromInline
+			let directions: UniqueArray<Direction>
 
-        @inlinable
+			@inlinable
+			init(
+				physicalIndex: Int, op: consuming PreparedOperator,
+				directions: consuming UniqueArray<Direction>
+			) {
+				self.physicalIndex = physicalIndex
+				self.op = op
+				self.directions = directions
+			}
+		}
+
+		@usableFromInline
+		let configuration: HOPS.Configuration
+		@usableFromInline
+		let dimension: Int
+		@usableFromInline
+		let poles: UniqueVector<Complex<Double>>
+		@usableFromInline
+		let shiftCount: Int
+		@usableFromInline
+		let bathChannels: UniqueArray<BathChannel>
+		@usableFromInline
+		let markovianOperators: UniqueArray<PreparedOperator>
+		@usableFromInline
+		let rates: UniqueArray<PreparedTimeFunction<Double>>
+		@usableFromInline
+		let noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator
+
+		@inlinable
 		init<Hamiltonian>(
 			problem: borrowing PureStateProblem<Hamiltonian>,
 			configuration: HOPS.Configuration,
@@ -78,7 +85,7 @@ extension HOPS.CPUEngine {
 				"The OU mesh step must be finite and positive.")
 			self.configuration = configuration
 			self.dimension = dimension
-            self.poles = .init(model.latentBaths.flatMap(\.poles))
+			self.poles = .init(model.latentBaths.flatMap(\.poles))
 			self.shiftCount =
 				configuration.equationType != .linear
 					|| configuration.shiftType == .meanField
@@ -91,13 +98,14 @@ extension HOPS.CPUEngine {
 			// Correlations are contracted once, without factoring one-sided
 			// exponential residues or changing the sampler's latent basis.
 			let covariances = model.latentBaths.map(\.stationaryCovariance)
-			var bathChannels: [BathChannel] = []
+			var bathChannels = UniqueArray<BathChannel>(
+				minimumCapacity: model.channelCount)
 			for i in 0..<model.channelCount {
 				let source = configuration.hierarchy.environment.couplingOperators[
 					i]
 				let op = try PreparedOperator(
 					source, dimension: dimension, needsLoss: false)
-				var directions: [Direction] = []
+				var directions = UniqueArray<Direction>()
 				var offset = 0
 				for a in model.latentBaths.indices {
 					let bath = model.latentBaths[a]
@@ -126,22 +134,32 @@ extension HOPS.CPUEngine {
 				}
 			}
 			self.bathChannels = bathChannels
-			self.markovianOperators = try problem.markovianChannels.map {
-				try PreparedOperator(
-					$0.collapseOperator, dimension: dimension, needsLoss: true)
+			var markovianOperators = UniqueArray<PreparedOperator>(
+				minimumCapacity: problem.markovianChannels.count)
+			for channel in problem.markovianChannels {
+				markovianOperators.append(
+					try PreparedOperator(
+						channel.collapseOperator, dimension: dimension,
+						needsLoss: true))
 			}
-			self.rates = problem.markovianChannels.map(\.rate)
+			self.markovianOperators = markovianOperators
+			var rates = UniqueArray<PreparedTimeFunction<Double>>(
+				minimumCapacity: problem.markovianChannels.count)
+			for channel in problem.markovianChannels {
+				rates.append(PreparedTimeFunction(channel.rate))
+			}
+			self.rates = rates
 		}
 	}
 
-    @usableFromInline
-	internal struct PreparedOperator: Sendable {
+	@usableFromInline
+	internal struct PreparedOperator: ~Copyable, Sendable {
 		@usableFromInline
-        let source: TimeDependentOperator
+		let source: PreparedSource
 		@usableFromInline
-        let constant: OperatorMatrices?
+		let constant: OperatorMatrices?
 
-        @inlinable
+		@inlinable
 		init(_ source: TimeDependentOperator, dimension: Int, needsLoss: Bool) throws {
 			switch source {
 			case .constant(let op):
@@ -160,7 +178,7 @@ extension HOPS.CPUEngine {
 				}
 			case .generatedDense: break
 			}
-			self.source = source
+			self.source = PreparedSource(source)
 			if source.isConstant {
 				var original = UniqueMatrix<Complex<Double>>.zeros(
 					rows: dimension, columns: dimension)
@@ -173,16 +191,18 @@ extension HOPS.CPUEngine {
 	}
 
 	/// States occupy rows, so applying O to every ket is the GEMM Y O^T.
+	/// Noncopyable value storage lets the RHS borrow matrices without retaining
+	/// a shared class instance for every operator application.
 	@usableFromInline
-    internal final class OperatorMatrices: Sendable {
+	internal struct OperatorMatrices: ~Copyable, Sendable {
 		@usableFromInline
-        let transpose: UniqueMatrix<Complex<Double>>
+		let transpose: UniqueMatrix<Complex<Double>>
 		@usableFromInline
-        let adjointTranspose: UniqueMatrix<Complex<Double>>
+		let adjointTranspose: UniqueMatrix<Complex<Double>>
 		@usableFromInline
-        let lossTranspose: UniqueMatrix<Complex<Double>>
+		let lossTranspose: UniqueMatrix<Complex<Double>>
 
-        @inlinable
+		@inlinable
 		init(_ original: borrowing UniqueMatrix<Complex<Double>>, needsLoss: Bool) {
 			let n = original.rows
 			var transpose = UniqueMatrix<Complex<Double>>.zeros(rows: n, columns: n)
@@ -197,7 +217,7 @@ extension HOPS.CPUEngine {
 			self.lossTranspose = loss
 		}
 
-        @inlinable
+		@inlinable
 		static func transpose(
 			_ original: borrowing UniqueMatrix<Complex<Double>>,
 			into transpose: inout UniqueMatrix<Complex<Double>>,

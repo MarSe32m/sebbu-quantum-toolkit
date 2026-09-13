@@ -68,8 +68,7 @@ struct HOPSPhysicalValidationTests {
 			propagation: hopsPropagation(
 				end: t, maximumStep: kind == 4 ? 0.002 : 0.04, tolerance: 3e-6),
 			execution: .init(
-				trajectories: samples, seed: 0x941_2026,
-				parallelism: .maximumConcurrentTasks(2))
+				trajectories: samples, seed: 0x941_2026)
 		) { _, _, state in
 			let norm = variant < 2 ? 1 : state.normSquared
 			moments.withLock { m in

@@ -84,8 +84,115 @@ public func exampleHOPSRadiativeDamping(endTime: Double) {
     plt.show()
     plt.close()
 }
+
+fileprivate func spectralDensity(omega: Double, A: Double, cutoff: Double) -> Double {
+    A * omega * omega * omega * .exp(-(omega * omega) / (cutoff * cutoff))
+}
+
+fileprivate func spectralDensityByOmega(omega: Double, A: Double, cutoff: Double) -> Double {
+    A * omega * omega * .exp(-(omega * omega) / (cutoff * cutoff))
+}
+
+fileprivate func bcf(t: Double, J: (Double) -> Double) -> Complex<Double> {
+    Quad.integrate(a: 0, b: .infinity) { omega in
+            Complex(length: J(omega), phase: -omega * t)
+    }
+}
+
+public func exampleHOPSIBM(endTime: Double) {
+    let A = 0.27
+    let cutoff = 1.447
+    let renormalizationEnergy = Quad.integrate(a: 0, b: .infinity) { omega in
+        spectralDensityByOmega(omega: omega, A: A, cutoff: cutoff)
+    }
+    let system = QuantumSystem(
+        Matrix.init(elements: [.zero, .zero, .zero, Complex(renormalizationEnergy)], rows: 2, columns: 2)
+    )
+    let problem = PureStateProblem(
+        initialState: Vector.init([Complex(.sqrt(0.5)), Complex(.sqrt(0.5))]),
+        system: system
+    )
+    let timeSpan: [Double] = .linearSpace(0.0, endTime, 0.01)
+    let propagationOptions = PropagationOptions(
+        timeSpan: .init(start: 0.0, end: endTime),
+        output: .uniform(step: 0.01),
+        integration: IntegrationOptions(
+            minimumStepSize: 0.0001,
+            maximumStepSize: 0.01,
+            absoluteTolerance: 1e-9,
+            relativeTolerance: 1e-9
+        )
+    )
+    var tau: [Double] = .linearSpace(0, 10, 100)
+    var BCF = tau.map { bcf(t: $0) { omega in
+        spectralDensity(omega: omega, A: A, cutoff: cutoff)
+    }}
+    let bath: CorrelatedBathModel
+    do {
+        bath = try CorrelatedBathFitter.fitBathCorrelation(times: tau, values: BCF, options: .init(maximumPencilPoleCount: 3)).model
+    } catch {
+        print("Bath model construction failed with error:", error)
+        return
+    }
+    tau = .linearSpace(0, 10, 1000)
+    BCF = tau.map { bcf(t: $0) { omega in
+        spectralDensity(omega: omega, A: A, cutoff: cutoff)
+    }}
+    plt.figure()
+    plt.plot(x: tau, y: BCF.real, label: "Re BCF")
+    plt.plot(x: tau, y: BCF.imaginary, label: "Im BCF")
+    plt.plot(x: tau, y: tau.map { bath.bathCorrelation(at: $0)[0,0].real }, label: "Re BCF fit", linestyle: "--")
+    plt.plot(x: tau, y: tau.map { bath.bathCorrelation(at: $0)[0,0].imaginary }, label: "Im BCF fit", linestyle: "--")
+    plt.xlabel("t")
+    plt.ylabel("bcf")
+    plt.legend()
+    plt.show()
+    plt.close()
+    print(bath.poleCount)
+    let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, .one], rows: 2, columns: 2))
+    let environment = HOPS.Environment(couplingOperator: L, bath: bath)
+    let hierarchy = HOPS.Hierarchy(environment: environment, truncation: .maximumTier(4))
+    let configuration = HOPS.Configuration(
+        hierarchy: hierarchy,
+        equationType: .nonLinearNormalized,
+        shiftType: .meanField)
+    let trajectories = 4096
+    var X: [Double] = []
+    var Y: [Double] = []
+    var Z: [Double] = []
+    do {
+        let executionTime = try ContinuousClock().measure {
+            try HOPS.solveEnsemble(
+                problem: problem,
+                configuration: configuration,
+                propagation: propagationOptions,
+                execution: TrajectoryExecution(
+                    trajectories: trajectories,
+                    seed: 1234
+                )
+            ) { _, densityMatrix in
+                X.append(2 * densityMatrix[0, 1].real)
+                Y.append(2 * densityMatrix[0, 1].imaginary)
+                Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
+            }
+        }
+        print("HOPS simulation took:", executionTime)
+    } catch {
+        print("Failed to solve HOPS master equation: \(error)")
+    }
+    plt.figure()
+    plt.plot(x: timeSpan, y: X, label: "<X>")
+    plt.plot(x: timeSpan, y: Y, label: "<Y>")
+    plt.plot(x: timeSpan, y: Z, label: "<Z>")
+    plt.legend()
+    plt.xlabel("t")
+    plt.ylabel("<O>")
+    plt.show()
+    plt.close()
+}
+
 /*
-public func exampleQSDResonanceFluorescenceSpectrum() {
+public func exampleHOPSResonanceFluorescenceSpectrum() {
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, Complex(0.5), Complex(0.5), .zero], rows: 2, columns: 2)
     )
