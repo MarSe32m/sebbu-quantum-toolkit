@@ -99,12 +99,52 @@ fileprivate func bcf(t: Double, J: (Double) -> Double) -> Complex<Double> {
     }
 }
 
-public func exampleHOPSIBM(endTime: Double) {
-    let A = 0.27
-    let cutoff = 1.447
+fileprivate struct IBMBath {
+    let bath: CorrelatedBathModel
+    let renormalizationEnergy: Double
+}
+
+fileprivate func makeIBMBath(A: Double, cutoff: Double) throws -> IBMBath {
+    if A == .zero { return IBMBath(bath: .zero(channelCount: 1), renormalizationEnergy: .zero) }
     let renormalizationEnergy = Quad.integrate(a: 0, b: .infinity) { omega in
         spectralDensityByOmega(omega: omega, A: A, cutoff: cutoff)
     }
+    let tau: [Double] = .linearSpace(0, 10, 100)
+    let BCF = tau.map { bcf(t: $0) { omega in
+        spectralDensity(omega: omega, A: A, cutoff: cutoff)
+    }}
+    let bath = try CorrelatedBathFitter.fitBathCorrelation(times: tau, values: BCF, options: .init(maximumPencilPoleCount: 3)).model
+    return IBMBath(bath: bath, renormalizationEnergy: renormalizationEnergy)
+}
+
+public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
+    let A = 0.27
+    let cutoff = 1.447
+    
+    let tau: [Double] = .linearSpace(0, 10, 1000)
+    let BCF = tau.map { bcf(t: $0) { omega in
+        spectralDensity(omega: omega, A: A, cutoff: cutoff)
+    }}
+    let ibmBath: IBMBath
+    do {
+        ibmBath = try makeIBMBath(A: A, cutoff: cutoff)
+    } catch {
+        print("Bath model construction failed with error:", error)
+        return
+    }
+    let bath = ibmBath.bath
+    let renormalizationEnergy = ibmBath.renormalizationEnergy
+    plt.figure()
+    plt.plot(x: tau, y: BCF.real, label: "Re BCF")
+    plt.plot(x: tau, y: BCF.imaginary, label: "Im BCF")
+    plt.plot(x: tau, y: tau.map { bath.bathCorrelation(at: $0)[0,0].real }, label: "Re BCF fit", linestyle: "--")
+    plt.plot(x: tau, y: tau.map { bath.bathCorrelation(at: $0)[0,0].imaginary }, label: "Im BCF fit", linestyle: "--")
+    plt.xlabel("t")
+    plt.ylabel("bcf")
+    plt.legend()
+    plt.show()
+    plt.close()
+    print(bath.poleCount)
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, .zero, .zero, Complex(renormalizationEnergy)], rows: 2, columns: 2)
     )
@@ -123,32 +163,6 @@ public func exampleHOPSIBM(endTime: Double) {
             relativeTolerance: 1e-9
         )
     )
-    var tau: [Double] = .linearSpace(0, 10, 100)
-    var BCF = tau.map { bcf(t: $0) { omega in
-        spectralDensity(omega: omega, A: A, cutoff: cutoff)
-    }}
-    let bath: CorrelatedBathModel
-    do {
-        bath = try CorrelatedBathFitter.fitBathCorrelation(times: tau, values: BCF, options: .init(maximumPencilPoleCount: 3)).model
-    } catch {
-        print("Bath model construction failed with error:", error)
-        return
-    }
-    tau = .linearSpace(0, 10, 1000)
-    BCF = tau.map { bcf(t: $0) { omega in
-        spectralDensity(omega: omega, A: A, cutoff: cutoff)
-    }}
-    plt.figure()
-    plt.plot(x: tau, y: BCF.real, label: "Re BCF")
-    plt.plot(x: tau, y: BCF.imaginary, label: "Im BCF")
-    plt.plot(x: tau, y: tau.map { bath.bathCorrelation(at: $0)[0,0].real }, label: "Re BCF fit", linestyle: "--")
-    plt.plot(x: tau, y: tau.map { bath.bathCorrelation(at: $0)[0,0].imaginary }, label: "Im BCF fit", linestyle: "--")
-    plt.xlabel("t")
-    plt.ylabel("bcf")
-    plt.legend()
-    plt.show()
-    plt.close()
-    print(bath.poleCount)
     let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, .one], rows: 2, columns: 2))
     let environment = HOPS.Environment(couplingOperator: L, bath: bath)
     let hierarchy = HOPS.Hierarchy(environment: environment, truncation: .maximumTier(4))
@@ -156,7 +170,6 @@ public func exampleHOPSIBM(endTime: Double) {
         hierarchy: hierarchy,
         equationType: .nonLinearNormalized,
         shiftType: .meanField)
-    let trajectories = 4096
     var X: [Double] = []
     var Y: [Double] = []
     var Z: [Double] = []
@@ -191,10 +204,28 @@ public func exampleHOPSIBM(endTime: Double) {
     plt.close()
 }
 
-/*
-public func exampleHOPSResonanceFluorescenceSpectrum() {
+/// Converge preparation time, trajectories, hierarchy depth and noise/integration steps.
+public func exampleHOPSResonanceFluorescenceSpectrum(
+    A: Double = .zero, cutoff: Double = 1.447,
+    maximumTier: Int = 4,
+    trajectories: Int = 8192, steadyTime: Double = 200, delayTime: Double = 200,
+    maximumStep: Double = 0.01
+) {
+    let tSteady = steadyTime
+    let ibmBath: IBMBath
+    do {
+        ibmBath = try makeIBMBath(A: A, cutoff: cutoff)
+    } catch {
+        print("Failed to create IBM bath: \(error)")
+        return
+    }
+    let bath = ibmBath.bath
+    let renormalizationEnergy = ibmBath.renormalizationEnergy
+    print("Renormalization energy:", renormalizationEnergy)
+    let environment = HOPS.Environment(couplingOperator: .constant(Matrix<Complex<Double>>(
+        elements: [.zero, .zero, .zero, .one], rows: 2, columns: 2)), bath: bath)
     let system = QuantumSystem(
-        Matrix.init(elements: [.zero, Complex(0.5), Complex(0.5), .zero], rows: 2, columns: 2)
+        Matrix.init(elements: [.zero, Complex(0.5), Complex(0.5), Complex(renormalizationEnergy)], rows: 2, columns: 2)
     )
     let sigmaMinus: ConstantOperator = .init(Matrix.init(elements: [.zero, .one, .zero, .zero], rows: 2, columns: 2))
     let sigmaPlus: ConstantOperator = .init(Matrix.init(elements: [.zero, .zero, .one, .zero], rows: 2, columns: 2))
@@ -209,13 +240,15 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
         system: system,
         markovianChannels: [markovianChannel]
     )
-    let tSteady = 200.0
+    let configuration = HOPS.Configuration(
+        hierarchy: .init(environment: environment, truncation: .maximumTier(maximumTier)),
+        equationType: .nonLinearNormalized, shiftType: .meanField, noiseStepSize: maximumStep)
     var propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: tSteady),
         output: .final,
         integration: IntegrationOptions(
             minimumStepSize: 1e-8,
-            maximumStepSize: 0.5,
+            maximumStepSize: maximumStep,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         )
@@ -224,18 +257,19 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
     var sigmaMinusExpectation: Complex<Double> = .zero
     do {
         let executionTime = try ContinuousClock().measure {
-            try GKSL.solve(
-                problem: problem,
-                propagation: propagationOptions
+            try HOPS.solveEnsemble(
+                problem: problem, configuration: configuration,
+                propagation: propagationOptions,
+                execution: .init(trajectories: trajectories, seed: 0x57EAD7)
             ) { time, rho in
                 steadyState = .init(copying: rho)
                 sigmaMinusExpectation = steadyState.dot(sigmaMinus.matrix).trace
-                return .proceed
             }
         }
-        print("GKSL simulation took:", executionTime)
+        print("HOPS steady-state simulation took:", executionTime)
     } catch {
-        print("Failed to solve GKSL master equation: \(error)")
+        print("Failed to solve HOPS steady state: \(error)")
+        return
     }
     let insertionTime = 0.0
     let request = TwoTimeCorrelationRequest(
@@ -243,15 +277,17 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
         insertion: .right(.constant(sigmaPlus)),
         observable: .constant(sigmaMinus)
     )
-    let times: [Double] = .linearSpace(insertionTime, insertionTime + tSteady, 10000)
-    // Each guide trajectory is thermalized from -tSteady to the insertion.
-    // The companion then uses the same Wiener increments and guide shifts.
+    let times: [Double] = .linearSpace(insertionTime, insertionTime + delayTime, 10000)
+    // The separate ensemble supplies only the one-time stationary expectation.
+    // Its reduced density matrix cannot initialize the system-bath correlations.
+    // Every correlation guide prepares its full hierarchy from -tSteady to zero,
+    // retaining its auxiliaries, OU sampler and accumulated guide shift memory.
     propagationOptions = PropagationOptions(
         timeSpan: .init(start: -tSteady, end: times.last!),
         output: .times(times),
         integration: IntegrationOptions(
             minimumStepSize: 1e-8,
-            maximumStepSize: 0.5,
+            maximumStepSize: maximumStep,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         )
@@ -259,13 +295,13 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
     var correlationFunction: [Complex<Double>] = []
     do {
         let executionTime = try ContinuousClock().measure {
-            try QSD.solveTwoTimeCorrelation(
+            try HOPS.solveTwoTimeCorrelation(
                 problem: problem,
-                configuration: .init(equationType: .nonLinear),
+                configuration: configuration,
                 request: request,
                 propagation: propagationOptions,
                 execution: TrajectoryExecution(
-                    trajectories: 8192,
+                    trajectories: trajectories,
                     seed: 0xC0FFEE
                 )
             ) { t, sample in
@@ -276,6 +312,7 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
         print("Two time correlation function solve took:", executionTime)
     } catch {
         print("Failed to solve two time correlation function:", error)
+        return
     }
     plt.figure()
     plt.plot(x: times, y: correlationFunction.real, label: "Re C(t)")
@@ -291,11 +328,12 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
     let correlationFunctionSpline = CubicHermiteSpline(x: times, y: correlationFunction)
     for omega in omegaSpace {
         let s = Trapezoid.integrate(y: { t in
-                .exp(-.i * omega * (t - insertionTime)) * correlationFunctionSpline.sample(t)
+                .exp(.i * omega * (t - insertionTime)) * correlationFunctionSpline.sample(t)
         }, x: times)
         spectrum.append(s.real)
     }
-    
+    let max = spectrum.max()!
+    spectrum = spectrum.map { $0 / max }
     
     plt.figure()
     plt.plot(x: omegaSpace, y: spectrum, label: "S(w)")
@@ -305,4 +343,3 @@ public func exampleHOPSResonanceFluorescenceSpectrum() {
     plt.show()
     plt.close()
 }
-*/

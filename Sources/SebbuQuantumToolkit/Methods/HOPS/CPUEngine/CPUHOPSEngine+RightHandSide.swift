@@ -64,7 +64,7 @@ extension HOPS.CPUEngine {
 		@inlinable
 		init(
 			hamiltonian: Hamiltonian, preparation: borrowing Preparation, seed: UInt64,
-			trajectoryID: UInt64
+			trajectoryID: UInt64, branchCount: Int = 1
 		) {
 			self.dimension = preparation.dimension
 			self.poles = Self.borrowPoles(preparation.poles, owner: preparation)
@@ -93,7 +93,8 @@ extension HOPS.CPUEngine {
 			self.lossTranspose = .zeros(rows: d, columns: d)
 			self.generator = .zeros(rows: d, columns: d)
 			self.gathered = .zeros(
-				rows: preparation.configuration.hierarchy.count, columns: d)
+				rows: preparation.configuration.hierarchy.count * branchCount,
+				columns: d)
 			self.equationType = preparation.configuration.equationType
 			self.shiftType = preparation.configuration.shiftType
 		}
@@ -153,29 +154,29 @@ extension HOPS.CPUEngine {
 				}
 			}
 			for p in 0..<y.shifts.count {
-				dy.shifts[p] = -poles[p] * y.shifts[p]
+				dy.shifts[unchecked: p] = -poles[unchecked: p] * y.shifts[unchecked: p]
 			}
 
 			for i in 0..<bathChannels.count {
 				switch bathChannels[i].op.constant {
 				case .some(let op):
 					Self.accumulateBath(
-						bathChannels[i], transpose: op.transpose,
+						bathChannels[unchecked: i], transpose: op.transpose,
 						adjointTranspose: op.adjointTranspose,
-						noise: physicalNoise[bathChannels[i].physicalIndex],
+						noise: physicalNoise[bathChannels[unchecked: i].physicalIndex],
 						hierarchy: hierarchy, nonlinear: nonlinear,
 						displaced: displaced, inverseNorm: inverseNorm,
 						y: y, dy: &dy,
 						generator: &generator, gathered: &gathered)
 				case .none:
-					bathChannels[i].op.source.insert(t: t, into: &original)
+					bathChannels[unchecked: i].op.source.insert(t: t, into: &original)
 					OperatorMatrices.transpose(
 						original, into: &transpose,
 						adjointInto: &adjointTranspose)
 					Self.accumulateBath(
-						bathChannels[i], transpose: transpose,
+						bathChannels[unchecked: i], transpose: transpose,
 						adjointTranspose: adjointTranspose,
-						noise: physicalNoise[bathChannels[i].physicalIndex],
+						noise: physicalNoise[bathChannels[unchecked: i].physicalIndex],
 						hierarchy: hierarchy, nonlinear: nonlinear,
 						displaced: displaced, inverseNorm: inverseNorm,
 						y: y, dy: &dy,
@@ -186,7 +187,7 @@ extension HOPS.CPUEngine {
 			for i in 0..<markovianOperators.count {
 				let rate = Self.checkedRate(rates[i](t))
 				if rate == 0 { continue }
-				switch markovianOperators[i].constant {
+				switch markovianOperators[unchecked: i].constant {
 				case .some(let constant):
 					Self.accumulateMarkovianDrift(
 						transpose: constant.transpose,
@@ -195,7 +196,7 @@ extension HOPS.CPUEngine {
 						normalized: normalized, y: y,
 						inverseNorm: inverseNorm, generator: &generator)
 				case .none:
-					markovianOperators[i].source.insert(t: t, into: &original)
+					markovianOperators[unchecked: i].source.insert(t: t, into: &original)
 					OperatorMatrices.transpose(
 						original, into: &transpose,
 						adjointInto: &adjointTranspose)
@@ -210,12 +211,15 @@ extension HOPS.CPUEngine {
 
 			// Apply the common system generator to every auxiliary.
 			Self.apply(generator, to: y.amplitudes, adding: true, into: &dy.amplitudes)
-			for h in 0..<hierarchy.count {
-				let damping = hierarchy.damping[h]
-				let offset = h * dimension
-				for j in 0..<dimension {
-					dy.amplitudes.elements[offset + j] +=
-						damping * y.amplitudes.elements[offset + j]
+			// The guide is first; means, shifts and the common gauge use its root only.
+			for branch in stride(from: 0, to: y.amplitudes.rows, by: hierarchy.count) {
+				for h in 0..<hierarchy.count {
+					let damping = hierarchy.damping[h]
+					let offset = (branch + h) * dimension
+					for j in 0..<dimension {
+						dy.amplitudes.elements[offset + j] +=
+							damping * y.amplitudes.elements[offset + j]
+					}
 				}
 			}
 			if normalized {
@@ -251,8 +255,8 @@ extension HOPS.CPUEngine {
 				for i in 0..<channel.directions.count {
 					let direction = channel.directions[i]
 					physicalShift +=
-						direction.upward * y.shifts[direction.index]
-					dy.shifts[direction.index] += direction.downward * mean
+                        direction.upward * y.shifts[unchecked: direction.index]
+					dy.shifts[unchecked: direction.index] += direction.downward * mean
 				}
 			}
 			generator.add(
@@ -292,26 +296,31 @@ extension HOPS.CPUEngine {
 			into output: inout UniqueMatrix<Complex<Double>>
 		) {
 			output.zeroElements()
-			for h in 0..<hierarchy.count {
-				let offset = h * y.columns
-				let edgeOffset = h * hierarchy.multiIndexCount
-				for i in 0..<directions.count {
-					let direction = directions[i]
-					let edge = edgeOffset + direction.index
-					let neighbour =
-						parents
-						? hierarchy.parentIndices[edge]
-						: hierarchy.childIndices[edge]
-					if neighbour < 0 { continue }
-					let coefficient =
-						parents
-						? direction.downward * hierarchy.parentWeights[edge]
-						: direction.upward * hierarchy.childWeights[edge]
-					if coefficient == .zero { continue }
-					let source = neighbour * y.columns
-					for j in 0..<y.columns {
-						output.elements[offset + j] +=
-							coefficient * y.elements[source + j]
+			precondition(y.rows % hierarchy.count == 0 && output.rows == y.rows)
+			for branch in stride(from: 0, to: y.rows, by: hierarchy.count) {
+				for h in 0..<hierarchy.count {
+					let offset = (branch + h) * y.columns
+					let edgeOffset = h * hierarchy.multiIndexCount
+					for i in 0..<directions.count {
+						let direction = directions[i]
+						let edge = edgeOffset + direction.index
+						let neighbour =
+							parents
+							? hierarchy.parentIndices[unchecked: edge]
+							: hierarchy.childIndices[unchecked: edge]
+						if neighbour < 0 { continue }
+						let coefficient =
+							parents
+							? direction.downward
+								* hierarchy.parentWeights[unchecked: edge]
+							: direction.upward
+								* hierarchy.childWeights[unchecked: edge]
+						if coefficient == .zero { continue }
+						let source = (branch + neighbour) * y.columns
+						for j in 0..<y.columns {
+							output.elements[offset + j] +=
+								coefficient * y.elements[source + j]
+						}
 					}
 				}
 			}
@@ -345,16 +354,16 @@ extension HOPS.CPUEngine {
 		) {
 			let markovianOperators = self.markovianOperators
 			dy.zero()
-			let rate = Self.checkedRate(rates[channel](t))
+			let rate = Self.checkedRate(rates[unchecked: channel](t))
 			if rate == 0 { return }
-			switch markovianOperators[channel].constant {
+			switch markovianOperators[unchecked: channel].constant {
 			case .some(let constant):
 				Self.assignDiffusion(
 					constant.transpose, rate: rate,
 					normalized: equationType
 						== .nonLinearNormalized, y: y, dy: &dy)
 			case .none:
-				markovianOperators[channel].source.insert(t: t, into: &original)
+				markovianOperators[unchecked: channel].source.insert(t: t, into: &original)
 				OperatorMatrices.transpose(
 					original, into: &transpose, adjointInto: &adjointTranspose)
 				Self.assignDiffusion(
@@ -381,9 +390,9 @@ extension HOPS.CPUEngine {
 			// Shifts have finite variation and no direct Wiener increment.
 		}
 
-		/// A one-row hierarchy is a matrix-vector product. GEMV avoids GEMM's
-		/// packing/workspace overhead (and shared workspace contention in
-		/// some BLAS implementations) for the Markovian-only limit.
+		/// Tiny batches use GEMV, including the two or three guide/companion
+		/// rows in the zero-bath limit. Larger hierarchies amortize GEMM's
+		/// packing and workspace overhead across the batch.
 		@inlinable
 		internal static func apply(
 			_ transpose: borrowing UniqueMatrix<Complex<Double>>,
@@ -395,16 +404,19 @@ extension HOPS.CPUEngine {
 				states.columns == transpose.rows
 					&& output.rows == states.rows
 					&& output.columns == transpose.columns)
-			if states.rows == 1 {
+			if states.rows <= 3 {
 				// Stored operators are O^T. This is a plain transpose, never
 				// a conjugate transpose: (O^T)^T psi = O psi.
-				BLAS.zgemv(
-					layout: .rowMajor, transpose: .transpose,
-					m: transpose.rows, n: transpose.columns,
-					alpha: coefficient, a: transpose.elements,
-					lda: transpose.columns,
-					x: states.elements, incX: 1, beta: adding ? .one : .zero,
-					y: output.elements, incY: 1)
+				for row in 0..<states.rows {
+					BLAS.zgemv(
+						layout: .rowMajor, transpose: .transpose,
+						m: transpose.rows, n: transpose.columns,
+						alpha: coefficient, a: transpose.elements,
+						lda: transpose.columns,
+						x: states.elements + row * states.columns, incX: 1,
+						beta: adding ? .one : .zero,
+						y: output.elements + row * output.columns, incY: 1)
+				}
 			} else if adding {
 				states.dotBLAS(
 					transpose, multiplied: coefficient, addingInto: &output)

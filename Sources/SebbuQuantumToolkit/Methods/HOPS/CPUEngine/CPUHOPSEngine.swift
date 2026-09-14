@@ -20,31 +20,6 @@ extension HOPS {
 
 extension HOPS.CPUEngine: HOPS.Implementation, HOPS.HierarchyProvidingImplementation {}
 
-extension HOPS.CPUEngine: HOPS.TwoTimeCorrelationImplementation {
-	@inlinable
-	public func solveTwoTimeCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		request: TwoTimeCorrelationRequest,
-		propagation: PropagationOptions<IntegrationOptions>, execution: TrajectoryExecution,
-		observing observer: (Double, ComplexModule.Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		throw ImplementationError.notImplemented
-	}
-}
-
-extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
-	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
-		configuration: HOPS.Configuration,
-		request: MultiTimeOrderedCorrelationRequest,
-		propagation: PropagationOptions<IntegrationOptions>,
-		execution: TrajectoryExecution,
-		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
-		throw ImplementationError.notImplemented
-	}
-}
-
 extension HOPS {
 	@inlinable
 	@inline(always)

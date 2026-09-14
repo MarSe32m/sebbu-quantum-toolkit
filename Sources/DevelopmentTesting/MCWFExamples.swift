@@ -179,11 +179,12 @@ public func exampleMCWFResonanceFluorescenceSpectrum() {
     let correlationFunctionSpline = CubicHermiteSpline(x: times, y: correlationFunction)
     for omega in omegaSpace {
         let s = Trapezoid.integrate(y: { t in
-                .exp(-.i * omega * (t - insertionTime)) * correlationFunctionSpline.sample(t)
+                .exp(.i * omega * (t - insertionTime)) * correlationFunctionSpline.sample(t)
         }, x: times)
         spectrum.append(s.real)
     }
-    
+    let max = spectrum.max()!
+    spectrum = spectrum.map { $0 / max }
     
     plt.figure()
     plt.plot(x: omegaSpace, y: spectrum, label: "S(w)")

@@ -299,7 +299,7 @@ public struct UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcess: ~Copyable,
                     value += residues[i, p] * interpolated[range.lowerBound + p]
                 }
             }
-            physical[i] = value
+            physical[unchecked: i] = value
         }
     }
 }
