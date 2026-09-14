@@ -30,6 +30,23 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections", from: "1.6.0")
     ],
     targets: [
+        .executableTarget(
+            name: "HOPSBenchmark",
+            dependencies: [
+                "SebbuQuantumToolkit",
+                .product(name: "SebbuScience", package: "sebbu-science"),
+                .product(name: "SebbuBLAS", package: "sebbu-blas"),
+                .product(name: "Numerics", package: "swift-numerics")
+            ],
+            path: "Benchmarks/HOPS",
+            cSettings: [
+                .define("ACCELERATE_NEW_LAPACK", .when(platforms: [.macOS])),
+                .define("ACCELERATE_LAPACK_ILP64", .when(platforms: [.macOS]))
+            ],
+            linkerSettings: [
+                .linkedFramework("Accelerate", .when(platforms: [.macOS]))
+            ]
+        ),
         .target(
             name: "SebbuQuantumToolkit",
             dependencies: [

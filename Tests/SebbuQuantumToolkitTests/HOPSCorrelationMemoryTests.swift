@@ -48,7 +48,7 @@ struct HOPSCorrelationMemoryTests {
 			trajectoryID: 3)
 		var batchRHS = HCT.RightHandSide(
 			hamiltonian: problem.system.hamiltonian, preparation: prep, seed: 1,
-			trajectoryID: 3, branchCount: 3)
+			trajectoryID: 3)
 		for i in 0..<singleRHS.physicalNoise.count {
 			singleRHS.physicalNoise[i] = Complex(0.3, Double(i) - 0.4)
 			batchRHS.physicalNoise[i] = singleRHS.physicalNoise[i]
@@ -160,7 +160,7 @@ struct HOPSCorrelationMemoryTests {
 		try HCT.validate(state, at: 0.1)
 		var rhs = HCT.RightHandSide(
 			hamiltonian: problem.system.hamiltonian, preparation: prep, seed: 1,
-			trajectoryID: 3, branchCount: 2)
+			trajectoryID: 3)
 		rhs.physicalNoise[0] = .zero
 		rhs.evaluateWithCurrentNoise(t: 0.1, y: state, into: &dy)
 		#expect(dy.amplitudes.elements[offset + 1].length > 0.1)

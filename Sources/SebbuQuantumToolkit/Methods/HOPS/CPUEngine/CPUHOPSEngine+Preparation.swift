@@ -37,15 +37,19 @@ extension HOPS.CPUEngine {
 			let op: PreparedOperator
 			@usableFromInline
 			let directions: UniqueArray<Direction>
+			@usableFromInline
+			let connections: BathConnections
 
 			@inlinable
 			init(
 				physicalIndex: Int, op: consuming PreparedOperator,
-				directions: consuming UniqueArray<Direction>
+				directions: consuming UniqueArray<Direction>,
+				connections: consuming BathConnections
 			) {
 				self.physicalIndex = physicalIndex
 				self.op = op
 				self.directions = directions
+				self.connections = connections
 			}
 		}
 
@@ -127,10 +131,14 @@ extension HOPS.CPUEngine {
 					offset += bath.poleCount
 				}
 				if !directions.isEmpty {
+					let connections = BathConnections(
+						hierarchy: configuration.hierarchy,
+						dimension: dimension, directions: directions)
 					bathChannels.append(
 						.init(
 							physicalIndex: i, op: op,
-							directions: directions))
+							directions: directions,
+							connections: connections))
 				}
 			}
 			self.bathChannels = bathChannels
@@ -190,51 +198,21 @@ extension HOPS.CPUEngine {
 		}
 	}
 
-	/// States occupy rows, so applying O to every ket is the GEMM Y O^T.
-	/// Noncopyable value storage lets the RHS borrow matrices without retaining
-	/// a shared class instance for every operator application.
+	/// Immutable operators in their original orientation. The optional loss
+	/// matrix is prepared once for constant Markovian channels.
 	@usableFromInline
 	internal struct OperatorMatrices: ~Copyable, Sendable {
-		@usableFromInline
-		let transpose: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-		let adjointTranspose: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-		let lossTranspose: UniqueMatrix<Complex<Double>>
+		@usableFromInline let matrix: UniqueMatrix<Complex<Double>>
+		@usableFromInline let loss: UniqueMatrix<Complex<Double>>
 
 		@inlinable
 		init(_ original: borrowing UniqueMatrix<Complex<Double>>, needsLoss: Bool) {
 			let n = original.rows
-			var transpose = UniqueMatrix<Complex<Double>>.zeros(rows: n, columns: n)
-			var adjointTranspose = UniqueMatrix<Complex<Double>>.zeros(
-				rows: n, columns: n)
-			Self.transpose(original, into: &transpose, adjointInto: &adjointTranspose)
 			var loss = UniqueMatrix<Complex<Double>>.zeros(
 				rows: needsLoss ? n : 1, columns: needsLoss ? n : 1)
-			if needsLoss { transpose.dotBLAS(adjointTranspose, into: &loss) }
-			self.transpose = transpose
-			self.adjointTranspose = adjointTranspose
-			self.lossTranspose = loss
-		}
-
-		@inlinable
-		static func transpose(
-			_ original: borrowing UniqueMatrix<Complex<Double>>,
-			into transpose: inout UniqueMatrix<Complex<Double>>,
-			adjointInto adjoint: inout UniqueMatrix<Complex<Double>>
-		) {
-			precondition(
-				original.rows == transpose.rows
-					&& original.columns == transpose.columns,
-				"Generated operator dimensions do not match the system.")
-			for i in 0..<original.rows {
-				for j in 0..<original.columns {
-					transpose[unchecked: j, unchecked: i] =
-						original[unchecked: i, unchecked: j]
-					adjoint[unchecked: i, unchecked: j] =
-						original[unchecked: i, unchecked: j].conjugate
-				}
-			}
+			if needsLoss { OperatorApplication.loss(original, into: &loss) }
+			self.matrix = .init(copying: original)
+			self.loss = loss
 		}
 	}
 }

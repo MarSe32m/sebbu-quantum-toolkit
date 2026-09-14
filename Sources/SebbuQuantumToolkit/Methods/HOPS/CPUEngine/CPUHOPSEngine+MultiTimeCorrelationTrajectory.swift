@@ -38,8 +38,7 @@ extension HOPS.CPUEngine {
 		}
 		let rhs = RightHandSide(
 			hamiltonian: problem.system.hamiltonian,
-			preparation: preparation, seed: seed, trajectoryID: trajectoryID,
-			branchCount: workspace.branchCount)
+			preparation: preparation, seed: seed, trajectoryID: trajectoryID)
 		if preparation.markovianOperators.isEmpty {
 			var solver = UniqueDOPRISolver(
 				t: start,

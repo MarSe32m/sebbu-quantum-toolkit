@@ -8,18 +8,12 @@ import Numerics
 #endif
 
 extension HOPS.CPUEngine {
-	/// Borrow the immutable tables once per trajectory. Accessing the owning
-	/// class's noncopyable fields inside a gather loop otherwise introduces
-	/// ownership traffic on the hierarchy shared by all workers.
+	/// Borrow shared damping once per trajectory. Weighted bath connections
+	/// are prepared separately for each physical operator.
 	@usableFromInline
 	internal struct HierarchyTables: ~Escapable {
 		@usableFromInline let count: Int
-		@usableFromInline let multiIndexCount: Int
 		@usableFromInline let damping: Span<Complex<Double>>
-		@usableFromInline let parentIndices: Span<Int>
-		@usableFromInline let childIndices: Span<Int>
-		@usableFromInline let parentWeights: Span<Double>
-		@usableFromInline let childWeights: Span<Double>
 
 		@_lifetime(borrow hierarchy)
 		@inlinable
@@ -28,14 +22,7 @@ extension HOPS.CPUEngine {
 			// accessor. These immutable allocations actually live as long as
 			// their owner, which the returned view is required to borrow.
 			count = hierarchy.count
-			multiIndexCount = hierarchy.multiIndexCount
 			damping = _hopsBorrowStorage(hierarchy.kWArray, owner: hierarchy)
-			parentIndices = _hopsBorrowStorage(
-				hierarchy.parentIndices, owner: hierarchy)
-			childIndices = _hopsBorrowStorage(hierarchy.childIndices, owner: hierarchy)
-			parentWeights = _hopsBorrowStorage(
-				hierarchy.parentWeights, owner: hierarchy)
-			childWeights = _hopsBorrowStorage(hierarchy.childWeights, owner: hierarchy)
 		}
 	}
 }
