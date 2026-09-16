@@ -33,11 +33,11 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		var physicalNoise: UniqueVector<Complex<Double>>
 
-		/// One instantaneous matrix per active physical bath channel. Constant
-		/// matrices are copied once when the trajectory RHS is constructed;
-		/// generated/expanded matrices are refreshed once per RHS evaluation.
+		/// Scratch matrices only for time-dependent physical bath channels.
+		/// Constant matrices remain owned by the shared Preparation and are
+		/// borrowed through `bathChannels`.
 		@usableFromInline
-		var bathMatrices: UniqueArray<UniqueMatrix<Complex<Double>>>
+		var dynamicBathMatrices: UniqueArray<UniqueMatrix<Complex<Double>>>
 		@usableFromInline
 		var bathMeans: UniqueVector<Complex<Double>>
 
@@ -91,20 +91,14 @@ extension HOPS.CPUEngine {
 			self.physicalNoise = .zero(preparation.noise.channelCount)
 
 			let d = preparation.dimension
-			var bathMatrices =
+			var dynamicBathMatrices =
 				UniqueArray<UniqueMatrix<Complex<Double>>>(
-					minimumCapacity: preparation.bathChannels.count)
-			for i in 0..<preparation.bathChannels.count {
-				switch preparation.bathChannels[i].op.constant {
-				case .some(let constant):
-					bathMatrices.append(
-						UniqueMatrix(copying: constant.matrix))
-				case .none:
-					bathMatrices.append(
-						.zeros(rows: d, columns: d))
-				}
+					minimumCapacity: preparation.dynamicBathMatrixCount)
+			for _ in 0..<preparation.dynamicBathMatrixCount {
+				dynamicBathMatrices.append(
+					.zeros(rows: d, columns: d))
 			}
-			self.bathMatrices = bathMatrices
+			self.dynamicBathMatrices = dynamicBathMatrices
 			self.bathMeans = .zero(preparation.bathChannels.count)
 
 			self.original = .zeros(rows: d, columns: d)
@@ -125,6 +119,34 @@ extension HOPS.CPUEngine {
 			_overrideLifetime(
 				Span(_unsafeStart: poles.components, count: poles.count),
 				borrowing: owner)
+		}
+
+		/// Execute `body` with the instantaneous physical-bath matrix without
+		/// copying constant matrices into trajectory-local storage.
+		///
+		/// The closure is nonescaping and this function is always inlined, so
+		/// the constant/dynamic distinction reduces to one predictable branch
+		/// at the call site.
+		@inlinable
+		@inline(always)
+		internal static func withBathMatrix(
+			_ channel: borrowing Preparation.BathChannel,
+			dynamicBathMatrices:
+				borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+			_ body: (borrowing UniqueMatrix<Complex<Double>>) -> Void
+		) {
+			let index = channel.dynamicMatrixIndex
+			if index >= 0 {
+				body(dynamicBathMatrices[index])
+				return
+			}
+			switch channel.op.constant {
+			case .some(let constant):
+				body(constant.matrix)
+			case .none:
+				preconditionFailure(
+					"A constant HOPS bath channel must own a prepared matrix.")
+			}
 		}
 
 		@inlinable
@@ -181,34 +203,41 @@ extension HOPS.CPUEngine {
 			}
 
 			// Materialize each dynamic physical bath operator exactly once.
+			// Constant matrices stay in Preparation and are never copied.
 			do {
-				var matrices = bathMatrices.mutableSpan
+				var matrices = dynamicBathMatrices.mutableSpan
 				for i in 0..<bathChannels.count {
-					switch bathChannels[i].op.constant {
-					case .some(_):
-						break
-					case .none:
-						bathChannels[i].op.source.insert(
-							t: t, into: &matrices[i])
-						Self.validateOperator(
-							matrices[i], dimension: dimension)
-					}
+					let index =
+						bathChannels[i].dynamicMatrixIndex
+					if index < 0 { continue }
+					bathChannels[i].op.source.insert(
+						t: t, into: &matrices[index])
+					Self.validateOperator(
+						matrices[index], dimension: dimension)
 				}
 			}
 
 			// Compute guide-root means, shift equations and all colored-noise /
 			// nonlinear / nuHOPS contributions to the common system generator
 			for i in 0..<bathChannels.count {
-                bathMeans[unchecked: i] = Self.accumulateBathGenerator(
-                    bathChannels[unchecked: i],
-					matrix: bathMatrices[i],
-                    noise: physicalNoise[bathChannels[unchecked: i].physicalIndex],
-					nonlinear: nonlinear,
-					displaced: displaced,
-					inverseNorm: inverseNorm,
-					y: y,
-					dy: &dy,
-					generator: &generator)
+				Self.withBathMatrix(
+					bathChannels[unchecked: i],
+					dynamicBathMatrices: dynamicBathMatrices
+				) { matrix in
+					bathMeans[unchecked: i] =
+						Self.accumulateBathGenerator(
+							bathChannels[unchecked: i],
+							matrix: matrix,
+							noise:
+								physicalNoise[
+									bathChannels[unchecked: i].physicalIndex],
+							nonlinear: nonlinear,
+							displaced: displaced,
+							inverseNorm: inverseNorm,
+							y: y,
+							dy: &dy,
+							generator: &generator)
+				}
 			}
 
 			// Markovian drift is also common to every hierarchy row, so fold it
@@ -254,7 +283,8 @@ extension HOPS.CPUEngine {
 				gauge: 0,
 				hierarchy: hierarchy,
 				generator: generator,
-				bathMatrices: bathMatrices,
+				bathChannels: bathChannels,
+				dynamicBathMatrices: dynamicBathMatrices,
 				means: bathMeans,
 				nonlinear: nonlinear,
 				displaced: displaced,
@@ -290,7 +320,8 @@ extension HOPS.CPUEngine {
 					gauge: gauge,
 					hierarchy: hierarchy,
 					generator: generator,
-					bathMatrices: bathMatrices,
+					bathChannels: bathChannels,
+					dynamicBathMatrices: dynamicBathMatrices,
 					means: bathMeans,
 					nonlinear: nonlinear,
 					displaced: displaced,
@@ -315,7 +346,8 @@ extension HOPS.CPUEngine {
 						gauge: gauge,
 						hierarchy: hierarchy,
 						generator: generator,
-						bathMatrices: bathMatrices,
+						bathChannels: bathChannels,
+						dynamicBathMatrices: dynamicBathMatrices,
 						means: bathMeans,
 						nonlinear: nonlinear,
 						displaced: displaced,

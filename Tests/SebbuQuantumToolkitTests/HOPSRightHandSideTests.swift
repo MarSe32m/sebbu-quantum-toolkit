@@ -129,12 +129,16 @@ struct HOPSRightHandSideTests {
 		let b = try HOPS.CPUEngine.Preparation(
 			problem: dynamicProblem, configuration: dynamic,
 			propagation: hopsPropagation())
-		var rhsA = HOPS.CPUEngine.RightHandSide(
-			hamiltonian: staticProblem.system.hamiltonian, preparation: a, seed: 1,
-			trajectoryID: 2)
-		var rhsB = HOPS.CPUEngine.RightHandSide(
-			hamiltonian: dynamicProblem.system.hamiltonian, preparation: b, seed: 1,
-			trajectoryID: 2)
+        #expect(a.dynamicBathMatrixCount == 0)
+        #expect(b.dynamicBathMatrixCount == b.bathChannels.count)
+        var rhsA = HOPS.CPUEngine.RightHandSide(
+            hamiltonian: staticProblem.system.hamiltonian, preparation: a, seed: 1,
+            trajectoryID: 2)
+        var rhsB = HOPS.CPUEngine.RightHandSide(
+            hamiltonian: dynamicProblem.system.hamiltonian, preparation: b, seed: 1,
+            trajectoryID: 2)
+        #expect(rhsA.dynamicBathMatrices.count == 0)
+        #expect(rhsB.dynamicBathMatrices.count == b.dynamicBathMatrixCount)
 		var y = HOPS.CPUEngine.State(
 			dimension: 2, hierarchyCount: config.hierarchy.count,
 			shiftCount: a.shiftCount)

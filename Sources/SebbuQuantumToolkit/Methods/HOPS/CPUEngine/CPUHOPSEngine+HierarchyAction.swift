@@ -19,7 +19,9 @@ extension HOPS.CPUEngine.RightHandSide {
 		gauge: Double,
 		hierarchy: borrowing HOPS.CPUEngine.HierarchyTables,
 		generator: borrowing UniqueMatrix<Complex<Double>>,
-		bathMatrices: borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+		bathChannels: borrowing Span<HOPS.CPUEngine.Preparation.BathChannel>,
+		dynamicBathMatrices:
+			borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
 		means: borrowing UniqueVector<Complex<Double>>,
 		nonlinear: Bool,
 		displaced: Bool,
@@ -46,52 +48,56 @@ extension HOPS.CPUEngine.RightHandSide {
 			}
 		}
 
-		let actionStart = hierarchy.actionStarts[h]
-		let actionEnd = hierarchy.actionStarts[h + 1]
+        let actionStart = hierarchy.actionStarts[unchecked: h]
+        let actionEnd = hierarchy.actionStarts[unchecked: h + 1]
 
-		if d == -1 {
+		if d == 2 {
 			for actionIndex in actionStart..<actionEnd {
 				let action = hierarchy.actions[actionIndex]
-				let mean = displaced ? means[action.channel] : .zero
-				let adjointMean =
-					nonlinear ? means[action.channel].conjugate : .zero
+				Self.withBathMatrix(
+					bathChannels[unchecked: action.channel],
+					dynamicBathMatrices: dynamicBathMatrices
+				) { matrix in
+					let mean = displaced ? means[unchecked: action.channel] : .zero
+                    let adjointMean = nonlinear ? means[unchecked: action.channel].conjugate : .zero
 
-				var d0 = Complex<Double>.zero
-				var d1 = Complex<Double>.zero
-				for edgeIndex in action.parentStart..<action.parentEnd {
-					let edge = hierarchy.parents[edgeIndex]
-					let source = branchBase + edge.source
-					d0 += edge.weight * y.elements[source]
-					d1 += edge.weight * y.elements[source + 1]
-				}
+					var d0 = Complex<Double>.zero
+					var d1 = Complex<Double>.zero
+					for edgeIndex in action.parentStart..<action.parentEnd {
+                        let edge = hierarchy.parents[unchecked: edgeIndex]
+						let source = branchBase &+ edge.source
+						d0 += edge.weight * y.elements[source]
+						d1 += edge.weight * y.elements[source &+ 1]
+					}
 
-				var u0 = Complex<Double>.zero
-				var u1 = Complex<Double>.zero
-				for edgeIndex in action.childStart..<action.childEnd {
-					let edge = hierarchy.children[edgeIndex]
-					let source = branchBase + edge.source
-					u0 += edge.weight * y.elements[source]
-					u1 += edge.weight * y.elements[source + 1]
-				}
+					var u0 = Complex<Double>.zero
+					var u1 = Complex<Double>.zero
+					for edgeIndex in action.childStart..<action.childEnd {
+						let edge = hierarchy.children[edgeIndex]
+						let source = branchBase + edge.source
+						u0 += edge.weight * y.elements[source]
+						u1 += edge.weight * y.elements[source + 1]
+					}
 
-				if action.parentStart != action.parentEnd {
-					target[0] +=
-						(bathMatrices[action.channel][unchecked: 0, unchecked: 0] - mean) * d0
-						+ bathMatrices[action.channel][unchecked: 0, unchecked: 1] * d1
-					target[1] +=
-                    bathMatrices[action.channel][unchecked: 1, unchecked: 0] * d0
-						+ (bathMatrices[action.channel][unchecked: 1, unchecked: 1] - mean) * d1
-				}
+					if action.parentStart != action.parentEnd {
+						target[0] +=
+							(matrix[unchecked: 0, unchecked: 0] - mean) * d0
+							+ matrix[unchecked: 0, unchecked: 1] * d1
+						target[1] +=
+							matrix[unchecked: 1, unchecked: 0] * d0
+							+ (matrix[unchecked: 1, unchecked: 1] - mean) * d1
+					}
 
-				if action.childStart != action.childEnd {
-					target[0] -=
-						(bathMatrices[action.channel][unchecked: 0, unchecked: 0].conjugate
-							- adjointMean) * u0
-						+ bathMatrices[action.channel][unchecked: 1, unchecked: 0].conjugate * u1
-					target[1] -=
-                    bathMatrices[action.channel][unchecked: 0, unchecked: 1].conjugate * u0
-						+ (bathMatrices[action.channel][unchecked: 1, unchecked: 1].conjugate
-							- adjointMean) * u1
+					if action.childStart != action.childEnd {
+						target[0] -=
+							(matrix[unchecked: 0, unchecked: 0].conjugate
+								- adjointMean) * u0
+							+ matrix[unchecked: 1, unchecked: 0].conjugate * u1
+						target[1] -=
+							matrix[unchecked: 0, unchecked: 1].conjugate * u0
+							+ (matrix[unchecked: 1, unchecked: 1].conjugate
+								- adjointMean) * u1
+					}
 				}
 			}
 			return
@@ -100,45 +106,56 @@ extension HOPS.CPUEngine.RightHandSide {
 		for actionIndex in actionStart..<actionEnd {
             let action = hierarchy.actions[unchecked: actionIndex]
 
-			if action.parentStart != action.parentEnd {
-				down.zeroComponents()
-				for edgeIndex in action.parentStart..<action.parentEnd {
-                    let edge = hierarchy.parents[unchecked: edgeIndex]
-					let source = branchBase &+ edge.source
-                    down.components._unsafeAdd(y.elements + source, multiplied: edge.weight, count: d)
-				}
+			Self.withBathMatrix(
+				bathChannels[unchecked: action.channel],
+				dynamicBathMatrices: dynamicBathMatrices
+			) { matrix in
+				if action.parentStart != action.parentEnd {
+					down.zeroComponents()
+					for edgeIndex in action.parentStart..<action.parentEnd {
+	                    let edge = hierarchy.parents[unchecked: edgeIndex]
+						let source = branchBase &+ edge.source
+	                    down.components._unsafeAdd(
+							y.elements + source,
+							multiplied: edge.weight,
+							count: d)
+					}
 
-                HOPS.CPUEngine.OperatorApplication.vector(
-                    bathMatrices[action.channel], x: down.components, y: target, adding: true)
+	                HOPS.CPUEngine.OperatorApplication.vector(
+						matrix, x: down.components, y: target, adding: true)
 
-				if displaced {
-					let mean = means[action.channel]
-					if mean != .zero {
-						for j in 0..<d {
-                            target[j] -= mean * down.components[j]
+					if displaced {
+						let mean = means[action.channel]
+						if mean != .zero {
+							for j in 0..<d {
+	                            target[j] -= mean * down.components[j]
+							}
 						}
 					}
 				}
-			}
 
-			if action.childStart != action.childEnd {
-				up.zeroComponents()
-				for edgeIndex in action.childStart..<action.childEnd {
-                    let edge = hierarchy.children[unchecked: edgeIndex]
-					let source = branchBase &+ edge.source
-                    up.components._unsafeAdd(y.elements + source, multiplied: edge.weight, count: d)
-				}
+				if action.childStart != action.childEnd {
+					up.zeroComponents()
+					for edgeIndex in action.childStart..<action.childEnd {
+	                    let edge = hierarchy.children[unchecked: edgeIndex]
+						let source = branchBase &+ edge.source
+	                    up.components._unsafeAdd(
+							y.elements + source,
+							multiplied: edge.weight,
+							count: d)
+					}
 
-                HOPS.CPUEngine.OperatorApplication.vector(
-                    bathMatrices[action.channel], adjoint: true,
-					x: up.components, y: target,
-					coefficient: -.one, adding: true)
+	                HOPS.CPUEngine.OperatorApplication.vector(
+						matrix, adjoint: true,
+						x: up.components, y: target,
+						coefficient: -.one, adding: true)
 
-				if nonlinear {
-					let adjointMean = means[action.channel].conjugate
-					if adjointMean != .zero {
-						for j in 0..<d {
-							target[j] += adjointMean * up.components[j]
+					if nonlinear {
+						let adjointMean = means[action.channel].conjugate
+						if adjointMean != .zero {
+							for j in 0..<d {
+								target[j] += adjointMean * up.components[j]
+							}
 						}
 					}
 				}

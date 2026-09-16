@@ -29,6 +29,10 @@ extension HOPS.CPUEngine {
 		struct BathChannel: ~Copyable, Sendable {
 			@usableFromInline
 			let physicalIndex: Int
+			/// Index into trajectory-local storage for a time-dependent operator.
+			/// Constant operators use -1 and remain owned by Preparation.
+			@usableFromInline
+			let dynamicMatrixIndex: Int
 			@usableFromInline
 			let op: PreparedOperator
 			@usableFromInline
@@ -37,10 +41,13 @@ extension HOPS.CPUEngine {
 			@inlinable
 			init(
 				physicalIndex: Int,
+				dynamicMatrixIndex: Int,
 				op: consuming PreparedOperator,
 				directions: consuming UniqueArray<Direction>
 			) {
+				precondition(dynamicMatrixIndex >= -1)
 				self.physicalIndex = physicalIndex
+				self.dynamicMatrixIndex = dynamicMatrixIndex
 				self.op = op
 				self.directions = directions
 			}
@@ -56,6 +63,10 @@ extension HOPS.CPUEngine {
 		let shiftCount: Int
 		@usableFromInline
 		let bathChannels: UniqueArray<BathChannel>
+		/// Number of physical-bath matrices that each trajectory must own.
+		/// Constant coupling operators remain shared by Preparation.
+		@usableFromInline
+		let dynamicBathMatrixCount: Int
 		@usableFromInline
 		let connections: BathConnections
 		@usableFromInline
@@ -99,6 +110,7 @@ extension HOPS.CPUEngine {
 			let covariances = model.latentBaths.map(\.stationaryCovariance)
 			var bathChannels = UniqueArray<BathChannel>(
 				minimumCapacity: model.channelCount)
+			var dynamicBathMatrixCount = 0
 			for i in 0..<model.channelCount {
 				let source =
 					configuration.hierarchy.environment.couplingOperators[i]
@@ -126,14 +138,23 @@ extension HOPS.CPUEngine {
 					offset += bath.poleCount
 				}
 				if !directions.isEmpty {
+					let dynamicMatrixIndex: Int
+					if source.isConstant {
+						dynamicMatrixIndex = -1
+					} else {
+						dynamicMatrixIndex = dynamicBathMatrixCount
+						dynamicBathMatrixCount += 1
+					}
 					bathChannels.append(
 						.init(
 							physicalIndex: i,
+							dynamicMatrixIndex: dynamicMatrixIndex,
 							op: op,
 							directions: directions))
 				}
 			}
 
+			self.dynamicBathMatrixCount = dynamicBathMatrixCount
 			self.connections = BathConnections(
 				hierarchy: configuration.hierarchy,
 				dimension: dimension,
