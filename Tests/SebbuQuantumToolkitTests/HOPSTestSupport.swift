@@ -25,13 +25,13 @@ func hopsConfiguration(
 
 func hopsPropagation(
 	end: Double = 0.3, start: Double = 0, maximumStep: Double = 0.02,
-	tolerance: Double = 1e-8, output: OutputSchedule = .final
+    tolerance: Double = 1e-8, normalizationDriftTolerance: Double? = 0, output: OutputSchedule = .final
 ) -> PropagationOptions<IntegrationOptions> {
 	.init(
 		timeSpan: .init(start: start, end: end), output: output,
 		integration: .init(
 			minimumStepSize: 0, maximumStepSize: maximumStep,
-			absoluteTolerance: tolerance, relativeTolerance: tolerance))
+			absoluteTolerance: tolerance, relativeTolerance: tolerance, normalizationDriftTolerance: normalizationDriftTolerance))
 }
 
 func hopsMatrix(_ elements: [Complex<Double>], _ dimension: Int = 2) -> Matrix<Complex<Double>> {

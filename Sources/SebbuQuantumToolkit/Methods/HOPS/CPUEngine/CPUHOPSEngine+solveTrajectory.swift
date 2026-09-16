@@ -13,7 +13,7 @@ extension HOPS.CPUEngine {
 		trajectoryID: UInt64,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -22,9 +22,17 @@ extension HOPS.CPUEngine {
 		let summary = try _solveTrajectory(
 			problem: problem, preparation: preparation, propagation: propagation,
 			seed: seed, trajectoryID: trajectoryID, observing: observer)
-		return .init(
+		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
 			propagation: summary)
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		return .init(
+			summary: runSummary,
+			bathNoise: .init(
+				definition: definition, masterSeed: seed, trajectoryID: trajectoryID))
 	}
 
 	/// Consumes two words to select the reproducible master seed and trajectory
@@ -37,12 +45,68 @@ extension HOPS.CPUEngine {
 		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
-	) throws -> TrajectoryRunSummary
+	) throws -> HOPS.TrajectoryRunResult
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
 		try solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: rng.next(), trajectoryID: rng.next() % UInt64.max, observing: observer
 		)
+	}
+
+	/// Solves one HOPS trajectory while exposing the exact colored bath noise
+	/// evaluated at each output time. The observation values are borrowed and no
+	/// samples are retained after the callback returns.
+	@discardableResult
+	public func solveTrajectory<Hamiltonian>(
+		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+		trajectoryID: UInt64,
+		observingWithNoise observer: (Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>) ->
+			PropagationControl
+	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+		precondition(
+			trajectoryID < UInt64.max,
+			"The trajectory ID must fit in a half-open range.")
+		let preparation = try Preparation(
+			problem: problem, configuration: configuration, propagation: propagation)
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		let path = HOPS.BathNoisePath(
+			definition: definition, masterSeed: seed, trajectoryID: trajectoryID)
+		var sampler = HOPS.BathNoiseSampler(
+			path: path, preparedGenerator: preparation.noise)
+		var noise = UniqueVector<Complex<Double>>.zero(path.channelCount)
+
+		let propagationSummary = try _solveTrajectory(
+			problem: problem, preparation: preparation, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID
+		) { time, state in
+			sampler.sample(time, into: &noise.mutableSpan)
+			let noiseSpan = Span(_unsafeStart: noise.components, count: noise.count)
+            return observer(time, state, noiseSpan)
+		}
+		let runSummary = TrajectoryRunSummary(
+			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
+			propagation: propagationSummary)
+		return .init(summary: runSummary, bathNoise: path)
+	}
+
+	/// RNG convenience matching the state-only trajectory observer.
+	@discardableResult
+	public func solveTrajectory<Hamiltonian, RNG>(
+		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
+		observingWithNoise observer: (Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>) ->
+			PropagationControl
+	) throws -> HOPS.TrajectoryRunResult
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+		let seed = rng.next()
+		let trajectoryID = rng.next() % UInt64.max
+		return try solveTrajectory(
+			problem: problem, configuration: configuration, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID, observingWithNoise: observer)
 	}
 
     @inlinable

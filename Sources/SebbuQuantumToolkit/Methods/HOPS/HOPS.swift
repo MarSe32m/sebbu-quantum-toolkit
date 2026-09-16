@@ -64,7 +64,7 @@ public extension HOPS {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> PropagationControl
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+		) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction
 
 		@discardableResult
         func solveEnsemble<Hamiltonian>(
@@ -76,7 +76,7 @@ public extension HOPS {
 				Double,
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
-		) throws -> TrajectoryRunSummary
+		) throws -> HOPS.EnsembleRunResult
 		where Hamiltonian: HamiltonianFunction
 
         @discardableResult
@@ -91,7 +91,7 @@ public extension HOPS {
 					Double,
 					borrowing UniqueVector<Complex<Double>>
 				) -> Void
-		) throws -> TrajectoryRunSummary
+		) throws -> HOPS.EnsembleRunResult
         where Hamiltonian: HamiltonianFunction
 	}
 }

@@ -14,7 +14,7 @@ extension HOPS.CPUEngine {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>, execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
 		let outputTimes = try _fixedEnsembleOutputTimes(
 			timeSpan: propagation.timeSpan, schedule: propagation.output)
 		let preparation = try Preparation(
@@ -86,10 +86,19 @@ extension HOPS.CPUEngine {
 				forEach(outputTimes[i], values[i])
 			}
 		}
-		return .init(
+		let summary = TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs, masterSeed: seed,
 			propagation: .init(
 				finalTime: propagation.timeSpan.end, endReason: .reachedEndTime))
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		return .init(
+			summary: summary,
+			bathNoise: .init(
+				definition: definition, masterSeed: seed,
+				trajectoryIDs: execution.trajectoryIDs))
 	}
 
     @inlinable
@@ -99,7 +108,7 @@ extension HOPS.CPUEngine {
 		propagation: PropagationOptions<IntegrationOptions>, execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
 		let preparation = try Preparation(
 			problem: problem, configuration: configuration, propagation: propagation)
 		let seed = execution.resolvedMasterSeed()
@@ -132,9 +141,18 @@ extension HOPS.CPUEngine {
 		}) {
 			throw failure.error
 		}
-		return .init(
+		let summary = TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs, masterSeed: seed,
 			propagation: .init(
 				finalTime: propagation.timeSpan.end, endReason: .reachedEndTime))
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		return .init(
+			summary: summary,
+			bathNoise: .init(
+				definition: definition, masterSeed: seed,
+				trajectoryIDs: execution.trajectoryIDs))
 	}
 }
