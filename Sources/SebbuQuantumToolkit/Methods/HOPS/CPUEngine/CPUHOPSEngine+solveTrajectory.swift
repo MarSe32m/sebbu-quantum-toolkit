@@ -195,11 +195,21 @@ extension HOPS.CPUEngine {
 				}
 				let step = try solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
-				//TODO: Do we need to normalize? There is a term responsible for that in the propagation?
                 if configuration.equationType == .nonLinearNormalized {
-					Self.normalize(&state)
-					solver.stateDidChange()
-				}
+                    let normSquared = state.rootNormSquared
+                    let norm = normSquared.squareRoot()
+                    
+                    let normalizationTolerance = propagation.integration.normalizationDriftTolerance
+                    ?? 100 * (
+                        propagation.integration.absoluteTolerance
+                        + propagation.integration.relativeTolerance
+                    )
+                    
+                    if Swift.abs(norm - 1) > normalizationTolerance {
+                        Self.normalize(&state)
+                        solver.stateDidChange()
+                    }
+                }
 				while let time = cursor.nextTime(through: step.endTime) {
 					if observer(time, state) == .stop {
 						return .init(
@@ -236,10 +246,20 @@ extension HOPS.CPUEngine {
 				let limit = min(cursor.nextRequiredStepBoundary ?? end, end)
 				let step = solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
-                //TODO: Do we need to normalize? There is a term responsible for that in the propagation?
                 if configuration.equationType == .nonLinearNormalized {
-                    Self.normalize(&state)
-                    solver.stateDidChange()
+                    let normSquared = state.rootNormSquared
+                    let norm = normSquared.squareRoot()
+                    
+                    let normalizationTolerance = propagation.integration.normalizationDriftTolerance
+                    ?? 100 * (
+                        propagation.integration.absoluteTolerance
+                        + propagation.integration.relativeTolerance
+                    )
+                    
+                    if Swift.abs(norm - 1) > normalizationTolerance {
+                        Self.normalize(&state)
+                        solver.stateDidChange()
+                    }
                 }
 				while let time = cursor.nextTime(through: step.endTime) {
 					precondition(

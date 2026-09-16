@@ -79,15 +79,27 @@ extension HOPS.CPUEngine {
 				}
 				let step = try solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
-				if equation == .nonLinearNormalized { Self.normalize(&state) }
+                if equation == .nonLinearNormalized {
+                    let normSquared = state.rootNormSquared
+                    let norm = normSquared.squareRoot()
+                    
+                    let normalizationTolerance = propagation.integration.normalizationDriftTolerance
+                        ?? 100 * (
+                            propagation.integration.absoluteTolerance
+                            + propagation.integration.relativeTolerance
+                        )
+                    
+                    if Swift.abs(norm - 1) > normalizationTolerance {
+                        Self.normalize(&state)
+                        solver.stateDidChange()
+                    }
+                }
 				let inserted = try workspace.process(
 					at: step.endTime, state: &state,
 					insertionIndex: &insertionIndex,
 					cursor: &cursor, request: request, equationType: equation,
 					observing: observer)
-				if inserted || equation == .nonLinearNormalized {
-					solver.stateDidChange()
-				}
+                if inserted { solver.stateDidChange() }
 			}
 		} else {
 			var noiseStorage = [Complex<Double>](
@@ -119,15 +131,27 @@ extension HOPS.CPUEngine {
 					: min(cursor.nextRequiredStepBoundary ?? end, end)
 				let step = solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
-				if equation == .nonLinearNormalized { Self.normalize(&state) }
+                if equation == .nonLinearNormalized {
+                    let normSquared = state.rootNormSquared
+                    let norm = normSquared.squareRoot()
+                    
+                    let normalizationTolerance = propagation.integration.normalizationDriftTolerance
+                    ?? 100 * (
+                        propagation.integration.absoluteTolerance
+                        + propagation.integration.relativeTolerance
+                    )
+                    
+                    if Swift.abs(norm - 1) > normalizationTolerance {
+                        Self.normalize(&state)
+                        solver.stateDidChange()
+                    }
+                }
 				let inserted = try workspace.process(
 					at: step.endTime, state: &state,
 					insertionIndex: &insertionIndex,
 					cursor: &cursor, request: request, equationType: equation,
 					observing: observer)
-				if inserted || equation == .nonLinearNormalized {
-					solver.stateDidChange()
-				}
+				if inserted { solver.stateDidChange() }
 			}
 		}
 		return .init(finalTime: end, endReason: .reachedEndTime)

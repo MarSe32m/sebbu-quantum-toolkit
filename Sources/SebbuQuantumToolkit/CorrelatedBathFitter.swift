@@ -1395,7 +1395,7 @@ extension CorrelatedBathFitter {
 				}
 			}
 		}
-		return symmetrizedHermitian(density)
+        return MatrixOperations.symmetrizedHermitian(density)
 	}
 
 	fileprivate static func makeInitialState(
@@ -1493,7 +1493,7 @@ extension CorrelatedBathFitter {
 		alphaZero: Matrix<Complex<Double>>,
 		count: Int
 	) throws -> [[Complex<Double>]] {
-		let hermitian = symmetrizedHermitian(alphaZero)
+        let hermitian = MatrixOperations.symmetrizedHermitian(alphaZero)
 		let decomposition: (eigenValues: [Double], eigenVectors: [Vector<Complex<Double>>])
 		do {
 			decomposition = try MatrixOperations.diagonalizeHermitian(hermitian)
@@ -1645,20 +1645,6 @@ private func frobeniusNorm(_ matrix: Matrix<Complex<Double>>) -> Double {
 
 private func vectorNorm(_ vector: [Complex<Double>]) -> Double {
 	vector.reduce(0) { $0 + squaredMagnitude($1) }.squareRoot()
-}
-
-private func symmetrizedHermitian(
-	_ matrix: Matrix<Complex<Double>>
-) -> Matrix<Complex<Double>> {
-	Matrix(rows: matrix.rows, columns: matrix.columns) { elements in
-		for i in 0..<matrix.rows {
-			for j in 0..<matrix.columns {
-				elements[i * matrix.columns + j] =
-					0.5
-					* (matrix[i, j] + matrix[j, i].conjugate)
-			}
-		}
-	}
 }
 
 private func poleDistance(_ lhs: Complex<Double>, _ rhs: Complex<Double>) -> Double {
