@@ -4,10 +4,6 @@
 import Numerics
 import SebbuScience
 
-#if swift(<6.5)
-	import BasicContainers
-#endif
-
 extension HOPS.CPUEngine.RightHandSide {
 	/// Contract latent neighbours before applying the physical operator. Only
 	/// two ket-sized scratch vectors are needed, independent of hierarchy size.
@@ -36,7 +32,7 @@ extension HOPS.CPUEngine.RightHandSide {
 			let cc = b.conjugate
 			let ee = matrix[unchecked: 1, unchecked: 1].conjugate - adjointMean
 			for branch in stride(from: 0, to: y.rows, by: hierarchyCount) {
-				let base = 2 * branch
+				let base = 2 &* branch
 				for h in 0..<hierarchyCount {
 					var d0 = Complex<Double>.zero
 					var d1 = Complex<Double>.zero
@@ -72,26 +68,26 @@ extension HOPS.CPUEngine.RightHandSide {
 					down.zeroComponents()
 					up.zeroComponents()
 					for i in connections.parentStarts[
-						h]..<connections.parentStarts[h + 1]
+						h]..<connections.parentStarts[h &+ 1]
 					{
 						let edge = connections.parents[i]
-						let source = base + edge.source
+						let source = base &+ edge.source
 						for j in 0..<d {
 							down.components[j] +=
-								edge.weight * y.elements[source + j]
+								edge.weight * y.elements[source &+ j]
 						}
 					}
 					for i in connections.childStarts[
-						h]..<connections.childStarts[h + 1]
+						h]..<connections.childStarts[h &+ 1]
 					{
 						let edge = connections.children[i]
-						let source = base + edge.source
+						let source = base &+ edge.source
 						for j in 0..<d {
 							up.components[j] +=
-								edge.weight * y.elements[source + j]
+								edge.weight * y.elements[source &+ j]
 						}
 					}
-					let target = output.elements + base + d * h
+					let target = output.elements + (base &+ d &* h)
 					HOPS.CPUEngine.OperatorApplication.vector(
 						matrix, x: down.components, y: target, adding: true)
 					HOPS.CPUEngine.OperatorApplication.vector(

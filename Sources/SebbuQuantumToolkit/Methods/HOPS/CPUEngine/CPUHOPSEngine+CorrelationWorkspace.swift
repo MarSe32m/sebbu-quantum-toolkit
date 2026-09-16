@@ -6,15 +6,24 @@ import SebbuScience
 extension HOPS.CPUEngine {
 	/// Complete hierarchies occupy consecutive row blocks. The first block is
 	/// always the guide; one-sided requests need two blocks, mixed requests three.
+    @usableFromInline
 	internal struct CorrelationWorkspace: ~Copyable {
-		let hierarchyCount: Int
-		let dimension: Int
-		let branchCount: Int
-		let ket: Int
-		let bra: Int
-		var operatorStorage: UniqueMatrix<Complex<Double>>
-		var actionStorage: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+        let hierarchyCount: Int
+		@usableFromInline
+        let dimension: Int
+		@usableFromInline
+        let branchCount: Int
+		@usableFromInline
+        let ket: Int
+		@usableFromInline
+        let bra: Int
+		@usableFromInline
+        var operatorStorage: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+        var actionStorage: UniqueMatrix<Complex<Double>>
 
+        @inlinable
 		init(
 			request: MultiTimeOrderedCorrelationRequest, hierarchyCount: Int,
 			dimension: Int
@@ -43,6 +52,7 @@ extension HOPS.CPUEngine {
 			actionStorage = .zeros(rows: hierarchyCount, columns: dimension)
 		}
 
+        @inlinable
 		func initializeDyad(fromGuide state: inout State) {
 			let count = hierarchyCount * dimension
 			for branch in 1..<branchCount {
@@ -55,6 +65,7 @@ extension HOPS.CPUEngine {
 			// initialization restart this memory or the colored-noise sampler.
 		}
 
+        @inlinable
 		mutating func insert(
 			_ event: TimedCorrelationInsertion, index: Int, into state: inout State
 		) throws {
@@ -102,6 +113,7 @@ extension HOPS.CPUEngine {
 			}
 		}
 
+        @inlinable
 		mutating func sample(
 			observable: TimeDependentOperator, at time: Double,
 			state: borrowing State, equationType: HOPS.EquationType
@@ -134,7 +146,8 @@ extension HOPS.CPUEngine {
 
 		/// Apply an insertion before a coincident observation, and report whether
 		/// cached derivatives must be invalidated. All events are exact boundaries.
-		mutating func process(
+		@inlinable
+        mutating func process(
 			at time: Double, state: inout State, insertionIndex: inout Int,
 			cursor: inout OutputCursor, request: MultiTimeOrderedCorrelationRequest,
 			equationType: HOPS.EquationType,

@@ -3,7 +3,6 @@
 
 import Numerics
 import SebbuScience
-import BasicContainers
 
 public enum TrajectoryRandomness: Sendable {
 	/// Derive each trajectory stream from the master seed and trajectory ID.

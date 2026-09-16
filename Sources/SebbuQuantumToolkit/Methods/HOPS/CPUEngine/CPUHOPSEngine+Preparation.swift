@@ -4,10 +4,6 @@
 import Numerics
 import SebbuScience
 
-#if swift(<6.5)
-	import BasicContainers
-#endif
-
 extension HOPS.CPUEngine {
 	/// All expensive, trajectory-independent preparation is shared by an ensemble.
 	@usableFromInline

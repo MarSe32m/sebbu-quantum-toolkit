@@ -4,7 +4,6 @@
 import Numerics
 import SebbuCollections
 import SebbuScience
-import BasicContainers
 import Synchronization
 import SebbuBLAS
 

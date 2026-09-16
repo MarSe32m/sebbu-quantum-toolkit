@@ -3,9 +3,6 @@
 
 import Numerics
 import SebbuScience
-#if swift(<6.5)
-import BasicContainers
-#endif
 
 extension HOPS {
     /// Immutable latent-pole hierarchy, shared by all trajectories of a bath.

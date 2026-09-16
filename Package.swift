@@ -1,14 +1,14 @@
-// swift-tools-version: 6.3
+// swift-tools-version: 6.4
 
 import PackageDescription
 
 let package = Package(
     name: "sebbu-quantum-toolkit",
     platforms: [
-        .macOS(.v26),
-        .iOS(.v26),
-        .tvOS(.v26),
-        .watchOS(.v26)
+        .macOS(.v27),
+        .iOS(.v27),
+        .tvOS(.v27),
+        .watchOS(.v27)
     ],
     products: [
         .library(
@@ -21,13 +21,12 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.11"),
+        .package(url: "https://github.com/MarSe32m/sebbu-science", from: "0.4.12"),
         .package(url: "https://github.com/MarSe32m/sebbu-blas", from: "0.2.0"),
         .package(url: "https://github.com/MarSe32m/sebbu-cuda", from: "0.0.1"),
         .package(url: "https://github.com/MarSe32m/sebbu-collections", from: "0.0.1"),
         .package(url: "https://github.com/MarSe32m/sebbu-python-kit", from: "0.0.1"),
-        .package(url: "https://github.com/apple/swift-numerics", from: "1.1.1"),
-        .package(url: "https://github.com/apple/swift-collections", from: "1.6.0")
+        .package(url: "https://github.com/apple/swift-numerics", from: "1.1.1")
     ],
     targets: [
         .executableTarget(
@@ -53,8 +52,7 @@ let package = Package(
                 .product(name: "SebbuScience", package: "sebbu-science"),
                 .product(name: "SebbuBLAS", package: "sebbu-blas"),
                 .product(name: "SebbuCollections", package: "sebbu-collections"),
-                .product(name: "Numerics", package: "swift-numerics"),
-                .product(name: "BasicContainers", package: "swift-collections")
+                .product(name: "Numerics", package: "swift-numerics")
             ],
             cSettings: [
                 .define("ACCELERATE_NEW_LAPACK", .when(platforms: [.macOS])),
@@ -74,7 +72,7 @@ let package = Package(
                 "SebbuQuantumToolkit",
                 .product(name: "SebbuScience", package: "sebbu-science"),
                 .product(name: "Numerics", package: "swift-numerics"),
-                //TODO: Use traits so that this is included only if trait, say "CUDA" is enabled
+                //TODO: Use traits so that this is included only if trait, say, "CUDA" is enabled
                 .product(name: "SebbuCUDA", package: "sebbu-cuda", condition: .when(platforms: [.windows, .linux]))
             ],
             cSettings: [

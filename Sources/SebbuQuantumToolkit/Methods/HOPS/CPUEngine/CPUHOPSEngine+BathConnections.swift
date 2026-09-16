@@ -4,10 +4,6 @@
 import Numerics
 import SebbuScience
 
-#if swift(<6.5)
-	import BasicContainers
-#endif
-
 extension HOPS.CPUEngine {
 
 	/// Weighted neighbours in one hierarchy block. Offsets are measured in

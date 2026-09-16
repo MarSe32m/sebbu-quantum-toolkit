@@ -3,10 +3,6 @@
 
 import Numerics
 
-#if swift(<6.5)
-	import BasicContainers
-#endif
-
 extension HOPS.CPUEngine {
 	/// Borrow shared damping once per trajectory. Weighted bath connections
 	/// are prepared separately for each physical operator.
@@ -31,7 +27,7 @@ extension HOPS.CPUEngine {
 // the immutable owner. All call sites pass storage owned by that exact object.
 @_lifetime(borrow owner)
 @inlinable
-internal func _hopsBorrowStorage<Element: ~Copyable, Owner: AnyObject>(
+internal func _hopsBorrowStorage<Element: ~Copyable, Owner>(
 	_ storage: borrowing UniqueArray<Element>, owner: borrowing Owner
 ) -> Span<Element> {
 	_overrideLifetime(storage.span, borrowing: owner)

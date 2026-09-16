@@ -6,9 +6,7 @@ import SebbuBLAS
 import SebbuScience
 
 extension HOPS.CPUEngine {
-
-	/// Ordinary row-major operators; each contiguous hierarchy row is a ket.
-	/// No GEMM packing buffers or operator transposes are needed during propagation.
+	/// Ordinary row-major operators. Each contiguous hierarchy row is a ket.
 	@usableFromInline
 	internal enum OperatorApplication {
 		@inlinable
@@ -39,6 +37,7 @@ extension HOPS.CPUEngine {
 					}
 				}
 			} else {
+                
 				BLAS.zgemv(
 					layout: .rowMajor,
 					transpose: adjoint ? .conjugateTranspose : .noTranspose,
@@ -46,8 +45,9 @@ extension HOPS.CPUEngine {
 					x: x, incX: 1, beta: adding ? .one : .zero, y: y, incY: 1)
 			}
 		}
-
+        
 		@inlinable
+        @inline(always)
 		static func apply(
 			_ matrix: borrowing UniqueMatrix<Complex<Double>>,
 			to states: borrowing UniqueMatrix<Complex<Double>>,
@@ -58,34 +58,18 @@ extension HOPS.CPUEngine {
 				matrix.rows == matrix.columns && states.columns == matrix.rows
 					&& output.rows == states.rows
 					&& output.columns == states.columns)
-			if matrix.rows == 2 {
-				// Hoist these loads out of the row loop. This is the fluorescence
-				// case, where even a GEMV call per two-component ket is expensive.
-				let a = coefficient * matrix[unchecked: 0, unchecked: 0]
-				let b = coefficient * matrix[unchecked: 0, unchecked: 1]
-				let c = coefficient * matrix[unchecked: 1, unchecked: 0]
-				let d = coefficient * matrix[unchecked: 1, unchecked: 1]
-				for h in 0..<states.rows {
-					let x = states.elements[2 * h]
-					let z = states.elements[2 * h + 1]
-					if adding {
-						output.elements[2 * h] += a * x + b * z
-						output.elements[2 * h + 1] += c * x + d * z
-					} else {
-						output.elements[2 * h] = a * x + b * z
-						output.elements[2 * h + 1] = c * x + d * z
-					}
-				}
-			} else {
-				for h in 0..<states.rows {
-					vector(
-						matrix, x: states.elements + h * states.columns,
-						y: output.elements + h * states.columns,
-						coefficient: coefficient, adding: adding)
-				}
-			}
+            if adding {
+                for h in 0..<states.rows {
+                    matrix.unsafeDot(states.elements + h &* states.columns, multiplied: coefficient, addingInto: output.elements + h &* states.columns)
+                }
+            } else {
+                for h in 0..<states.rows {
+                    matrix.unsafeDot(states.elements + h &* states.columns, multiplied: coefficient, into: output.elements + h &* states.columns)
+                }
+            }
 		}
 
+        // Forms L^dagger L into output
 		@inlinable
 		static func loss(
 			_ matrix: borrowing UniqueMatrix<Complex<Double>>,
@@ -93,30 +77,19 @@ extension HOPS.CPUEngine {
 		) {
 			let d = matrix.rows
 			precondition(matrix.columns == d && output.rows == d && output.columns == d)
-			if d <= 4 {
-				for i in 0..<d {
-					for j in 0..<d {
-						var value = Complex<Double>.zero
-						for k in 0..<d {
-							value +=
-								matrix[unchecked: k, unchecked: i]
-								.conjugate
-								* matrix[unchecked: k, unchecked: j]
-						}
-						output[unchecked: i, unchecked: j] = value
-					}
-				}
-			} else {
-				// Each output column is L dagger times a column of L. In
-				// particular, dynamic collapse operators never invoke GEMM.
-				for j in 0..<d {
-					BLAS.zgemv(
-						layout: .rowMajor, transpose: .conjugateTranspose,
-						m: d, n: d, alpha: .one, a: matrix.elements, lda: d,
-						x: matrix.elements + j, incX: d, beta: .zero,
-						y: output.elements + j, incY: d)
-				}
-			}
+            //TODO: Implement UniqueMatrix.adjointDot(UniqueMatrix) in sebbu-science
+            for i in 0..<d {
+                for j in 0..<d {
+                    var value = Complex<Double>.zero
+                    for k in 0..<d {
+                        value +=
+                            matrix[unchecked: k, unchecked: i]
+                            .conjugate
+                            * matrix[unchecked: k, unchecked: j]
+                    }
+                    output[unchecked: i, unchecked: j] = value
+                }
+            }
 		}
 	}
 }

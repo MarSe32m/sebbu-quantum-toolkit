@@ -5,12 +5,6 @@ import Numerics
 import SebbuBLAS
 import SebbuScience
 
-#if swift(<6.5)
-	import BasicContainers
-#else
-	#warning("Remove swift-collections dependency")
-#endif
-
 extension HOPS.CPUEngine {
 	@usableFromInline
 	internal struct RightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable, ~Escapable,
@@ -56,8 +50,6 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		let shiftType: HOPS.ShiftType
 
-		// The solver cannot outlive the shared immutable preparation. Its hot
-		// path accesses spans and value fields, never the owning classes.
 		@_lifetime(borrow preparation)
 		@inlinable
 		init(
@@ -127,8 +119,6 @@ extension HOPS.CPUEngine {
 		mutating func evaluateWithCurrentNoise(
 			t: Double, y: borrowing State, into dy: inout State
 		) {
-			// Copy only the span descriptors so pattern matching a borrowed
-			// operator does not extend an exclusive access to the whole RHS.
 			let bathChannels = self.bathChannels
 			let markovianOperators = self.markovianOperators
 			let nonlinear = equationType != .linear
@@ -137,50 +127,53 @@ extension HOPS.CPUEngine {
 			let norm = y.rootNormSquared
 			let inverseNorm = nonlinear || displaced ? 1 / norm : 1
 			dy.zero()
-			hamiltonian.hamiltonian(t: t, into: &original)
-			precondition(
-				original.rows == dimension
-					&& original.columns == dimension,
-				"Hamiltonian dimensions do not match the system.")
-			for i in 0..<generator.rows {
-				for j in 0..<generator.columns {
-					generator[unchecked: i, unchecked: j] =
-						-.i * original[unchecked: i, unchecked: j]
-				}
-			}
+			hamiltonian.hamiltonian(t: t, into: &generator)
+            generator.multiply(by: -.i)
 			for p in 0..<y.shifts.count {
 				dy.shifts[unchecked: p] =
 					-poles[unchecked: p] * y.shifts[unchecked: p]
 			}
-
-			for i in 0..<bathChannels.count {
-				switch bathChannels[i].op.constant {
-				case .some(let op):
-					Self.accumulateBath(
-						bathChannels[unchecked: i], matrix: op.matrix,
-						noise: physicalNoise[
-							bathChannels[unchecked: i].physicalIndex],
-						hierarchy: hierarchy, nonlinear: nonlinear,
-						displaced: displaced, inverseNorm: inverseNorm,
-						y: y, dy: &dy,
-						generator: &generator, down: &down, up: &up)
-				case .none:
-					bathChannels[unchecked: i].op.source.insert(
-						t: t, into: &original)
-					Self.validateOperator(original, dimension: dimension)
-					Self.accumulateBath(
-						bathChannels[unchecked: i], matrix: original,
-						noise: physicalNoise[
-							bathChannels[unchecked: i].physicalIndex],
-						hierarchy: hierarchy, nonlinear: nonlinear,
-						displaced: displaced, inverseNorm: inverseNorm,
-						y: y, dy: &dy,
-						generator: &generator, down: &down, up: &up)
-				}
-			}
+            // This is currently super unoptimal
+            // The desired thing is such that
+            // 1. Create Heff <- -iH + sum z_i L_i - nuHOPS shifts etc.
+            //    This operator will be applied to every tier, i.e., is diagonal on the hierarchy
+            // 2. Deal with the physical tier first to obtain dpsi_0
+            // 3. From 2 Re (psi dot dpsi_0), we obtain the common real gauge Gamma for normalization.
+            // 4. Now we go through each tier and compute their derivative
+            //  4.1. Apply Heff to dpsi_k = Heff * psi_k - (Gamma + kW) psi_k
+            //  4.2. Go through parents dpsi_k += L psi_k-1
+            //  4.3. Go through childred dpsi_k -= L^dagger psi_k+1
+            // This way we traverse the hierarchy only once instead of doing the stuff we do now
+            // where we traverse it for each bath channel and for each markovian operator, and then
+            // again for the diagonal stuff, and then again for the common real gauge if normalized...
+            for channel in bathChannels {
+                switch channel.op.constant {
+                    case .some(let op):
+                        Self.accumulateBath(
+                            channel, matrix: op.matrix,
+                            noise: physicalNoise[
+                                channel.physicalIndex],
+                            hierarchy: hierarchy, nonlinear: nonlinear,
+                            displaced: displaced, inverseNorm: inverseNorm,
+                            y: y, dy: &dy,
+                            generator: &generator, down: &down, up: &up)
+                    case .none:
+                        channel.op.source.insert(
+                            t: t, into: &original)
+                        Self.validateOperator(original, dimension: dimension)
+                        Self.accumulateBath(
+                            channel, matrix: original,
+                            noise: physicalNoise[
+                                channel.physicalIndex],
+                            hierarchy: hierarchy, nonlinear: nonlinear,
+                            displaced: displaced, inverseNorm: inverseNorm,
+                            y: y, dy: &dy,
+                            generator: &generator, down: &down, up: &up)
+                }
+            }
 
 			for i in 0..<markovianOperators.count {
-				let rate = Self.checkedRate(rates[i](t))
+                let rate = Self.checkedRate(rates[unchecked: i](t))
 				if rate == 0 { continue }
 				switch markovianOperators[unchecked: i].constant {
 				case .some(let constant):
@@ -348,6 +341,7 @@ extension HOPS.CPUEngine {
 		}
 
 		@inlinable
+        @inline(always)
 		mutating func sampleNormalizedNoises(
 			t: Double, stepSize: Double,
 			into noises: inout MutableSpan<Complex<Double>>
@@ -383,6 +377,7 @@ extension HOPS.CPUEngine {
 		}
 
 		@inlinable
+        @inline(always)
 		internal static func validateOperator(
 			_ matrix: borrowing UniqueMatrix<Complex<Double>>, dimension: Int
 		) {

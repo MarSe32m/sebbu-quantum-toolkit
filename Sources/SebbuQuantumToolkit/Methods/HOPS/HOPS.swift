@@ -3,12 +3,6 @@
 
 import Numerics
 import SebbuScience
-#if swift(<6.5)
-import BasicContainers
-#else
-#warning("Remove swift-collections dependency")
-#endif
-
 public enum HOPS {}
 
 extension HOPS {

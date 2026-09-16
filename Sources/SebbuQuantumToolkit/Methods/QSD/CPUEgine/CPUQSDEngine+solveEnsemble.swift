@@ -5,7 +5,6 @@ import Numerics
 import SebbuCollections
 import SebbuScience
 import Synchronization
-import BasicContainers
 import SebbuBLAS
 
 extension QSD.CPUEngine {

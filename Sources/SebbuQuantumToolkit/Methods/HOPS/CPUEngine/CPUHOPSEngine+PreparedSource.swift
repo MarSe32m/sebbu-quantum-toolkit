@@ -4,10 +4,6 @@
 import Numerics
 import SebbuScience
 
-#if swift(<6.5)
-	import BasicContainers
-#endif
-
 extension HOPS.CPUEngine {
 	/// Span subscripts of copyable enums can copy their closure contexts.
 	/// A noncopyable representation forces borrowing, including when the

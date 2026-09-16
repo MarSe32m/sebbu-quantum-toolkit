@@ -13,8 +13,8 @@ PythonLibrary.useLibrary(at: "/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0")
 //TODO: Set library path on Windows machine
 #endif
 
-exampleHOPSIBM(endTime: 200)
 
+exampleHOPSIBM(endTime: 7)
 exampleHOPSResonanceFluorescenceSpectrum(A: 0.27, trajectories: 8192)
 exampleMCWFResonanceFluorescenceSpectrum()
 exampleGKSLResonanceFluorescenceSpectrum()
