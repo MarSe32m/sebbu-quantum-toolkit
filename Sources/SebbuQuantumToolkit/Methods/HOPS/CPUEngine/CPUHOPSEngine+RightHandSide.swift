@@ -41,6 +41,8 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		var bathMeans: UniqueVector<Complex<Double>>
 
+		/// Reusable scratch for time-dependent Markovian collapse operators.
+		/// These are only full-sized if at least one such operator is dynamic.
 		@usableFromInline
 		var original: UniqueMatrix<Complex<Double>>
 		@usableFromInline
@@ -101,8 +103,24 @@ extension HOPS.CPUEngine {
 			self.dynamicBathMatrices = dynamicBathMatrices
 			self.bathMeans = .zero(preparation.bathChannels.count)
 
-			self.original = .zeros(rows: d, columns: d)
-			self.loss = .zeros(rows: d, columns: d)
+			var hasDynamicMarkovianOperator = false
+			for i in 0..<preparation.markovianOperators.count {
+				switch preparation.markovianOperators[i].constant {
+				case .some:
+					break
+				case .none:
+					hasDynamicMarkovianOperator = true
+				}
+				if hasDynamicMarkovianOperator { break }
+			}
+			let markovianScratchDimension =
+				hasDynamicMarkovianOperator ? d : 1
+			self.original = .zeros(
+				rows: markovianScratchDimension,
+				columns: markovianScratchDimension)
+			self.loss = .zeros(
+				rows: markovianScratchDimension,
+				columns: markovianScratchDimension)
 			self.generator = .zeros(rows: d, columns: d)
 			self.down = .zero(d)
 			self.up = .zero(d)
