@@ -15,7 +15,7 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
 		try _validateMultiTimeOrderedCorrelationRequest(
 			request,
 			timeSpan: propagation.timeSpan,
@@ -107,10 +107,21 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 				}
 			}
 		}
-		return .init(
+		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs,
 			masterSeed: masterSeed,
 			propagation: summary
+		)
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		return .init(
+			summary: runSummary,
+			bathNoise: .init(
+				definition: definition,
+				masterSeed: masterSeed,
+				trajectoryIDs: execution.trajectoryIDs)
 		)
 	}
 }
@@ -124,7 +135,7 @@ extension HOPS {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
 		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,

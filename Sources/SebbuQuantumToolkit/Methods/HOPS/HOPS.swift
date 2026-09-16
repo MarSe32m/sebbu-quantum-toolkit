@@ -110,7 +110,7 @@ public extension HOPS {
 				Double,
 				borrowing HOPS.HierarchyStateView
 			) -> Void
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+		) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction
 	}
 }
 
@@ -128,7 +128,7 @@ public extension HOPS {
                 Double,
                 Complex<Double>
             ) -> PropagationControl
-        ) throws -> TrajectoryRunSummary
+        ) throws -> HOPS.EnsembleRunResult
         where Hamiltonian: HamiltonianFunction
     }
 }
@@ -143,6 +143,6 @@ public extension HOPS {
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			observing observer: (Double, Complex<Double>) -> PropagationControl
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+		) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction
 	}
 }

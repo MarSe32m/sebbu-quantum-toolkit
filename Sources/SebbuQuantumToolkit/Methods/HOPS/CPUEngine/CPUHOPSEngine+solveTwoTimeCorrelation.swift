@@ -13,7 +13,7 @@ extension HOPS.CPUEngine: HOPS.TwoTimeCorrelationImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
 		try _validateTwoTimeCorrelationRequest(
 			request,
 			timeSpan: propagation.timeSpan,
@@ -43,7 +43,7 @@ extension HOPS {
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
 		try CPUEngine().solveTwoTimeCorrelation(
 			problem: problem,
 			configuration: configuration,

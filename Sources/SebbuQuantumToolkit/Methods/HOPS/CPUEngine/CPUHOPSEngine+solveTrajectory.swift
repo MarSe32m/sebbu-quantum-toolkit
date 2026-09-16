@@ -134,13 +134,13 @@ extension HOPS.CPUEngine {
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
 		trajectoryID: UInt64,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
 		let preparation = try Preparation(
 			problem: problem, configuration: configuration, propagation: propagation)
-		let summary = try propagate(
+		let propagationSummary = try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
 			seed: seed, trajectoryID: trajectoryID
 		) { t, state in
@@ -149,9 +149,17 @@ extension HOPS.CPUEngine {
 				return .proceed
 			}
 		}
-		return .init(
+		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
-			propagation: summary)
+			propagation: propagationSummary)
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		return .init(
+			summary: runSummary,
+			bathNoise: .init(
+				definition: definition, masterSeed: seed, trajectoryID: trajectoryID))
 	}
 
     @inlinable
@@ -161,19 +169,88 @@ extension HOPS.CPUEngine {
 		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) ->
 			PropagationControl
-	) throws -> TrajectoryRunSummary
+	) throws -> HOPS.TrajectoryRunResult
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
 		let seed = rng.next()
 		let id = rng.next() % UInt64.max
 		let preparation = try Preparation(
 			problem: problem, configuration: configuration, propagation: propagation)
-		let summary = try propagate(
+		let propagationSummary = try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
 			seed: seed, trajectoryID: id
 		) { t, state in
 			return Self.withHierarchyView(state) { observer(t, $0) }
 		}
-		return .init(trajectoryIDs: id..<(id + 1), masterSeed: seed, propagation: summary)
+		let runSummary = TrajectoryRunSummary(
+			trajectoryIDs: id..<(id + 1), masterSeed: seed,
+			propagation: propagationSummary)
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		return .init(
+			summary: runSummary,
+			bathNoise: .init(
+				definition: definition, masterSeed: seed, trajectoryID: id))
+	}
+
+	/// Solves one HOPS trajectory while exposing both the complete hierarchy and
+	/// the exact colored bath noise evaluated at each output time.
+	@discardableResult
+	public func solveWithHierarchy<Hamiltonian>(
+		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+		trajectoryID: UInt64,
+		observingWithNoise observer: (
+			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
+		) -> PropagationControl
+	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+		precondition(
+			trajectoryID < UInt64.max,
+			"The trajectory ID must fit in a half-open range.")
+		let preparation = try Preparation(
+			problem: problem, configuration: configuration, propagation: propagation)
+		let definition = HOPS.BathNoiseDefinition(
+			model: configuration.hierarchy.environment.bath,
+			timeSpan: propagation.timeSpan,
+			stepSize: preparation.noise.step)
+		let path = HOPS.BathNoisePath(
+			definition: definition, masterSeed: seed, trajectoryID: trajectoryID)
+		var sampler = HOPS.BathNoiseSampler(
+			path: path, preparedGenerator: preparation.noise)
+		var noise = UniqueVector<Complex<Double>>.zero(path.channelCount)
+
+		let propagationSummary = try propagate(
+			problem: problem, preparation: preparation, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID
+		) { time, state in
+			sampler.sample(time, into: &noise.mutableSpan)
+			let noiseSpan = Span(_unsafeStart: noise.components, count: noise.count)
+			return Self.withHierarchyView(state) { view in
+				observer(time, view, noiseSpan)
+			}
+		}
+		let runSummary = TrajectoryRunSummary(
+			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
+			propagation: propagationSummary)
+		return .init(summary: runSummary, bathNoise: path)
+	}
+
+	/// RNG convenience matching the hierarchy-only observer.
+	@discardableResult
+	public func solveWithHierarchy<Hamiltonian, RNG>(
+		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
+		observingWithNoise observer: (
+			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
+		) -> PropagationControl
+	) throws -> HOPS.TrajectoryRunResult
+	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+		let seed = rng.next()
+		let trajectoryID = rng.next() % UInt64.max
+		return try solveWithHierarchy(
+			problem: problem, configuration: configuration, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID, observingWithNoise: observer)
 	}
 
     @inlinable
