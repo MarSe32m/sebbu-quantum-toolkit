@@ -29,9 +29,9 @@ At a high level, simulations are built from a few common components.
 
 The isolated system is described by its Hamiltonian,
 
-\[
-H(t),
-\]
+```
+H(t)
+```
 
 with support for time-dependent systems.
 
@@ -46,10 +46,9 @@ let system = QuantumSystem(
 ### Markovian environments
 
 Markovian processes are represented as Lindblad channels,
-
-\[
+```markup
 \mathcal{D}_j[\rho] = \gamma_j(t) \left(C_j(t)\rho C_j^\dagger(t) - \frac{1}{2} \left\{C_j^\dagger(t)C_j(t),\rho\right\}\right).
-\]
+```
 
 A channel may therefore contain a time-dependent rate and operator.
 

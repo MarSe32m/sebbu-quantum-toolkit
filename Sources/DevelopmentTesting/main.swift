@@ -6,7 +6,7 @@ import SebbuPythonKit
 
 #if os(macOS)
 PythonLibrary.useLibrary(at: "/Library/Frameworks/Python.framework/Versions/3.12/Python")
-#elseif os(Linux)
+#elseif os(Linux) && !canImport(Musl)
 // PythonLibrary.useLibrary(at: "/usr/lib64/libpython3.11.so.1.0")
 PythonLibrary.useLibrary(at: "/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0")
 #elseif os(Windows)
@@ -26,8 +26,6 @@ exampleGKSLRadiativeDamping(endTime: 200)
 exampleMCWFRadiativeDamping(endTime: 200)
 
 //exampleHEOMIBM(endTime: 200)
-
-
 
 BCFFittingExample()
 hierarchyExample()

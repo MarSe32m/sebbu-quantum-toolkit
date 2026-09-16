@@ -5,100 +5,140 @@ import Numerics
 import SebbuScience
 
 extension HOPS.CPUEngine.RightHandSide {
-	/// Contract latent neighbours before applying the physical operator. Only
-	/// two ket-sized scratch vectors are needed, independent of hierarchy size.
+	/// Evaluate exactly one target hierarchy row.
+	///
+	/// This is the hot HOPS kernel. The target row is visited once: first the
+	/// common effective system generator and diagonal hierarchy damping/gauge
+	/// are applied, then all physical bath channel actions connected to this
+	/// target are accumulated.
 	@inlinable
-	internal static func accumulateNeighbours(
-		_ connections: borrowing HOPS.CPUEngine.BathConnections,
-		matrix: borrowing UniqueMatrix<Complex<Double>>, hierarchyCount: Int,
-		mean: Complex<Double>, adjointMean: Complex<Double>,
+	@inline(always)
+	internal static func evaluateHierarchyRow(
+		branch: Int,
+		tier h: Int,
+		gauge: Double,
+		hierarchy: borrowing HOPS.CPUEngine.HierarchyTables,
+		generator: borrowing UniqueMatrix<Complex<Double>>,
+		bathMatrices: borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+		means: borrowing UniqueVector<Complex<Double>>,
+		nonlinear: Bool,
+		displaced: Bool,
 		y: borrowing UniqueMatrix<Complex<Double>>,
 		into output: inout UniqueMatrix<Complex<Double>>,
-		down: inout UniqueVector<Complex<Double>>, up: inout UniqueVector<Complex<Double>>
+		down: inout UniqueVector<Complex<Double>>,
+		up: inout UniqueVector<Complex<Double>>
 	) {
-		let d = matrix.rows
-		precondition(
-			y.columns == d && y.rows % hierarchyCount == 0
-				&& output.rows == y.rows && output.columns == d)
-		if d == 2 {
-			// The common TLS case stays in registers, including its gathered
-			// neighbours. The shifted operators are the same for every branch.
-			let a = matrix[unchecked: 0, unchecked: 0] - mean
-			let b = matrix[unchecked: 0, unchecked: 1]
-			let c = matrix[unchecked: 1, unchecked: 0]
-			let e = matrix[unchecked: 1, unchecked: 1] - mean
-			let aa = matrix[unchecked: 0, unchecked: 0].conjugate - adjointMean
-			let bb = c.conjugate
-			let cc = b.conjugate
-			let ee = matrix[unchecked: 1, unchecked: 1].conjugate - adjointMean
-			for branch in stride(from: 0, to: y.rows, by: hierarchyCount) {
-				let base = 2 &* branch
-				for h in 0..<hierarchyCount {
-					var d0 = Complex<Double>.zero
-					var d1 = Complex<Double>.zero
-					var u0 = Complex<Double>.zero
-					var u1 = Complex<Double>.zero
-					for i in connections.parentStarts[
-						h]..<connections.parentStarts[h + 1]
-					{
-						let edge = connections.parents[i]
-						let source = base + edge.source
-						d0 += edge.weight * y.elements[source]
-						d1 += edge.weight * y.elements[source + 1]
-					}
-					for i in connections.childStarts[
-						h]..<connections.childStarts[h + 1]
-					{
-						let edge = connections.children[i]
-						let source = base + edge.source
-						u0 += edge.weight * y.elements[source]
-						u1 += edge.weight * y.elements[source + 1]
-					}
-					let target = base + 2 * h
-					output.elements[target] +=
-						(a * d0 + b * d1) - (aa * u0 + bb * u1)
-					output.elements[target + 1] +=
-						(c * d0 + e * d1) - (cc * u0 + ee * u1)
+		let d = generator.rows
+		let branchBase = branch &* d
+		let targetOffset = branchBase &+ h &* d
+		let state = y.elements + targetOffset
+		let target = output.elements + targetOffset
+
+		// H_eff psi_k
+        HOPS.CPUEngine.OperatorApplication.vector(
+			generator, x: state, y: target, adding: false)
+
+		// hierarchy.damping[h] is already -sum_p k_p W_p.
+		let diagonal = hierarchy.damping[h] - Complex(gauge)
+		if diagonal != .zero {
+			for j in 0..<d {
+				target[j] += diagonal * state[j]
+			}
+		}
+
+		let actionStart = hierarchy.actionStarts[h]
+		let actionEnd = hierarchy.actionStarts[h + 1]
+
+		if d == -1 {
+			for actionIndex in actionStart..<actionEnd {
+				let action = hierarchy.actions[actionIndex]
+				let mean = displaced ? means[action.channel] : .zero
+				let adjointMean =
+					nonlinear ? means[action.channel].conjugate : .zero
+
+				var d0 = Complex<Double>.zero
+				var d1 = Complex<Double>.zero
+				for edgeIndex in action.parentStart..<action.parentEnd {
+					let edge = hierarchy.parents[edgeIndex]
+					let source = branchBase + edge.source
+					d0 += edge.weight * y.elements[source]
+					d1 += edge.weight * y.elements[source + 1]
+				}
+
+				var u0 = Complex<Double>.zero
+				var u1 = Complex<Double>.zero
+				for edgeIndex in action.childStart..<action.childEnd {
+					let edge = hierarchy.children[edgeIndex]
+					let source = branchBase + edge.source
+					u0 += edge.weight * y.elements[source]
+					u1 += edge.weight * y.elements[source + 1]
+				}
+
+				if action.parentStart != action.parentEnd {
+					target[0] +=
+						(bathMatrices[action.channel][unchecked: 0, unchecked: 0] - mean) * d0
+						+ bathMatrices[action.channel][unchecked: 0, unchecked: 1] * d1
+					target[1] +=
+                    bathMatrices[action.channel][unchecked: 1, unchecked: 0] * d0
+						+ (bathMatrices[action.channel][unchecked: 1, unchecked: 1] - mean) * d1
+				}
+
+				if action.childStart != action.childEnd {
+					target[0] -=
+						(bathMatrices[action.channel][unchecked: 0, unchecked: 0].conjugate
+							- adjointMean) * u0
+						+ bathMatrices[action.channel][unchecked: 1, unchecked: 0].conjugate * u1
+					target[1] -=
+                    bathMatrices[action.channel][unchecked: 0, unchecked: 1].conjugate * u0
+						+ (bathMatrices[action.channel][unchecked: 1, unchecked: 1].conjugate
+							- adjointMean) * u1
 				}
 			}
-		} else {
-			for branch in stride(from: 0, to: y.rows, by: hierarchyCount) {
-				let base = d * branch
-				for h in 0..<hierarchyCount {
-					down.zeroComponents()
-					up.zeroComponents()
-					for i in connections.parentStarts[
-						h]..<connections.parentStarts[h &+ 1]
-					{
-						let edge = connections.parents[i]
-						let source = base &+ edge.source
+			return
+		}
+
+		for actionIndex in actionStart..<actionEnd {
+            let action = hierarchy.actions[unchecked: actionIndex]
+
+			if action.parentStart != action.parentEnd {
+				down.zeroComponents()
+				for edgeIndex in action.parentStart..<action.parentEnd {
+                    let edge = hierarchy.parents[unchecked: edgeIndex]
+					let source = branchBase &+ edge.source
+                    down.components._unsafeAdd(y.elements + source, multiplied: edge.weight, count: d)
+				}
+
+                HOPS.CPUEngine.OperatorApplication.vector(
+                    bathMatrices[action.channel], x: down.components, y: target, adding: true)
+
+				if displaced {
+					let mean = means[action.channel]
+					if mean != .zero {
 						for j in 0..<d {
-							down.components[j] +=
-								edge.weight * y.elements[source &+ j]
+                            target[j] -= mean * down.components[j]
 						}
 					}
-					for i in connections.childStarts[
-						h]..<connections.childStarts[h &+ 1]
-					{
-						let edge = connections.children[i]
-						let source = base &+ edge.source
+				}
+			}
+
+			if action.childStart != action.childEnd {
+				up.zeroComponents()
+				for edgeIndex in action.childStart..<action.childEnd {
+                    let edge = hierarchy.children[unchecked: edgeIndex]
+					let source = branchBase &+ edge.source
+                    up.components._unsafeAdd(y.elements + source, multiplied: edge.weight, count: d)
+				}
+
+                HOPS.CPUEngine.OperatorApplication.vector(
+                    bathMatrices[action.channel], adjoint: true,
+					x: up.components, y: target,
+					coefficient: -.one, adding: true)
+
+				if nonlinear {
+					let adjointMean = means[action.channel].conjugate
+					if adjointMean != .zero {
 						for j in 0..<d {
-							up.components[j] +=
-								edge.weight * y.elements[source &+ j]
-						}
-					}
-					let target = output.elements + (base &+ d &* h)
-					HOPS.CPUEngine.OperatorApplication.vector(
-						matrix, x: down.components, y: target, adding: true)
-					HOPS.CPUEngine.OperatorApplication.vector(
-						matrix, adjoint: true,
-						x: up.components, y: target, coefficient: -.one,
-						adding: true)
-					if mean != .zero || adjointMean != .zero {
-						for j in 0..<d {
-							target[j] +=
-								adjointMean * up.components[j]
-								- mean * down.components[j]
+							target[j] += adjointMean * up.components[j]
 						}
 					}
 				}

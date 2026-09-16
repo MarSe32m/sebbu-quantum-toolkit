@@ -33,19 +33,16 @@ extension HOPS.CPUEngine {
 			let op: PreparedOperator
 			@usableFromInline
 			let directions: UniqueArray<Direction>
-			@usableFromInline
-			let connections: BathConnections
 
 			@inlinable
 			init(
-				physicalIndex: Int, op: consuming PreparedOperator,
-				directions: consuming UniqueArray<Direction>,
-				connections: consuming BathConnections
+				physicalIndex: Int,
+				op: consuming PreparedOperator,
+				directions: consuming UniqueArray<Direction>
 			) {
 				self.physicalIndex = physicalIndex
 				self.op = op
 				self.directions = directions
-				self.connections = connections
 			}
 		}
 
@@ -59,6 +56,8 @@ extension HOPS.CPUEngine {
 		let shiftCount: Int
 		@usableFromInline
 		let bathChannels: UniqueArray<BathChannel>
+		@usableFromInline
+		let connections: BathConnections
 		@usableFromInline
 		let markovianOperators: UniqueArray<PreparedOperator>
 		@usableFromInline
@@ -101,8 +100,8 @@ extension HOPS.CPUEngine {
 			var bathChannels = UniqueArray<BathChannel>(
 				minimumCapacity: model.channelCount)
 			for i in 0..<model.channelCount {
-				let source = configuration.hierarchy.environment.couplingOperators[
-					i]
+				let source =
+					configuration.hierarchy.environment.couplingOperators[i]
 				let op = try PreparedOperator(
 					source, dimension: dimension, needsLoss: false)
 				var directions = UniqueArray<Direction>()
@@ -127,17 +126,20 @@ extension HOPS.CPUEngine {
 					offset += bath.poleCount
 				}
 				if !directions.isEmpty {
-					let connections = BathConnections(
-						hierarchy: configuration.hierarchy,
-						dimension: dimension, directions: directions)
 					bathChannels.append(
 						.init(
-							physicalIndex: i, op: op,
-							directions: directions,
-							connections: connections))
+							physicalIndex: i,
+							op: op,
+							directions: directions))
 				}
 			}
+
+			self.connections = BathConnections(
+				hierarchy: configuration.hierarchy,
+				dimension: dimension,
+				channels: bathChannels)
 			self.bathChannels = bathChannels
+
 			var markovianOperators = UniqueArray<PreparedOperator>(
 				minimumCapacity: problem.markovianChannels.count)
 			for channel in problem.markovianChannels {
@@ -164,7 +166,11 @@ extension HOPS.CPUEngine {
 		let constant: OperatorMatrices?
 
 		@inlinable
-		init(_ source: TimeDependentOperator, dimension: Int, needsLoss: Bool) throws {
+		init(
+			_ source: TimeDependentOperator,
+			dimension: Int,
+			needsLoss: Bool
+		) throws {
 			switch source {
 			case .constant(let op):
 				guard op.matrix.rows == dimension && op.matrix.columns == dimension
@@ -180,14 +186,16 @@ extension HOPS.CPUEngine {
 						throw SolverError.operatorDimensionMismatch
 					}
 				}
-			case .generatedDense: break
+			case .generatedDense:
+				break
 			}
 			self.source = PreparedSource(source)
 			if source.isConstant {
 				var original = UniqueMatrix<Complex<Double>>.zeros(
 					rows: dimension, columns: dimension)
 				source.insert(t: 0, into: &original)
-				self.constant = OperatorMatrices(original, needsLoss: needsLoss)
+				self.constant = OperatorMatrices(
+					original, needsLoss: needsLoss)
 			} else {
 				self.constant = nil
 			}
@@ -198,15 +206,23 @@ extension HOPS.CPUEngine {
 	/// matrix is prepared once for constant Markovian channels.
 	@usableFromInline
 	internal struct OperatorMatrices: ~Copyable, Sendable {
-		@usableFromInline let matrix: UniqueMatrix<Complex<Double>>
-		@usableFromInline let loss: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		let matrix: UniqueMatrix<Complex<Double>>
+		@usableFromInline
+		let loss: UniqueMatrix<Complex<Double>>
 
 		@inlinable
-		init(_ original: borrowing UniqueMatrix<Complex<Double>>, needsLoss: Bool) {
+		init(
+			_ original: borrowing UniqueMatrix<Complex<Double>>,
+			needsLoss: Bool
+		) {
 			let n = original.rows
 			var loss = UniqueMatrix<Complex<Double>>.zeros(
-				rows: needsLoss ? n : 1, columns: needsLoss ? n : 1)
-			if needsLoss { OperatorApplication.loss(original, into: &loss) }
+				rows: needsLoss ? n : 1,
+				columns: needsLoss ? n : 1)
+			if needsLoss {
+				OperatorApplication.loss(original, into: &loss)
+			}
 			self.matrix = .init(copying: original)
 			self.loss = loss
 		}
