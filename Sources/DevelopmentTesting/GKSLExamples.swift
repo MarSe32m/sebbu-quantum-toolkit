@@ -52,7 +52,7 @@ public func exampleGKSLRadiativeDamping(endTime: Double) {
                 propagation: propagationOptions
             ) { time, rho in
                 X.append(2 * rho[0, 1].real)
-                Y.append(2 * rho[0, 1].imaginary)
+                Y.append(-2 * rho[0, 1].imaginary)
                 Z.append(rho[0, 0].real - rho[1, 1].real)
                 return .proceed
             }

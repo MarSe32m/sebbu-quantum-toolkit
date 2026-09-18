@@ -117,6 +117,17 @@ fileprivate func makeIBMBath(A: Double, cutoff: Double) throws -> IBMBath {
     return IBMBath(bath: bath, renormalizationEnergy: renormalizationEnergy)
 }
 
+fileprivate func exactIBMSolution(t: Double, epsilon: Double, initialState: Matrix<Complex<Double>>, G: [Complex<Double>], W: [Complex<Double>]) -> (X: Double, Y: Double, Z: Double) {
+    var F: Complex<Double> = .zero
+    for (g, w) in zip(G, W) {
+        F += g * (.exp(-w * t) + t * w - 1) / (w * w)
+    }
+    let rho_gg = initialState[0, 0].real
+    let rho_ge = initialState[0, 1] * .exp(.i * epsilon * t) * .exp(-F.conjugate)
+    let rho_ee = 1 - rho_gg
+    return (2 * rho_ge.real, -2 * rho_ge.imaginary, rho_gg - rho_ee)
+}
+
 public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
     let A = 0.27
     let cutoff = 1.447
@@ -148,8 +159,10 @@ public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, .zero, .zero, Complex(renormalizationEnergy)], rows: 2, columns: 2)
     )
+    let initialState: Vector<Complex<Double>> = [Complex(.sqrt(0.5)), Complex(.sqrt(0.5))]
+    let initialRho = initialState.outer(initialState.conjugate)
     let problem = PureStateProblem(
-        initialState: Vector.init([Complex(.sqrt(0.5)), Complex(.sqrt(0.5))]),
+        initialState: initialState,
         system: system
     )
     let timeSpan: [Double] = .linearSpace(0.0, endTime, 0.01)
@@ -185,7 +198,7 @@ public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
                 )
             ) { _, densityMatrix in
                 X.append(2 * densityMatrix[0, 1].real)
-                Y.append(2 * densityMatrix[0, 1].imaginary)
+                Y.append(-2 * densityMatrix[0, 1].imaginary)
                 Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
             }
         }
@@ -193,10 +206,30 @@ public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
     } catch {
         print("Failed to solve HOPS master equation: \(error)")
     }
+    let G = bath.oneSidedExponentialTerms.map { $0.residue[0, 0] }
+    let W = bath.oneSidedExponentialTerms.map { $0.pole }
+    let exactExpectationValues = timeSpan.map { 
+        exactIBMSolution(
+            t: $0, 
+            epsilon: renormalizationEnergy, 
+            initialState: initialRho, 
+            G: G, 
+            W: W
+        )
+    }
+    let exactX = exactExpectationValues.map { $0.X }
+    let exactY = exactExpectationValues.map { $0.Y }
+    let exactZ = exactExpectationValues.map { $0.Z }
+
     plt.figure()
-    plt.plot(x: timeSpan, y: X, label: "<X>")
-    plt.plot(x: timeSpan, y: Y, label: "<Y>")
-    plt.plot(x: timeSpan, y: Z, label: "<Z>")
+
+    plt.plot(x: timeSpan, y: exactX, label: "Exact <X>")
+    plt.plot(x: timeSpan, y: exactY, label: "Exact <Y>")
+    plt.plot(x: timeSpan, y: exactZ, label: "Exact <Z>")
+
+    plt.plot(x: timeSpan, y: X, label: "HOPS <X>", linestyle: "--")
+    plt.plot(x: timeSpan, y: Y, label: "HOPS <Y>", linestyle: "--")
+    plt.plot(x: timeSpan, y: Z, label: "HOPS <Z>", linestyle: "--")
     plt.legend()
     plt.xlabel("t")
     plt.ylabel("<O>")

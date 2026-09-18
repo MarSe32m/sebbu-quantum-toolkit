@@ -61,7 +61,7 @@ public func exampleMCWFRadiativeDamping(endTime: Double) {
                 )
             ) { _, densityMatrix in
                 X.append(2 * densityMatrix[0, 1].real)
-                Y.append(2 * densityMatrix[0, 1].imaginary)
+                Y.append(-2 * densityMatrix[0, 1].imaginary)
                 Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
             }
         }
