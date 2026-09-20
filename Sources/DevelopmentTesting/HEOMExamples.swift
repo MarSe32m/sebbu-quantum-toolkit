@@ -6,7 +6,7 @@ import SebbuScience
 import Numerics
 import SebbuQuantumToolkit
 
-public func exampleHOPSRadiativeDamping(endTime: Double) {
+public func exampleHEOMRadiativeDamping(endTime: Double) {
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, -.one, -.one, .one], rows: 2, columns: 2)
     )
@@ -36,8 +36,8 @@ public func exampleHOPSRadiativeDamping(endTime: Double) {
         timeSpan: .init(start: 0.0, end: endTime),
         output: .uniform(step: 0.01),
         integration: IntegrationOptions(
-            minimumStepSize: 0.01,
-            maximumStepSize: 0.01,
+            minimumStepSize: 0.0001,
+            maximumStepSize: 1,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         ),
@@ -48,35 +48,31 @@ public func exampleHOPSRadiativeDamping(endTime: Double) {
     )
     let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, 1], rows: 2, columns: 2))
     let bath = CorrelatedBathModel.zero(channelCount: 1)
-    let environment = HOPS.Environment(couplingOperator: L, bath: bath)
-    let hierarchy = HOPS.Hierarchy(environment: environment, truncation: .maximumTier(0))
-    let configuration = HOPS.Configuration(
+    let environment = BathEnvironment(couplingOperator: L, bath: bath)
+    let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(0))
+    let configuration = HEOM.Configuration(
         hierarchy: hierarchy,
-        equationType: .nonLinearNormalized,
-        shiftType: .meanField)
-    let trajectories = 4096
+        shiftType: .meanField
+    )
     var X: [Double] = []
     var Y: [Double] = []
     var Z: [Double] = []
     do {
         let executionTime = try ContinuousClock().measure {
-            try HOPS.solveEnsemble(
+            try HEOM.solve(
                 problem: problem,
                 configuration: configuration,
-                propagation: propagationOptions,
-                execution: TrajectoryExecution(
-                    trajectories: trajectories,
-                    seed: 1234
-                )
+                propagation: propagationOptions
             ) { _, densityMatrix in
                 X.append(2 * densityMatrix[0, 1].real)
                 Y.append(2 * densityMatrix[0, 1].imaginary)
                 Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
+                return .proceed
             }
         }
-        print("HOPS simulation took:", executionTime)
+        print("HEOM simulation took:", executionTime)
     } catch {
-        print("Failed to solve HOPS master equation: \(error)")
+        print("Failed to solve HEOM master equation: \(error)")
     }
     plt.figure()
     plt.plot(x: timeSpan, y: X, label: "<X>")
@@ -132,7 +128,7 @@ fileprivate func exactIBMSolution(t: Double, epsilon: Double, initialState: Matr
     return (2 * rho_ge.real, -2 * rho_ge.imaginary, rho_gg - rho_ee)
 }
 
-public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
+public func exampleHEOMIBM(endTime: Double) {
     let A = 0.27
     let cutoff = 1.447
     
@@ -175,44 +171,40 @@ public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
         output: .uniform(step: 0.01),
         integration: IntegrationOptions(
             minimumStepSize: 0.0001,
-            maximumStepSize: 0.01,
+            maximumStepSize: 1,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
         ),
         progress: .console(
             style: .bar,
-            label: "HOPS IBM"
+            label: "HEOM IBM"
         )
     )
     let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, .one], rows: 2, columns: 2))
-    let environment = HOPS.Environment(couplingOperator: L, bath: bath)
-    let hierarchy = HOPS.Hierarchy(environment: environment, truncation: .maximumTier(4))
-    let configuration = HOPS.Configuration(
+    let environment = BathEnvironment(couplingOperator: L, bath: bath)
+    let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(4))
+    let configuration = HEOM.Configuration(
         hierarchy: hierarchy,
-        equationType: .nonLinearNormalized,
         shiftType: .meanField)
     var X: [Double] = []
     var Y: [Double] = []
     var Z: [Double] = []
     do {
         let executionTime = try ContinuousClock().measure {
-            try HOPS.solveEnsemble(
+            try HEOM.solve(
                 problem: problem,
                 configuration: configuration,
-                propagation: propagationOptions,
-                execution: TrajectoryExecution(
-                    trajectories: trajectories,
-                    seed: 1234
-                )
+                propagation: propagationOptions
             ) { _, densityMatrix in
                 X.append(2 * densityMatrix[0, 1].real)
                 Y.append(-2 * densityMatrix[0, 1].imaginary)
                 Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
+                return .proceed
             }
         }
-        print("HOPS simulation took:", executionTime)
+        print("HEOM simulation took:", executionTime)
     } catch {
-        print("Failed to solve HOPS master equation: \(error)")
+        print("Failed to solve HEOM master equation: \(error)")
     }
     let G = bath.oneSidedExponentialTerms.map { $0.residue[0, 0] }
     let W = bath.oneSidedExponentialTerms.map { $0.pole }
@@ -246,11 +238,11 @@ public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
 }
 
 /// Converge preparation time, trajectories, hierarchy depth and noise/integration steps.
-public func exampleHOPSResonanceFluorescenceSpectrum(
+public func exampleHEOMResonanceFluorescenceSpectrum(
     A: Double = .zero, cutoff: Double = 1.447,
     maximumTier: Int = 4,
-    trajectories: Int = 8192, steadyTime: Double = 200, delayTime: Double = 200,
-    maximumStep: Double = 0.01
+    steadyTime: Double = 200, delayTime: Double = 200,
+    maximumStep: Double = 1
 ) {
     let tSteady = steadyTime
     let ibmBath: IBMBath
@@ -263,7 +255,7 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
     let bath = ibmBath.bath
     let renormalizationEnergy = ibmBath.renormalizationEnergy
     print("Renormalization energy:", renormalizationEnergy)
-    let environment = HOPS.Environment(couplingOperator: .constant(Matrix<Complex<Double>>(
+    let environment = BathEnvironment(couplingOperator: .constant(Matrix<Complex<Double>>(
         elements: [.zero, .zero, .zero, .one], rows: 2, columns: 2)), bath: bath)
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, Complex(0.175), Complex(0.175), Complex(renormalizationEnergy)], rows: 2, columns: 2)
@@ -281,9 +273,11 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
         system: system,
         markovianChannels: [markovianChannel]
     )
-    let configuration = HOPS.Configuration(
-        hierarchy: .init(environment: environment, truncation: .maximumTier(maximumTier)),
-        equationType: .nonLinearNormalized, shiftType: .meanField, noiseStepSize: maximumStep)
+    let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(maximumTier))
+    let configuration = HEOM.Configuration(
+        hierarchy: hierarchy,
+        shiftType: .meanField
+    )
     var propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: tSteady),
         output: .final,
@@ -295,25 +289,25 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
         ),
         progress: .console(
             style: .bar,
-            label: "HOPS Steady State"
+            label: "HEOM Steady State"
         )
     )
     var steadyState: Matrix<Complex<Double>> = .zeros(rows: 2, columns: 2)
     var sigmaMinusExpectation: Complex<Double> = .zero
     do {
         let executionTime = try ContinuousClock().measure {
-            try HOPS.solveEnsemble(
+            try HEOM.solve(
                 problem: problem, configuration: configuration,
-                propagation: propagationOptions,
-                execution: .init(trajectories: trajectories, seed: 0x57EAD7, ensembleSampling: .antithetic)
+                propagation: propagationOptions
             ) { time, rho in
                 steadyState = .init(copying: rho)
                 sigmaMinusExpectation = steadyState.dot(sigmaMinus.matrix).trace
+                return .proceed
             }
         }
-        print("HOPS steady-state simulation took:", executionTime)
+        print("HEOM steady-state simulation took:", executionTime)
     } catch {
-        print("Failed to solve HOPS steady state: \(error)")
+        print("Failed to solve HEOM steady state: \(error)")
         return
     }
     let insertionTime = 0.0
@@ -323,10 +317,6 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
         observable: .constant(sigmaMinus)
     )
     let times: [Double] = .linearSpace(insertionTime, insertionTime + delayTime, 10000)
-    // The separate ensemble supplies only the one-time stationary expectation.
-    // Its reduced density matrix cannot initialize the system-bath correlations.
-    // Every correlation guide prepares its full hierarchy from -tSteady to zero,
-    // retaining its auxiliaries, OU sampler and accumulated guide shift memory.
     propagationOptions = PropagationOptions(
         timeSpan: .init(start: -tSteady, end: times.last!),
         output: .times(times),
@@ -338,22 +328,17 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
         ),
         progress: .console(
             style: .bar,
-            label: "HOPS RF Spectrum"
+            label: "HEOM RF Spectrum"
         )
     )
     var correlationFunction: [Complex<Double>] = []
     do {
         let executionTime = try ContinuousClock().measure {
-            try HOPS.solveTwoTimeCorrelation(
+            try HEOM.solveTwoTimeCorrelation(
                 problem: problem,
                 configuration: configuration,
                 request: request,
-                propagation: propagationOptions,
-                execution: TrajectoryExecution(
-                    trajectories: trajectories,
-                    seed: 0xC0FFEE,
-                    ensembleSampling: .antithetic
-                )
+                propagation: propagationOptions
             ) { t, sample in
                 correlationFunction.append(sample - sigmaMinusExpectation.lengthSquared)
                 return .proceed

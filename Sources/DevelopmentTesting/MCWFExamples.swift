@@ -82,7 +82,7 @@ public func exampleMCWFRadiativeDamping(endTime: Double) {
 
 public func exampleMCWFResonanceFluorescenceSpectrum() {
     let system = QuantumSystem(
-        Matrix.init(elements: [.zero, Complex(0.5), Complex(0.5), .zero], rows: 2, columns: 2)
+        Matrix.init(elements: [.zero, Complex(0.175), Complex(0.175), .zero], rows: 2, columns: 2)
     )
     let sigmaMinus: ConstantOperator = .init(Matrix.init(elements: [.zero, .one, .zero, .zero], rows: 2, columns: 2))
     let sigmaPlus: ConstantOperator = .init(Matrix.init(elements: [.zero, .zero, .one, .zero], rows: 2, columns: 2))
@@ -174,7 +174,7 @@ public func exampleMCWFResonanceFluorescenceSpectrum() {
     plt.show()
     plt.close()
     
-    let omegaSpace: [Double] = .linearSpace(-3, 3, 2000)
+    let omegaSpace: [Double] = .linearSpace(-1, 1, 2000)
     var spectrum: [Double] = []
     let correlationFunctionSpline = CubicHermiteSpline(x: times, y: correlationFunction)
     for omega in omegaSpace {

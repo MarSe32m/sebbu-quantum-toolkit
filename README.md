@@ -121,25 +121,50 @@ HOPS.solve(
 }
 ```
 
-Density-matrix methods follow the same general structure, but expose the physical density matrix:
+HEOM uses the same `BathEnvironment` and `CorrelatedBathModel` as HOPS:
 
 ```swift
-HEOM.solve(
-    start: 0.0,
-    end: 10.0,
-    initialState: initialDensityMatrix,
-    on: grid,
-    system: system,
-    lindbladChannels: channels,
-    environment: environment,
-    hierarchy: hierarchy,
-    integration: integration
-) { t, rho in
-    // Observe the physical density matrix ρ(t)
+let environment = BathEnvironment(couplingOperators: couplingOperators, bath: bathModel)
+let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(6))
+let configuration = HEOM.Configuration(hierarchy: hierarchy, shiftType: .meanField)
+
+try HEOM.solve(
+    problem: densityMatrixProblem,
+    configuration: configuration,
+    propagation: propagation
+) { time, rho in
+    // Observe the physical density matrix.
+    return .proceed
 }
 ```
 
-Auxiliary hierarchy states are kept internal by default.
+`shiftType: .none` (the default) implements ordinary latent-basis HEOM;
+`.meanField` integrates the deterministic displacement with the ADOs. Both
+support pure-state and density-matrix initial conditions, time-dependent
+Hamiltonians and coupling operators, and additional Lindblad channels.
+The initial bath is factorized and all nonroot ADOs and displacements start at
+zero. No renormalization or positivity projection is applied.
+
+For `P` latent poles, HEOM uses `2P` directions, ordered as all ket occupations
+followed by all bra occupations. `.maximumTier(D)` retains `|m| + |n| <= D`
+(`binomial(2P + D, D)` ADOs); missing children are zero. This depth is not the
+same truncation as a HOPS ket hierarchy. Converge it independently of the
+integration tolerances. Custom truncations must be finite and downward closed;
+use a ket/bra symmetric set to preserve the ADO adjoint relation.
+
+`solveWithHierarchy` lends a `HEOM.HierarchyStateView` containing row-major,
+factorially scaled ADOs (`rho[m,n] / sqrt(m! n!)` relative to the unscaled
+hierarchy). In centered mode the view contains displaced ADOs. Its root is the
+physical density matrix in either mode. The view cannot escape its callback.
+
+`solveTwoTimeCorrelation` and `solveMultiTimeOrderedCorrelation` accept the
+common correlation requests. Every left or right insertion acts on **all**
+ADOs, preserving bath memory. Centered correlations carry a separate physical
+guide hierarchy to determine the displacement; the inserted companion may be
+traceless or non-Hermitian. Fixed schedules include the equal-time value after
+insertion and skip earlier outputs. Accepted-step schedules start strictly
+after the final insertion. All solvers support observer termination and
+optional accepted-step progress reporting.
 
 ## Reproducible trajectories
 

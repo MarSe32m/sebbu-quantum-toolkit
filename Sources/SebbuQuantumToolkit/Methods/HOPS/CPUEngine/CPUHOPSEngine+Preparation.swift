@@ -107,7 +107,7 @@ extension HOPS.CPUEngine {
 
 			// Correlations are contracted once, without factoring one-sided
 			// exponential residues or changing the sampler's latent basis.
-			let covariances = model.latentBaths.map(\.stationaryCovariance)
+			let coefficients = _LatentBathCoefficients(model)
 			var bathChannels = UniqueArray<BathChannel>(
 				minimumCapacity: model.channelCount)
 			var dynamicBathMatrixCount = 0
@@ -117,25 +117,12 @@ extension HOPS.CPUEngine {
 				let op = try PreparedOperator(
 					source, dimension: dimension, needsLoss: false)
 				var directions = UniqueArray<Direction>()
-				var offset = 0
-				for a in model.latentBaths.indices {
-					let bath = model.latentBaths[a]
-					for p in 0..<bath.poleCount {
-						var down = Complex<Double>.zero
-						for q in 0..<bath.poleCount {
-							down +=
-								covariances[a][p, q]
-								* bath.residues[i, q].conjugate
-						}
-						let up = bath.residues[i, p]
-						if up != .zero || down != .zero {
-							directions.append(
-								.init(
-									index: offset + p,
-									upward: up, downward: down))
-						}
+				for p in coefficients.poles.indices {
+					let up = coefficients.upward[i, p]
+					let down = coefficients.downward[i, p]
+					if up != .zero || down != .zero {
+						directions.append(.init(index: p, upward: up, downward: down))
 					}
-					offset += bath.poleCount
 				}
 				if !directions.isEmpty {
 					let dynamicMatrixIndex: Int

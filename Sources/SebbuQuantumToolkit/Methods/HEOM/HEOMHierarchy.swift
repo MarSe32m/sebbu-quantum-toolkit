@@ -4,18 +4,12 @@
 import Numerics
 import SebbuScience
 
-extension HOPS {
-    /// Immutable latent-pole hierarchy, shared by all trajectories of a bath.
-    ///
-    /// Directions follow bath order, then pole order within each bath, exactly
-    /// as in the correlated OU sampler. State zero is the physical root. IDs
-    /// are assigned breadth-first, visiting directions from last to first for
-    /// each state. No sorting or reduction of the supplied bath is performed.
-    ///
-    /// Each flat table uses `state * multiIndexCount + direction`. Missing
-    /// neighbours have index `-1`. Weights are the nonnegative factorial-scaling
-    /// factors, even for excluded children; the RHS must check the neighbour
-    /// index and apply the upward minus sign separately.
+extension HEOM {
+    /// Factorially scaled ADOs indexed by `(m_0,...,m_(P-1), n_0,...,n_(P-1))`.
+    /// The root has ID zero; missing neighbours have ID -1. Maximum tier
+    /// bounds the combined ket and bra occupation, |m| + |n|.
+    /// Custom predicates must be finite and downward closed. Choose a set
+    /// symmetric under ket/bra exchange to preserve ADO adjoint symmetry.
     public final class Hierarchy: Sendable {
         public typealias Index = Int
 
@@ -27,7 +21,7 @@ extension HOPS {
         @usableFromInline package let parentWeights: UniqueArray<Double>
         @usableFromInline package let childWeights: UniqueArray<Double>
 
-        /// Number of latent-pole directions in every multi-index.
+        /// Number of directions: twice the latent pole count (ket, then bra).
         public let multiIndexCount: Int
         /// Number of retained states, including the physical root.
         public let count: Int
@@ -39,8 +33,9 @@ extension HOPS {
         /// Accessors subsequently borrow storage without allocating.
         @inlinable
         public init(environment: Environment, truncation: Truncation) {
+            let poles = environment.bath.latentBaths.flatMap(\.poles)
             let tables = _BathHierarchyTables(
-                poles: environment.bath.latentBaths.flatMap(\.poles), truncation: truncation)
+                poles: poles + poles.map(\.conjugate), truncation: truncation)
             self.environment = environment
             self.childIndices = tables.childIndices
             self.parentIndices = tables.parentIndices
@@ -61,7 +56,7 @@ extension HOPS {
             return tiers[index]
         }
 
-        /// The precomputed complex coefficient `-sum_p n_p W_p`.
+        /// The coefficient `-sum_p (m_p W_p + n_p W_p.conjugate)`.
         @inlinable
         @inline(always)
         public func damping(at index: Index) -> Complex<Double> {
@@ -109,53 +104,5 @@ extension HOPS {
             return start..<(start + multiIndexCount)
         }
     }
-    
-    /// Shared physical-channel and latent-bath description.
-    public typealias Environment = BathEnvironment
-    public typealias Truncation = BathHierarchyTruncation
 
-}
-
-extension HOPS {
-    public struct HierarchyStateView: ~Copyable, ~Escapable {
-        @usableFromInline
-        package let systemDimension: Int
-        // Total state
-        @usableFromInline
-        package let states: Span<Complex<Double>>
-
-        @inlinable
-        public var count: Int {
-            states.count / systemDimension
-        }
-
-        @_lifetime(copy states)
-        @inlinable
-        package init(systemDimension: Int, states: Span<Complex<Double>>) {
-            self.systemDimension = systemDimension
-            self.states = states
-        }
-        
-        @inlinable
-        @inline(always)
-        public func withPhysicalState<Result>(
-            _ body: (
-                borrowing StateVectorView
-            ) -> Result
-        ) -> Result {
-            withState(at: 0, body)
-        }
-        
-        @inlinable
-        @inline(always)
-        public func withState<Result>(
-            at index: HOPS.Hierarchy.Index,
-            _ body: (borrowing StateVectorView) -> Result
-        ) -> Result {
-            precondition(index >= 0 && index < count)
-            let span = states.extracting(index &* systemDimension ..< (index &+ 1) &* systemDimension)
-            let stateVectorView = StateVectorView(elements: span)
-            return body(stateVectorView)
-        }
-    }
 }

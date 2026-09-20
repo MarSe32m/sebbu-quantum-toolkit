@@ -4,159 +4,50 @@
 import Numerics
 import SebbuScience
 
-#if swift(<6.5)
-import BasicContainers
-#else
-#warning("Remove swift-collections dependency")
-#endif
-
 public enum HEOM: Sendable {}
 
 extension HEOM {
-    public final class Hierarchy: Sendable {
-        public typealias Index = Int
-        
-        // Specifies +1 auxiliary states
-        @usableFromInline
-        package let childIndices: UniqueArray<Index>
-        
-        // Specifies -1 auxiliary states
-        @usableFromInline
-        package let parentIndices: UniqueArray<Index>
-        
-        // All of the -k \cdot W precomputed for all states
-        @usableFromInline
-        package let kWArray: UniqueArray<Complex<Double>>
-        
-        // The multi indices for each auxiliary state
-        // For example, 0 -> (0, 0, ..., 0, 0), 1 -> (0, 0, ..., 0, 1), 2 -> (0, 0, ..., 1, 0) etc.
-        @usableFromInline
-        package let multiIndices: UniqueArray<Index>
-        
-        // How many indices the multi index tuple has
-        @usableFromInline
-        package let multiIndexCount: Int
-        
-        public let environment: Environment
-        
-        public init(environment: Environment, truncation: Truncation) {
-            fatalError("TODO: Implement")
-        }
 
-        @inlinable
-        public func tier(at: Index) -> Int { fatalError("TODO: Implement") }
-
-        @inlinable
-        public func parentIndices(of: Index, indices: (borrowing Span<Index>) -> Void) {
-            fatalError("TODO: Implement")
-        }
-
-        @inlinable
-        public func childIndices(of: Index, indices: (borrowing Span<Index>) -> Void) {
-            fatalError("TODO: Implement")
-        }
+    public enum ShiftType: Sendable {
+        /// Equation (11.5): ordinary latent-basis HEOM.
+        case none
+        /// Equations (11.8)-(11.9): deterministic mean-field displacement.
+        case meanField
     }
 
-	public enum ShiftType: Sendable {
-		case none
-		case meanField
-	}
+    public struct Configuration: Sendable {
+        public let hierarchy: Hierarchy
+        public var shiftType: ShiftType
 
-	public struct Configuration: Sendable {
-		public let hierarchy: Hierarchy
-		public var shiftType: ShiftType
-
-		public init(
-			hierarchy: Hierarchy,
-			shiftType: ShiftType = .none
-		) {
-			self.hierarchy = hierarchy
-			self.shiftType = shiftType
-		}
-	}
-}
-
-extension HEOM {
-    public struct BathCorrelationFunction: Sendable {
-        public let W: [Complex<Double>]
-        public let G: [Complex<Double>]
-        public let r: [Complex<Double>]
-        @usableFromInline
-        package let isZero: Bool
-        
-        public static var zero: BathCorrelationFunction {
-            BathCorrelationFunction(W: [], G: [], r: [])
+        public init(
+            hierarchy: Hierarchy,
+            shiftType: ShiftType = .none
+        ) {
+            self.hierarchy = hierarchy
+            self.shiftType = shiftType
         }
-        
-        @inlinable
-        public init(W: [Complex<Double>], G: [Complex<Double>], r: [Complex<Double>]) {
-            self.W = W
-            self.G = G
-            self.r = r
-            self.isZero = W.isEmpty && G.isEmpty && r.isEmpty
-        }
-        
-        @inlinable
-        public init(samplingTimes: [Double], fitting bcf: (Double) -> Complex<Double>) {
-            fatalError("TODO: Implement")
-        }
-        
-        @inlinable
-        public init(samplingTimes: [Double], physicallyFitting bcf: (Double) -> Complex<Double>) {
-            fatalError("TODO: Implement")
-        }
-    }
-    
-    public struct BathCorrelationMatrix: Sendable {
-        public let matrix: Matrix<BathCorrelationFunction>
-        
-        @inlinable
-        public init(matrix: Matrix<BathCorrelationFunction>) {
-            precondition(matrix.isSquare, "The bath correlation matrix must be square.")
-            self.matrix = matrix
-        }
-        
-        @usableFromInline
-        package var isDiagonal: Bool {
-            for i in 0..<matrix.rows {
-                for j in 0..<matrix.columns where i != j {
-                    if !matrix[i, j].isZero { return false }
-                }
-            }
-            return true
-        }
-    }
-    
-    public struct Environment: Sendable {
-        public let couplingOperators: [TimeDependentOperator]
-        public let bathCorrelationMatrix: BathCorrelationMatrix
-        
-        @inlinable
-        public init(couplingOperators: [TimeDependentOperator], bathCorrelationMatrix: BathCorrelationMatrix) {
-            precondition(couplingOperators.count == bathCorrelationMatrix.matrix.rows, "There must be equal number of coupling operators and bath correlation matrix diagonal elements.")
-            self.couplingOperators = couplingOperators
-            self.bathCorrelationMatrix = bathCorrelationMatrix
-        }
-    }
-    
-    public enum Truncation: Sendable {
-        case maximumTier(Int)
-        case custom(@Sendable (borrowing Span<Int>) -> Bool)
     }
 }
 
 extension HEOM {
+    public typealias Environment = BathEnvironment
+    public typealias Truncation = BathHierarchyTruncation
+}
+
+extension HEOM {
+    /// Borrowed, row-major factorially scaled ADOs. In mean-field mode these
+    /// are the displaced ADOs; the physical root is unchanged.
     public struct HierarchyStateView: ~Copyable, ~Escapable {
         @usableFromInline
         package let systemDimension: Int
-        
-		@usableFromInline
-		package let states: Span<Complex<Double>>
 
-		@inlinable
-		public var count: Int {
-			states.count / (systemDimension &* systemDimension)
-		}
+        @usableFromInline
+        package let states: Span<Complex<Double>>
+
+        @inlinable
+        public var count: Int {
+            states.count / (systemDimension &* systemDimension)
+        }
 
         @_lifetime(copy states)
         @inlinable
@@ -164,37 +55,39 @@ extension HEOM {
             self.systemDimension = systemDimension
             self.states = states
         }
-        
-		@inlinable
-		@inline(always)
-		public func withPhysicalState<Result>(
-			_ body: (
-				borrowing DensityMatrixView
-			) -> Result
-		) -> Result {
-			withState(at: 0, body)
-		}
 
-		@inlinable
-		@inline(always)
-		public func withState<Result>(
+        @inlinable
+        @inline(always)
+        public func withPhysicalState<Result>(
+            _ body: (
+                borrowing DensityMatrixView
+            ) -> Result
+        ) -> Result {
+            withState(at: 0, body)
+        }
+
+        @inlinable
+        @inline(always)
+        public func withState<Result>(
             at index: HEOM.Hierarchy.Index,
-			_ body: (
-				borrowing DensityMatrixView
-			) -> Result
-		) -> Result {
+            _ body: (
+                borrowing DensityMatrixView
+            ) -> Result
+        ) -> Result {
             precondition(index >= 0 && index < count)
-            let span = states.extracting(index &* systemDimension &* systemDimension ..< (index &+ 1) &* systemDimension &* systemDimension)
+            let span = states.extracting(
+                index &* systemDimension &* systemDimension..<(index &+ 1) &* systemDimension
+                    &* systemDimension)
             let view = DensityMatrixView(elements: span, dimension: systemDimension)
             return body(view)
-		}
-	}
+        }
+    }
 }
 
-public extension HEOM {
-	protocol Implementation: ~Copyable {
+extension HEOM {
+    public protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
-        
+
         @discardableResult
         func solve<Hamiltonian: HamiltonianFunction>(
             problem: DensityMatrixProblem<Hamiltonian>,
@@ -205,13 +98,13 @@ public extension HEOM {
                 borrowing UniqueMatrix<Complex<Double>>
             ) -> PropagationControl
         ) throws -> PropagationRunSummary
-	}
+    }
 }
 
-public extension HEOM.Implementation {
+extension HEOM.Implementation {
     @inlinable
     @discardableResult
-    func solve<Hamiltonian: HamiltonianFunction>(
+    public func solve<Hamiltonian: HamiltonianFunction>(
         problem: PureStateProblem<Hamiltonian>,
         configuration: HEOM.Configuration,
         propagation: PropagationOptions<IntegratorConfiguration>,
@@ -221,47 +114,51 @@ public extension HEOM.Implementation {
         ) -> PropagationControl
     ) throws -> PropagationRunSummary {
         let problem = DensityMatrixProblem(problem)
-        return try solve(problem: problem, configuration: configuration, propagation: propagation, observing: observer)
+        return try solve(
+            problem: problem, configuration: configuration, propagation: propagation, observing: observer)
     }
 }
 
-public extension HEOM {
-	protocol HierarchyProvidingImplementation: Implementation {
+extension HEOM {
+    public protocol HierarchyProvidingImplementation: Implementation {
         @discardableResult
-		func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
-			problem: DensityMatrixProblem<Hamiltonian>,
-			configuration: HEOM.Configuration,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			observing observer: (
-				Double,
-				borrowing HEOM.HierarchyStateView
-			) -> PropagationControl
-		) throws -> PropagationRunSummary
-	}
+        func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
+            problem: DensityMatrixProblem<Hamiltonian>,
+            configuration: HEOM.Configuration,
+            propagation: PropagationOptions<IntegratorConfiguration>,
+            observing observer: (
+                Double,
+                borrowing HEOM.HierarchyStateView
+            ) -> PropagationControl
+        ) throws -> PropagationRunSummary
+    }
 
-	protocol TwoTimeCorrelationImplementation: Implementation {
-		func solveTwoTimeCorrelation<
-			Hamiltonian: HamiltonianFunction
-		>(
-			problem: DensityMatrixProblem<Hamiltonian>,
-			configuration: HEOM.Configuration,
-			request: TwoTimeCorrelationRequest,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			observing observer: (
-				Double,
-				Complex<Double>
-			) -> PropagationControl
-		) throws -> PropagationRunSummary
-	}
+    /// Insertions act on every ADO, preserving the correlated bath state.
+    /// In centered mode, a separate physical guide determines all shifts.
+    public protocol TwoTimeCorrelationImplementation: Implementation {
+        @discardableResult
+        func solveTwoTimeCorrelation<
+            Hamiltonian: HamiltonianFunction
+        >(
+            problem: DensityMatrixProblem<Hamiltonian>,
+            configuration: HEOM.Configuration,
+            request: TwoTimeCorrelationRequest,
+            propagation: PropagationOptions<IntegratorConfiguration>,
+            observing observer: (
+                Double,
+                Complex<Double>
+            ) -> PropagationControl
+        ) throws -> PropagationRunSummary
+    }
 
-	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
-		@discardableResult
-		func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
-			problem: DensityMatrixProblem<Hamiltonian>,
-			configuration: HEOM.Configuration,
-			request: MultiTimeOrderedCorrelationRequest,
-			propagation: PropagationOptions<IntegratorConfiguration>,
-			observing observer: (Double, Complex<Double>) -> PropagationControl
-		) throws -> PropagationRunSummary
-	}
+    public protocol MultiTimeOrderedCorrelationImplementation: Implementation {
+        @discardableResult
+        func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
+            problem: DensityMatrixProblem<Hamiltonian>,
+            configuration: HEOM.Configuration,
+            request: MultiTimeOrderedCorrelationRequest,
+            propagation: PropagationOptions<IntegratorConfiguration>,
+            observing observer: (Double, Complex<Double>) -> PropagationControl
+        ) throws -> PropagationRunSummary
+    }
 }

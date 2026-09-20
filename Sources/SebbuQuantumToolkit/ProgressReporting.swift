@@ -5,7 +5,6 @@
 ///
 /// GKSL and HEOM advances after accepted integration steps. QSD, MCWF and HOPS advance
 /// after whole trajectories complete, including correlation and hierarchy solves.
-/// HEOM accepts the same configuration. Its CPU solver is not implemented yet.
 /// Each invocation owns its reporter, so these options can be reused safely.
 public struct ProgressReporting: Sendable {
 	public enum Style: Sendable {
