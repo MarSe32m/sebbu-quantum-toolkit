@@ -56,7 +56,8 @@ extension QSD.CPUEngine {
                         configuration: configuration,
                         propagation: propagation,
                         seed: masterSeed,
-                        trajectoryID: trajectoryID
+                        trajectoryID: trajectoryID,
+                        ensembleSampling: execution.ensembleSampling
                     ) { time, state in
                         precondition(
                             sampleIndex
@@ -132,6 +133,7 @@ extension QSD.CPUEngine {
 		return TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs,
 			masterSeed: masterSeed,
+			ensembleSampling: execution.ensembleSampling,
 			propagation: .init(
 				finalTime: propagation.timeSpan.end,
 				endReason: .reachedEndTime

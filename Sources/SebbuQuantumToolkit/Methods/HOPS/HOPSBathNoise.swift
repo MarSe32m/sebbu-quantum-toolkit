@@ -65,12 +65,14 @@ public extension HOPS {
     ///
     /// Exact replay is defined by ``generationAlgorithm``. This descriptor covers
     /// the colored HOPS bath noise only; Markovian white-noise unravelling is not
-    /// part of this path.
+    /// part of this path. ``ensembleSampling`` is part of the replay identity.
+    /// Antithetic paths negate the reference noise, before state-dependent shifts.
     struct BathNoisePath: Sendable {
         @usableFromInline internal let definition: BathNoiseDefinition
 
         public let masterSeed: UInt64
         public let trajectoryID: UInt64
+        public let ensembleSampling: EnsembleSampling
 
         public var channelCount: Int { definition.model.channelCount }
         public var latentCount: Int { definition.model.poleCount }
@@ -85,11 +87,13 @@ public extension HOPS {
         internal init(
             definition: BathNoiseDefinition,
             masterSeed: UInt64,
-            trajectoryID: UInt64
+            trajectoryID: UInt64,
+            ensembleSampling: EnsembleSampling = .independent
         ) {
             self.definition = definition
             self.masterSeed = masterSeed
             self.trajectoryID = trajectoryID
+            self.ensembleSampling = ensembleSampling
         }
 
         /// Creates a bounded-lookback cursor over this realization.
@@ -154,6 +158,7 @@ public extension HOPS {
             var rng = TrajectoryRandomNumberGenerator(
                 seed: path.masterSeed,
                 trajectoryID: path.trajectoryID,
+                ensembleSampling: path.ensembleSampling,
                 purpose: .coloredNoiseGeneration
             )
             switch path.generationAlgorithm {
@@ -164,7 +169,7 @@ public extension HOPS {
                     start: path.meshOrigin,
                     step: path.stepSize
                 )
-                self.process = generator.generate(generator: &rng)
+                self.process = generator.generate(generator: &rng.gaussian)
             }
             self.rng = rng
         }
@@ -178,11 +183,12 @@ public extension HOPS {
             var rng = TrajectoryRandomNumberGenerator(
                 seed: path.masterSeed,
                 trajectoryID: path.trajectoryID,
+                ensembleSampling: path.ensembleSampling,
                 purpose: .coloredNoiseGeneration
             )
             switch path.generationAlgorithm {
             case .correlatedOUV1:
-                self.process = preparedGenerator.generate(generator: &rng)
+                self.process = preparedGenerator.generate(generator: &rng.gaussian)
             }
             self.rng = rng
         }
@@ -194,7 +200,7 @@ public extension HOPS {
             into values: inout MutableSpan<Complex<Double>>
         ) {
             validate(time)
-            process.sample(time, into: &values, generator: &rng)
+            process.sample(time, into: &values, generator: &rng.gaussian)
         }
 
         /// Writes all latent OU coordinates `x_p(t)` in latent-bath/pole order.
@@ -204,7 +210,7 @@ public extension HOPS {
             into values: inout MutableSpan<Complex<Double>>
         ) {
             validate(time)
-            process.sampleLatent(time, into: &values, generator: &rng)
+            process.sampleLatent(time, into: &values, generator: &rng.gaussian)
         }
 
         /// Writes physical and latent coordinates of exactly the same realization.
@@ -219,7 +225,7 @@ public extension HOPS {
                 time,
                 physical: &physical,
                 latent: &latent,
-                generator: &rng
+                generator: &rng.gaussian
             )
         }
 
@@ -243,6 +249,7 @@ public extension HOPS {
 
         public let masterSeed: UInt64
         public let trajectoryIDs: Range<UInt64>
+        public let ensembleSampling: EnsembleSampling
 
         public var channelCount: Int { definition.model.channelCount }
         public var latentCount: Int { definition.model.poleCount }
@@ -256,11 +263,13 @@ public extension HOPS {
         internal init(
             definition: BathNoiseDefinition,
             masterSeed: UInt64,
-            trajectoryIDs: Range<UInt64>
+            trajectoryIDs: Range<UInt64>,
+            ensembleSampling: EnsembleSampling = .independent
         ) {
             self.definition = definition
             self.masterSeed = masterSeed
             self.trajectoryIDs = trajectoryIDs
+            self.ensembleSampling = ensembleSampling
         }
 
         /// Returns the replayable colored-noise path for one ensemble trajectory.
@@ -273,7 +282,8 @@ public extension HOPS {
             return BathNoisePath(
                 definition: definition,
                 masterSeed: masterSeed,
-                trajectoryID: trajectoryID
+                trajectoryID: trajectoryID,
+                ensembleSampling: ensembleSampling
             )
         }
     }
@@ -285,6 +295,7 @@ public extension HOPS {
 
         public var trajectoryIDs: Range<UInt64> { summary.trajectoryIDs }
         public var masterSeed: UInt64 { summary.masterSeed }
+        public var ensembleSampling: EnsembleSampling { summary.ensembleSampling }
         public var propagation: PropagationRunSummary { summary.propagation }
 
         public init(summary: TrajectoryRunSummary, bathNoise: BathNoisePath) {
@@ -300,6 +311,7 @@ public extension HOPS {
 
         public var trajectoryIDs: Range<UInt64> { summary.trajectoryIDs }
         public var masterSeed: UInt64 { summary.masterSeed }
+        public var ensembleSampling: EnsembleSampling { summary.ensembleSampling }
         public var propagation: PropagationRunSummary { summary.propagation }
 
         public init(summary: TrajectoryRunSummary, bathNoise: EnsembleNoisePaths) {

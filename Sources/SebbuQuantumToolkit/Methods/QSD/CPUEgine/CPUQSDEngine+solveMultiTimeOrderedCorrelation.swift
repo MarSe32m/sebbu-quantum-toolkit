@@ -53,7 +53,8 @@ extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 						request: request,
 						propagation: propagation,
 						seed: masterSeed,
-						trajectoryID: trajectoryID
+						trajectoryID: trajectoryID,
+						ensembleSampling: execution.ensembleSampling
 					) { time, value in
 						precondition(
 							sampleIndex < outputTimes.count
@@ -104,6 +105,7 @@ extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 		return .init(
 			trajectoryIDs: execution.trajectoryIDs,
 			masterSeed: masterSeed,
+			ensembleSampling: execution.ensembleSampling,
 			propagation: summary
 		)
 	}

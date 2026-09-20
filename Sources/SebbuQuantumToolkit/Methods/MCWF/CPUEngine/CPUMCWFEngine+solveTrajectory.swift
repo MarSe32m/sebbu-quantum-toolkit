@@ -17,6 +17,27 @@ extension MCWF.CPUEngine {
 			borrowing UniqueVector<Complex<Double>>
 		) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+		try solveTrajectory(
+			problem: problem, configuration: configuration, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: .independent,
+			observing: observer)
+	}
+
+	@inlinable
+	@discardableResult
+	public func solveTrajectory<Hamiltonian>(
+		problem: PureStateProblem<Hamiltonian>,
+		configuration: MCWF.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+		seed: UInt64,
+		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling,
+		observing observer: (
+			Double,
+			borrowing UniqueVector<Complex<Double>>
+		) -> PropagationControl
+	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
 		precondition(
 			trajectoryID < UInt64.max,
 			"UInt64.max cannot be represented in the half-open trajectory-ID range"
@@ -25,6 +46,7 @@ extension MCWF.CPUEngine {
 		var randomNumberGenerator = TrajectoryRandomNumberGenerator(
 			seed: seed,
 			trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling,
 			purpose: .mcwfJumps
 		)
 		let propagationSummary = try solveTrajectory(
@@ -37,6 +59,7 @@ extension MCWF.CPUEngine {
 		return TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1),
 			masterSeed: seed,
+			ensembleSampling: ensembleSampling,
 			propagation: propagationSummary
 		)
 	}
@@ -363,6 +386,7 @@ extension MCWF {
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (
 			Double,
 			borrowing UniqueVector<Complex<Double>>
@@ -375,6 +399,7 @@ extension MCWF {
 			propagation: propagation,
 			seed: seed,
 			trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling,
 			observing: observer
 		)
 	}

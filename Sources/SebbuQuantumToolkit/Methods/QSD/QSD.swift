@@ -59,7 +59,7 @@ public extension QSD {
 		) throws -> TrajectoryRunSummary
 		where Hamiltonian: HamiltonianFunction
 
-		/// Solves independent trajectories. The callback can run concurrently.
+		/// Solves the requested trajectories. The callback can run concurrently.
 		@discardableResult
 		func solveTrajectories<Hamiltonian>(
 			problem: PureStateProblem<Hamiltonian>,

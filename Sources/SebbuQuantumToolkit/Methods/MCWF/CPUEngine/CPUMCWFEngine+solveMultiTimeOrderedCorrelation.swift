@@ -49,6 +49,7 @@ extension MCWF.CPUEngine: MCWF.MultiTimeOrderedCorrelationImplementation {
 				var rng = TrajectoryRandomNumberGenerator(
 					seed: masterSeed,
 					trajectoryID: trajectoryID,
+					ensembleSampling: execution.ensembleSampling,
 					purpose: .mcwfJumps
 				)
 				var sampleIndex = 0
@@ -109,6 +110,7 @@ extension MCWF.CPUEngine: MCWF.MultiTimeOrderedCorrelationImplementation {
 		return .init(
 			trajectoryIDs: execution.trajectoryIDs,
 			masterSeed: masterSeed,
+			ensembleSampling: execution.ensembleSampling,
 			propagation: summary
 		)
 	}

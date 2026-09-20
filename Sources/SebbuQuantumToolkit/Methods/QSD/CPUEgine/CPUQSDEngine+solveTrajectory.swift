@@ -18,6 +18,27 @@ extension QSD.CPUEngine {
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
     ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        try solveTrajectory(
+            problem: problem, configuration: configuration, propagation: propagation,
+            seed: seed, trajectoryID: trajectoryID,
+            ensembleSampling: .independent,
+            observing: observer)
+    }
+
+    @inlinable
+    @discardableResult
+    public func solveTrajectory<Hamiltonian>(
+        problem: PureStateProblem<Hamiltonian>,
+        configuration: QSD.Configuration,
+        propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
+        trajectoryID: UInt64,
+        ensembleSampling: EnsembleSampling,
+        observing observer: (
+            Double,
+            borrowing UniqueVector<Complex<Double>>
+        ) -> PropagationControl
+    ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
         precondition(
             trajectoryID < UInt64.max,
             "UInt64.max cannot be represented in the half-open trajectory-ID range"
@@ -29,11 +50,13 @@ extension QSD.CPUEngine {
             propagation: propagation,
             seed: seed,
             trajectoryID: trajectoryID,
+            ensembleSampling: ensembleSampling,
             observing: observer
         )
         return TrajectoryRunSummary(
             trajectoryIDs: trajectoryID..<(trajectoryID + 1),
             masterSeed: seed,
+            ensembleSampling: ensembleSampling,
             propagation: propagationSummary
         )
     }
@@ -68,6 +91,7 @@ extension QSD.CPUEngine {
         propagation: PropagationOptions<IntegrationOptions>,
         seed: UInt64,
         trajectoryID: UInt64,
+        ensembleSampling: EnsembleSampling = .independent,
         observing observer: (
             Double,
             borrowing UniqueVector<Complex<Double>>
@@ -116,7 +140,8 @@ extension QSD.CPUEngine {
             problem,
             equationType: configuration.equationType,
             seed: seed,
-            trajectoryID: trajectoryID
+            trajectoryID: trajectoryID,
+            ensembleSampling: ensembleSampling
         )
         var solver = UniqueSRK2Solver(
             t: start,
@@ -207,6 +232,7 @@ extension QSD {
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         seed: UInt64,
         trajectoryID: UInt64,
+        ensembleSampling: EnsembleSampling = .independent,
         observing observer: (
             Double,
             borrowing UniqueVector<Complex<Double>>
@@ -219,6 +245,7 @@ extension QSD {
             propagation: propagation,
             seed: seed,
             trajectoryID: trajectoryID,
+            ensembleSampling: ensembleSampling,
             observing: observer
         )
     }

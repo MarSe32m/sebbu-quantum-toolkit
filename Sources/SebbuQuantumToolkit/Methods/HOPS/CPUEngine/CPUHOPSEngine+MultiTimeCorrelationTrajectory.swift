@@ -10,7 +10,9 @@ extension HOPS.CPUEngine {
 		problem: borrowing PureStateProblem<Hamiltonian>, preparation: Preparation,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
-		trajectoryID: UInt64, observing observer: (Double, Complex<Double>) -> Void
+		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
+		observing observer: (Double, Complex<Double>) -> Void
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
 		let start = propagation.timeSpan.start
 		let end = propagation.timeSpan.end
@@ -38,7 +40,8 @@ extension HOPS.CPUEngine {
 		}
 		let rhs = RightHandSide(
 			hamiltonian: problem.system.hamiltonian,
-			preparation: preparation, seed: seed, trajectoryID: trajectoryID)
+			preparation: preparation, seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling)
 		if preparation.markovianOperators.isEmpty {
 			var solver = UniqueDOPRISolver(
 				t: start,

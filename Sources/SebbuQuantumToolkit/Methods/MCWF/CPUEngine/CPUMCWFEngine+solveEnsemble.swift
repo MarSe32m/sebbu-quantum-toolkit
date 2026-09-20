@@ -55,6 +55,7 @@ extension MCWF.CPUEngine {
                 TrajectoryRandomNumberGenerator(
                     seed: masterSeed,
                     trajectoryID: trajectoryID,
+                    ensembleSampling: execution.ensembleSampling,
                     purpose: .mcwfJumps
                 )
                 do {
@@ -129,6 +130,7 @@ extension MCWF.CPUEngine {
         return TrajectoryRunSummary(
             trajectoryIDs: execution.trajectoryIDs,
             masterSeed: masterSeed,
+            ensembleSampling: execution.ensembleSampling,
             propagation: .init(
                 finalTime: propagation.timeSpan.end,
                 endReason: .reachedEndTime

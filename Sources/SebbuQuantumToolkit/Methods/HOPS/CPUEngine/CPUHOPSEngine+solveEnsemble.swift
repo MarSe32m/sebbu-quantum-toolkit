@@ -47,7 +47,8 @@ extension HOPS.CPUEngine {
 					_ = try _solveTrajectory(
 						problem: problem, preparation: preparation,
 						propagation: propagation,
-						seed: seed, trajectoryID: id
+						seed: seed, trajectoryID: id,
+						ensembleSampling: execution.ensembleSampling
 					) { t, state in
 						precondition(
 							sample < outputTimes.count
@@ -88,6 +89,7 @@ extension HOPS.CPUEngine {
 		}
 		let summary = TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs, masterSeed: seed,
+			ensembleSampling: execution.ensembleSampling,
 			propagation: .init(
 				finalTime: propagation.timeSpan.end, endReason: .reachedEndTime))
 		let definition = HOPS.BathNoiseDefinition(
@@ -98,7 +100,8 @@ extension HOPS.CPUEngine {
 			summary: summary,
 			bathNoise: .init(
 				definition: definition, masterSeed: seed,
-				trajectoryIDs: execution.trajectoryIDs))
+				trajectoryIDs: execution.trajectoryIDs,
+				ensembleSampling: execution.ensembleSampling))
 	}
 
     @inlinable
@@ -128,7 +131,8 @@ extension HOPS.CPUEngine {
 					_ = try _solveTrajectory(
 						problem: problem, preparation: preparation,
 						propagation: propagation,
-						seed: seed, trajectoryID: id
+						seed: seed, trajectoryID: id,
+						ensembleSampling: execution.ensembleSampling
 					) { t, state in
 						forEach(id, t, state)
 						return .proceed
@@ -143,6 +147,7 @@ extension HOPS.CPUEngine {
 		}
 		let summary = TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs, masterSeed: seed,
+			ensembleSampling: execution.ensembleSampling,
 			propagation: .init(
 				finalTime: propagation.timeSpan.end, endReason: .reachedEndTime))
 		let definition = HOPS.BathNoiseDefinition(
@@ -153,6 +158,7 @@ extension HOPS.CPUEngine {
 			summary: summary,
 			bathNoise: .init(
 				definition: definition, masterSeed: seed,
-				trajectoryIDs: execution.trajectoryIDs))
+				trajectoryIDs: execution.trajectoryIDs,
+				ensembleSampling: execution.ensembleSampling))
 	}
 }

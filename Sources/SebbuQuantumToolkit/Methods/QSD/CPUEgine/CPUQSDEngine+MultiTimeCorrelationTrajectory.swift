@@ -13,6 +13,7 @@ extension QSD.CPUEngine {
 		propagation: PropagationOptions<IntegrationOptions>,
 		seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, Complex<Double>) -> Void
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
 		let start = propagation.timeSpan.start
@@ -84,7 +85,8 @@ extension QSD.CPUEngine {
 			problem,
 			equationType: configuration.equationType,
 			seed: seed,
-			trajectoryID: trajectoryID
+			trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling
 		)
 		var solver = UniqueSRK2Solver(
 			t: start,

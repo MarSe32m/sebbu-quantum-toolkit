@@ -66,7 +66,8 @@ extension HOPS.CPUEngine {
 			hamiltonian: Hamiltonian,
 			preparation: borrowing Preparation,
 			seed: UInt64,
-			trajectoryID: UInt64
+			trajectoryID: UInt64,
+			ensembleSampling: EnsembleSampling = .independent
 		) {
 			self.dimension = preparation.dimension
 			self.poles = Self.borrowPoles(
@@ -83,12 +84,14 @@ extension HOPS.CPUEngine {
 			var rng = TrajectoryRandomNumberGenerator(
 				seed: seed,
 				trajectoryID: trajectoryID,
+				ensembleSampling: ensembleSampling,
 				purpose: .coloredNoiseGeneration)
-			self.noise = preparation.noise.generate(generator: &rng)
+			self.noise = preparation.noise.generate(generator: &rng.gaussian)
 			self.coloredRNG = rng
 			self.whiteRNG = .init(
 				seed: seed,
 				trajectoryID: trajectoryID,
+				ensembleSampling: ensembleSampling,
 				purpose: .gaussianWhiteNoise)
 			self.physicalNoise = .zero(preparation.noise.channelCount)
 
@@ -188,7 +191,7 @@ extension HOPS.CPUEngine {
 				noise.sample(
 					t,
 					into: &physicalNoise.mutableSpan,
-					generator: &coloredRNG)
+					generator: &coloredRNG.gaussian)
 			}
 			evaluateWithCurrentNoise(t: t, y: y, into: &dy)
 		}

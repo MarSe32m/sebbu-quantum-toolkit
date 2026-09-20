@@ -32,7 +32,8 @@ extension QSD.CPUEngine {
 			_ problem: borrowing PureStateProblem<Hamiltonian>,
 			equationType: QSD.EquationType,
 			seed: UInt64,
-			trajectoryID: UInt64
+			trajectoryID: UInt64,
+			ensembleSampling: EnsembleSampling = .independent
 		) {
 			let dimension = problem.system.dimension
 			precondition(
@@ -66,6 +67,7 @@ extension QSD.CPUEngine {
 			self.randomNumberGenerator = TrajectoryRandomNumberGenerator(
 				seed: seed,
 				trajectoryID: trajectoryID,
+				ensembleSampling: ensembleSampling,
 				purpose: .gaussianWhiteNoise
 			)
 			self.hamiltonianBuffer = .zeros(
@@ -93,17 +95,17 @@ extension QSD.CPUEngine {
 			into dy: inout CorrelationState
 		) {
 			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
-			hamiltonianBuffer.dotBLAS(
+			hamiltonianBuffer.dot(
 				y.guide,
 				multiplied: -.i,
 				into: &dy.guide
 			)
-			hamiltonianBuffer.dotBLAS(
+			hamiltonianBuffer.dot(
 				y.ket,
 				multiplied: -.i,
 				into: &dy.ket
 			)
-			hamiltonianBuffer.dotBLAS(
+			hamiltonianBuffer.dot(
 				y.bra,
 				multiplied: -.i,
 				into: &dy.bra
@@ -252,17 +254,17 @@ extension QSD.CPUEngine {
 			guard rate > .zero else { return }
 
 			let lossCoefficient = Complex(-0.5 * rate)
-			lossOperator.dotBLAS(
+			lossOperator.dot(
 				y.guide,
 				multiplied: lossCoefficient,
 				addingInto: &dy.guide
 			)
-			lossOperator.dotBLAS(
+			lossOperator.dot(
 				y.ket,
 				multiplied: lossCoefficient,
 				addingInto: &dy.ket
 			)
-			lossOperator.dotBLAS(
+			lossOperator.dot(
 				y.bra,
 				multiplied: lossCoefficient,
 				addingInto: &dy.bra
@@ -277,17 +279,17 @@ extension QSD.CPUEngine {
 					y.guide.inner(metric: collapseOperatorAdjoint, y.guide)
 					/ normSquared
 				let shiftCoefficient = rate * expectationAdjoint
-				collapseOperator.dotBLAS(
+				collapseOperator.dot(
 					y.guide,
 					multiplied: shiftCoefficient,
 					addingInto: &dy.guide
 				)
-				collapseOperator.dotBLAS(
+				collapseOperator.dot(
 					y.ket,
 					multiplied: shiftCoefficient,
 					addingInto: &dy.ket
 				)
-				collapseOperator.dotBLAS(
+				collapseOperator.dot(
 					y.bra,
 					multiplied: shiftCoefficient,
 					addingInto: &dy.bra
@@ -320,17 +322,17 @@ extension QSD.CPUEngine {
 		) {
 			guard rate > .zero else { return }
 			let coefficient = (0.5 * rate).squareRoot()
-			collapseOperator.dotBLAS(
+			collapseOperator.dot(
 				y.guide,
 				multiplied: Complex(coefficient),
 				addingInto: &dy.guide
 			)
-			collapseOperator.dotBLAS(
+			collapseOperator.dot(
 				y.ket,
 				multiplied: Complex(coefficient),
 				addingInto: &dy.ket
 			)
-			collapseOperator.dotBLAS(
+			collapseOperator.dot(
 				y.bra,
 				multiplied: Complex(coefficient),
 				addingInto: &dy.bra

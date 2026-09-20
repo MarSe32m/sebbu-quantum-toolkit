@@ -55,7 +55,8 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 						request: request,
 						propagation: propagation,
 						seed: masterSeed,
-						trajectoryID: trajectoryID
+						trajectoryID: trajectoryID,
+						ensembleSampling: execution.ensembleSampling
 					) { time, value in
 						precondition(
 							sampleIndex < outputTimes.count
@@ -110,6 +111,7 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: execution.trajectoryIDs,
 			masterSeed: masterSeed,
+			ensembleSampling: execution.ensembleSampling,
 			propagation: summary
 		)
 		let definition = HOPS.BathNoiseDefinition(
@@ -121,7 +123,8 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 			bathNoise: .init(
 				definition: definition,
 				masterSeed: masterSeed,
-				trajectoryIDs: execution.trajectoryIDs)
+				trajectoryIDs: execution.trajectoryIDs,
+				ensembleSampling: execution.ensembleSampling)
 		)
 	}
 }

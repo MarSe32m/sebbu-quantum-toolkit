@@ -293,7 +293,7 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
             try HOPS.solveEnsemble(
                 problem: problem, configuration: configuration,
                 propagation: propagationOptions,
-                execution: .init(trajectories: trajectories, seed: 0x57EAD7)
+                execution: .init(trajectories: trajectories, seed: 0x57EAD7, ensembleSampling: .antithetic)
             ) { time, rho in
                 steadyState = .init(copying: rho)
                 sigmaMinusExpectation = steadyState.dot(sigmaMinus.matrix).trace
@@ -335,7 +335,8 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
                 propagation: propagationOptions,
                 execution: TrajectoryExecution(
                     trajectories: trajectories,
-                    seed: 0xC0FFEE
+                    seed: 0xC0FFEE,
+                    ensembleSampling: .antithetic
                 )
             ) { t, sample in
                 correlationFunction.append(sample - sigmaMinusExpectation.lengthSquared)

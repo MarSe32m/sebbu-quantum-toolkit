@@ -65,6 +65,12 @@ let decay = LindbladChannel(
 
 The same channels can be used by different unravelings. For example, MCWF can interpret them as jump processes while QSD can interpret them as diffusive processes.
 
+### Antithetic ensembles
+
+Set `ensembleSampling: .antithetic` on `TrajectoryExecution` to pair global
+trajectory IDs `(0, 1), (2, 3), ...` in HOPS, QSD and MCWF. Independent sampling
+remains the default.
+
 ## Unified solver interface
 
 Trajectory methods follow a common API shape.

@@ -14,6 +14,23 @@ extension HOPS.CPUEngine {
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+		try solveTrajectory(
+			problem: problem, configuration: configuration, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: .independent,
+			observing: observer)
+	}
+
+	@inlinable
+	@discardableResult
+	public func solveTrajectory<Hamiltonian>(
+		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling,
+		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
+			PropagationControl
+	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -21,9 +38,11 @@ extension HOPS.CPUEngine {
 			problem: problem, configuration: configuration, propagation: propagation)
 		let summary = try _solveTrajectory(
 			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID, observing: observer)
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling, observing: observer)
 		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
+			ensembleSampling: ensembleSampling,
 			propagation: summary)
 		let definition = HOPS.BathNoiseDefinition(
 			model: configuration.hierarchy.environment.bath,
@@ -32,7 +51,8 @@ extension HOPS.CPUEngine {
 		return .init(
 			summary: runSummary,
 			bathNoise: .init(
-				definition: definition, masterSeed: seed, trajectoryID: trajectoryID))
+				definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
+				ensembleSampling: ensembleSampling))
 	}
 
 	/// Consumes two words to select the reproducible master seed and trajectory
@@ -61,6 +81,7 @@ extension HOPS.CPUEngine {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
@@ -74,14 +95,16 @@ extension HOPS.CPUEngine {
 			timeSpan: propagation.timeSpan,
 			stepSize: preparation.noise.step)
 		let path = HOPS.BathNoisePath(
-			definition: definition, masterSeed: seed, trajectoryID: trajectoryID)
+			definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling)
 		var sampler = HOPS.BathNoiseSampler(
 			path: path, preparedGenerator: preparation.noise)
 		var noise = UniqueVector<Complex<Double>>.zero(path.channelCount)
 
 		let propagationSummary = try _solveTrajectory(
 			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling
 		) { time, state in
 			sampler.sample(time, into: &noise.mutableSpan)
 			let noiseSpan = Span(_unsafeStart: noise.components, count: noise.count)
@@ -89,6 +112,7 @@ extension HOPS.CPUEngine {
 		}
 		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
+			ensembleSampling: ensembleSampling,
 			propagation: propagationSummary)
 		return .init(summary: runSummary, bathNoise: path)
 	}
@@ -114,13 +138,15 @@ extension HOPS.CPUEngine {
 		problem: borrowing PureStateProblem<Hamiltonian>, preparation: Preparation,
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
 		var root = UniqueVector<Complex<Double>>.zero(preparation.dimension)
 		return try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling
 		) { t, state in
 			for j in 0..<root.count { root[j] = state.amplitudes.elements[j] }
 			return observer(t, root)
@@ -135,6 +161,22 @@ extension HOPS.CPUEngine {
 		trajectoryID: UInt64,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
 	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+		try solveWithHierarchy(
+			problem: problem, configuration: configuration, propagation: propagation,
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: .independent,
+			observing: observer)
+	}
+
+	@inlinable
+	@discardableResult
+	public func solveWithHierarchy<Hamiltonian>(
+		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling,
+		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
+	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -142,7 +184,8 @@ extension HOPS.CPUEngine {
 			problem: problem, configuration: configuration, propagation: propagation)
 		let propagationSummary = try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling
 		) { t, state in
 			return Self.withHierarchyView(state) { view in
 				observer(t, view)
@@ -151,6 +194,7 @@ extension HOPS.CPUEngine {
 		}
 		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
+			ensembleSampling: ensembleSampling,
 			propagation: propagationSummary)
 		let definition = HOPS.BathNoiseDefinition(
 			model: configuration.hierarchy.environment.bath,
@@ -159,7 +203,8 @@ extension HOPS.CPUEngine {
 		return .init(
 			summary: runSummary,
 			bathNoise: .init(
-				definition: definition, masterSeed: seed, trajectoryID: trajectoryID))
+				definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
+				ensembleSampling: ensembleSampling))
 	}
 
     @inlinable
@@ -177,7 +222,7 @@ extension HOPS.CPUEngine {
 			problem: problem, configuration: configuration, propagation: propagation)
 		let propagationSummary = try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: id
+            seed: seed, trajectoryID: id, ensembleSampling: .independent
 		) { t, state in
 			return Self.withHierarchyView(state) { observer(t, $0) }
 		}
@@ -201,6 +246,7 @@ extension HOPS.CPUEngine {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
@@ -215,14 +261,16 @@ extension HOPS.CPUEngine {
 			timeSpan: propagation.timeSpan,
 			stepSize: preparation.noise.step)
 		let path = HOPS.BathNoisePath(
-			definition: definition, masterSeed: seed, trajectoryID: trajectoryID)
+			definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling)
 		var sampler = HOPS.BathNoiseSampler(
 			path: path, preparedGenerator: preparation.noise)
 		var noise = UniqueVector<Complex<Double>>.zero(path.channelCount)
 
 		let propagationSummary = try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling
 		) { time, state in
 			sampler.sample(time, into: &noise.mutableSpan)
 			let noiseSpan = Span(_unsafeStart: noise.components, count: noise.count)
@@ -232,6 +280,7 @@ extension HOPS.CPUEngine {
 		}
 		let runSummary = TrajectoryRunSummary(
 			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
+			ensembleSampling: ensembleSampling,
 			propagation: propagationSummary)
 		return .init(summary: runSummary, bathNoise: path)
 	}
@@ -258,6 +307,7 @@ extension HOPS.CPUEngine {
 		problem: borrowing PureStateProblem<Hamiltonian>, preparation: Preparation,
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling,
 		observing observer: (Double, borrowing State) -> PropagationControl
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
 		let start = propagation.timeSpan.start
@@ -285,7 +335,8 @@ extension HOPS.CPUEngine {
 
 		let rhs = RightHandSide(
 			hamiltonian: problem.system.hamiltonian, preparation: preparation,
-			seed: seed, trajectoryID: trajectoryID)
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling)
 		if preparation.markovianOperators.isEmpty {
 			// DOPRI uses fewer full-hierarchy stage buffers than the higher-order
 			// Verner solver. OU interpolation error is controlled separately.

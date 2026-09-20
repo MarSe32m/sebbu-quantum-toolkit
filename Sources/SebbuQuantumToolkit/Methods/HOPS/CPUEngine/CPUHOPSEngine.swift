@@ -44,12 +44,14 @@ extension HOPS {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
 	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
 		let engine = CPUEngine()
 		return try engine.solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID, observing: observer)
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling, observing: observer)
 	}
 
 	@discardableResult
@@ -72,6 +74,7 @@ extension HOPS {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
@@ -79,7 +82,8 @@ extension HOPS {
 		let engine = CPUEngine()
 		return try engine.solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID, observingWithNoise: observer)
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling, observingWithNoise: observer)
 	}
 
 	@inlinable
@@ -106,6 +110,7 @@ extension HOPS {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (
 			Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>
 		) -> PropagationControl
@@ -113,7 +118,8 @@ extension HOPS {
 		let engine = CPUEngine()
 		return try engine.solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID, observing: observer)
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling, observing: observer)
 	}
 
 	@discardableResult
@@ -136,6 +142,7 @@ extension HOPS {
 		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
 		trajectoryID: UInt64,
+		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (
 			Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>
 		) -> PropagationControl
@@ -143,7 +150,8 @@ extension HOPS {
 		let engine = CPUEngine()
 		return try engine.solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID, observingWithNoise: observer)
+			seed: seed, trajectoryID: trajectoryID,
+			ensembleSampling: ensembleSampling, observingWithNoise: observer)
 	}
 
 	@inlinable

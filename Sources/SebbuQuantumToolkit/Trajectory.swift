@@ -30,6 +30,9 @@ public struct TrajectoryExecution: Sendable {
 	public var randomness: TrajectoryRandomness
 	public var parallelism: TrajectoryParallelism
 
+	/// Pairing of the reference random streams, using global trajectory IDs.
+	public var ensembleSampling: EnsembleSampling
+
 	/// Optional CPU scheduling and reduction-batch hint, or GPU batch-size hint.
 	/// `nil` lets the implementation choose. Changing it does not change any
 	/// trajectory's random stream, although floating-point ensemble reductions
@@ -40,7 +43,8 @@ public struct TrajectoryExecution: Sendable {
 		trajectoryIDs: Range<UInt64>,
 		randomness: TrajectoryRandomness,
 		parallelism: TrajectoryParallelism = .automatic,
-		batchSize: Int? = nil
+		batchSize: Int? = nil,
+		ensembleSampling: EnsembleSampling = .independent
 	) {
 		precondition(!trajectoryIDs.isEmpty)
 		precondition(batchSize == nil || batchSize! > 0)
@@ -53,6 +57,7 @@ public struct TrajectoryExecution: Sendable {
 		self.randomness = randomness
 		self.parallelism = parallelism
 		self.batchSize = batchSize
+		self.ensembleSampling = ensembleSampling
 	}
 
 	public init(
@@ -60,7 +65,8 @@ public struct TrajectoryExecution: Sendable {
 		startingAt firstTrajectoryID: UInt64 = 0,
 		seed: UInt64 = .random(in: .min ... .max),
 		parallelism: TrajectoryParallelism = .automatic,
-		batchSize: Int? = nil
+		batchSize: Int? = nil,
+		ensembleSampling: EnsembleSampling = .independent
 	) {
 		precondition(count > 0)
 		let unsignedCount = UInt64(count)
@@ -74,7 +80,8 @@ public struct TrajectoryExecution: Sendable {
 				firstTrajectoryID..<(firstTrajectoryID + unsignedCount),
 			randomness: .seeded(seed),
 			parallelism: parallelism,
-			batchSize: batchSize
+			batchSize: batchSize,
+			ensembleSampling: ensembleSampling
 		)
 	}
 }
@@ -232,14 +239,19 @@ public struct TrajectoryRunSummary: Sendable {
 	/// The actual seed, including one generated for `.nondeterministic`.
 	public let masterSeed: UInt64
 
+	/// Recorded with the seed and IDs so this run can be reconstructed.
+	public let ensembleSampling: EnsembleSampling
+
 	public let propagation: PropagationRunSummary
 
 	@inlinable
 	public init(
-		trajectoryIDs: Range<UInt64>, masterSeed: UInt64, propagation: PropagationRunSummary
+		trajectoryIDs: Range<UInt64>, masterSeed: UInt64,
+		ensembleSampling: EnsembleSampling = .independent, propagation: PropagationRunSummary
 	) {
 		self.trajectoryIDs = trajectoryIDs
 		self.masterSeed = masterSeed
+		self.ensembleSampling = ensembleSampling
 		self.propagation = propagation
 	}
 }

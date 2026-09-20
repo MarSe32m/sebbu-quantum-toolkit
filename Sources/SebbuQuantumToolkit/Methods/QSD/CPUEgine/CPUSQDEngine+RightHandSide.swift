@@ -32,7 +32,8 @@ extension QSD.CPUEngine {
 			_ problem: borrowing PureStateProblem<Hamiltonian>,
 			equationType: QSD.EquationType,
 			seed: UInt64,
-			trajectoryID: UInt64
+			trajectoryID: UInt64,
+			ensembleSampling: EnsembleSampling = .independent
 		) {
 			let dimension = problem.system.dimension
 			precondition(dimension > 0, "The quantum-system dimension must be positive")
@@ -63,6 +64,7 @@ extension QSD.CPUEngine {
 			self.randomNumberGenerator = TrajectoryRandomNumberGenerator(
 				seed: seed,
 				trajectoryID: trajectoryID,
+				ensembleSampling: ensembleSampling,
                 purpose: .gaussianWhiteNoise
 			)
 			self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)

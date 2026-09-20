@@ -14,10 +14,10 @@ PythonLibrary.useLibrary(at: "/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0")
 #endif
 
 
+exampleHOPSResonanceFluorescenceSpectrum(A: 0.27, trajectories: 8192)
 exampleHOPSIBM(endTime: 700)
 exampleTLSVibrationalModeHOPSGKSLComparison()
 
-exampleHOPSResonanceFluorescenceSpectrum(A: 0.27, trajectories: 8192)
 exampleMCWFResonanceFluorescenceSpectrum()
 exampleGKSLResonanceFluorescenceSpectrum()
 exampleQSDResonanceFluorescenceSpectrum()
