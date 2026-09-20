@@ -12,6 +12,9 @@ extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
         propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+        let progress = propagation.progress.continuous(in: propagation.timeSpan)
+        defer { progress?.finish() }
+
         _ = configuration
 
         let start = propagation.timeSpan.start
@@ -49,6 +52,7 @@ extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
             )
 
             if case .everyAcceptedStep = propagation.output {
+                progress?.setValue(to: end)
                 return PropagationRunSummary(finalTime: end, endReason: .reachedEndTime)
             }
             
@@ -64,9 +68,11 @@ extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
                 )
                 let control = observer(outputTime, value)
                 if control == .stop {
+                    progress?.setValue(to: outputTime)
                     return PropagationRunSummary(finalTime: outputTime, endReason: .stoppedByObserver)
                 }
             }
+            progress?.setValue(to: end)
             return PropagationRunSummary(finalTime: end, endReason: .reachedEndTime)
         }
 
@@ -100,6 +106,7 @@ extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
         // are intentionally not allowed to constrain these adaptive steps.
         while solver.t < insertionTime {
             _ = try solver.step(y: &state, upTo: insertionTime)
+            progress?.setValue(to: solver.t)
         }
 
         // Apply B rho(s) or rho(s) B into the preallocated scratch state.
@@ -134,6 +141,7 @@ extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
                 )
                 let control = observer(outputTime, value)
                 if control == .stop {
+                    progress?.setValue(to: outputTime)
                     return PropagationRunSummary(finalTime: outputTime, endReason: .stoppedByObserver)
                 }
             }
@@ -168,10 +176,13 @@ extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
                 }
                 let control = observer(outputTime, value)
                 if control == .stop {
+                    progress?.setValue(to: outputTime)
                     return PropagationRunSummary(finalTime: outputTime, endReason: .stoppedByObserver)
                 }
             }
+            progress?.setValue(to: step.endTime)
         }
+        progress?.setValue(to: end)
         return PropagationRunSummary(finalTime: end, endReason: .reachedEndTime)
     }
 }

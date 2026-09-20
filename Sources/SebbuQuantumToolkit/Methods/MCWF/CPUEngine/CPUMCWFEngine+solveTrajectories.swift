@@ -21,6 +21,10 @@ extension MCWF.CPUEngine {
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
+        defer { progress?.finish() }
+        let propagation = propagation.withoutProgressReporting
+
         let currentThreadCount = BLAS.getNumThreads()
         BLAS.setNumThreads(1)
         defer { BLAS.setNumThreads(currentThreadCount) }
@@ -61,6 +65,7 @@ extension MCWF.CPUEngine {
 					error: error
 				)
 			}
+			progress?.increment()
 			return _TrajectorySolveResult(
 				trajectoryID: trajectoryID,
 				error: nil

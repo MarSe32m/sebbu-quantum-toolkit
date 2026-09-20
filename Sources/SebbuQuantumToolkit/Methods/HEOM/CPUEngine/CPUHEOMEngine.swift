@@ -5,6 +5,9 @@ import Numerics
 import SebbuScience
 
 public extension HEOM {
+    /// Accepts `PropagationOptions.progress` through the common solver API.
+    /// When propagation is implemented, use its continuous reporter after each
+    /// accepted time step, as GKSL does. The current stubs throw without output.
     struct CPUEngine: Sendable {
         @inlinable
         public init() {}

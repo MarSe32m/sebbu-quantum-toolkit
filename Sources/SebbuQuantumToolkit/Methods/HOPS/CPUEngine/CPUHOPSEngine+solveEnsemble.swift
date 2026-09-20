@@ -15,6 +15,10 @@ extension HOPS.CPUEngine {
 		propagation: PropagationOptions<IntegrationOptions>, execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
 	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
+		defer { progress?.finish() }
+		let propagation = propagation.withoutProgressReporting
+
 		let outputTimes = try _fixedEnsembleOutputTimes(
 			timeSpan: propagation.timeSpan, schedule: propagation.output)
 		let preparation = try Preparation(
@@ -64,6 +68,7 @@ extension HOPS.CPUEngine {
 					}
 					precondition(sample == outputTimes.count)
 					completed += 1
+					progress?.increment()
 				} catch {
 					return .init(
 						trajectoryCount: completed,
@@ -81,6 +86,7 @@ extension HOPS.CPUEngine {
 			throw failure.error
 		}
 		precondition(results.reduce(0) { $0 + $1.trajectoryCount } == count)
+		progress?.finish()
 		sums.withLock { values in
 			for i in outputTimes.indices {
 				values[i].multiply(by: 1 / Double(count))
@@ -112,6 +118,10 @@ extension HOPS.CPUEngine {
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
 	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
+		defer { progress?.finish() }
+		let propagation = propagation.withoutProgressReporting
+
 		let preparation = try Preparation(
 			problem: problem, configuration: configuration, propagation: propagation)
 		let seed = execution.resolvedMasterSeed()
@@ -137,6 +147,7 @@ extension HOPS.CPUEngine {
 						forEach(id, t, state)
 						return .proceed
 					}
+					progress?.increment()
 				} catch { return .init(trajectoryID: id, error: error) }
 			}
 		}

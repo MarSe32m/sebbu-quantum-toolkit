@@ -19,6 +19,10 @@ extension MCWF.CPUEngine {
             borrowing UniqueMatrix<Complex<Double>>
         ) -> Void
     ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+        let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
+        defer { progress?.finish() }
+        let propagation = propagation.withoutProgressReporting
+
         let currentThreadCount = BLAS.getNumThreads()
         BLAS.setNumThreads(1)
         defer { BLAS.setNumThreads(currentThreadCount) }
@@ -106,6 +110,7 @@ extension MCWF.CPUEngine {
                 }
                 trajectoryID = currentTrajectoryID.add(1, ordering: .relaxed).oldValue
                 trajectoryCount += 1
+                progress?.increment()
             }
             ensembleSums.withLock { sums in _mergeEnsembleSums(localSums, into: &sums) }
             return _TrajectoryEnsembleBatchResult(
@@ -113,6 +118,12 @@ extension MCWF.CPUEngine {
                 failure: nil
             )
         }
+        if let failure = results.compactMap(\.failure).min(by: {
+            $0.trajectoryID < $1.trajectoryID
+        }) {
+            throw failure.error
+        }
+        progress?.finish()
         let completedTrajectories = results.reduce(into: 0) { $0 = $0 + $1.trajectoryCount }
         
         precondition(

@@ -106,6 +106,9 @@ extension MCWF.CPUEngine {
 		) -> PropagationControl
 	) throws -> PropagationRunSummary
 	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+		let progress = propagation.progress.incrementing(total: 1)
+		defer { progress?.finish() }
+
 		Self.validate(configuration: configuration)
 
 		let start = propagation.timeSpan.start
@@ -134,6 +137,7 @@ extension MCWF.CPUEngine {
 		}
 
 		guard start < end else {
+			progress?.increment()
 			return PropagationRunSummary(
 				finalTime: start,
 				endReason: .reachedEndTime
@@ -325,6 +329,7 @@ extension MCWF.CPUEngine {
 			}
 		}
 
+		progress?.increment()
 		return PropagationRunSummary(
 			finalTime: end,
 			endReason: .reachedEndTime

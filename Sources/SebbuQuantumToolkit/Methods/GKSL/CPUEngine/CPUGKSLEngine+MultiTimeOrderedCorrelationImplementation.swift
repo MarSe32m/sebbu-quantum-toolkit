@@ -12,6 +12,9 @@ extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 		propagation: PropagationOptions<IntegrationOptions>,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+		let progress = propagation.progress.continuous(in: propagation.timeSpan)
+		defer { progress?.finish() }
+
 		_ = configuration
 		let start = propagation.timeSpan.start
 		let end = propagation.timeSpan.end
@@ -46,6 +49,7 @@ extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 				)
 			}
 			if case .everyAcceptedStep = propagation.output {
+				progress?.setValue(to: end)
 				return .init(finalTime: end, endReason: .reachedEndTime)
 			}
 			while let time = outputCursor.nextTime(through: end) {
@@ -57,9 +61,11 @@ extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 					operatorStorage: &operatorStorage
 				)
 				if observer(time, value) == .stop {
+					progress?.setValue(to: time)
 					return .init(finalTime: time, endReason: .stoppedByObserver)
 				}
 			}
+			progress?.setValue(to: end)
 			return .init(finalTime: end, endReason: .reachedEndTime)
 		}
 
@@ -90,6 +96,7 @@ extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 			let event = request.insertions[index]
 			while solver.t < event.time {
 				_ = try solver.step(y: &state, upTo: event.time)
+				progress?.setValue(to: solver.t)
 			}
 			try Self.applyMultiTimeInsertion(
 				event,
@@ -114,6 +121,7 @@ extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 					operatorStorage: &operatorStorage
 				)
 				if observer(time, value) == .stop {
+					progress?.setValue(to: time)
 					return .init(finalTime: time, endReason: .stoppedByObserver)
 				}
 			}
@@ -142,10 +150,13 @@ extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
 					)
 				}
 				if observer(time, value) == .stop {
+					progress?.setValue(to: time)
 					return .init(finalTime: time, endReason: .stoppedByObserver)
 				}
 			}
+			progress?.setValue(to: step.endTime)
 		}
+		progress?.setValue(to: end)
 		return .init(finalTime: end, endReason: .reachedEndTime)
 	}
 }

@@ -20,6 +20,9 @@ extension GKSL.CPUEngine: GKSL.Implementation {
         propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, borrowing UniqueMatrix<Complex<Double>>) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+        let progress = propagation.progress.continuous(in: propagation.timeSpan)
+        defer { progress?.finish() }
+
         _ = configuration
 
         let start = propagation.timeSpan.start
@@ -33,11 +36,13 @@ extension GKSL.CPUEngine: GKSL.Implementation {
         if let initialTime = outputCursor.takeInitialTime() {
             let control = observer(initialTime, state.densityMatrix)
             if control == .stop {
+                progress?.setValue(to: initialTime)
                 return PropagationRunSummary(finalTime: initialTime, endReason: .stoppedByObserver)
             }
         }
         
         guard start < end else {
+            progress?.setValue(to: start)
             return PropagationRunSummary(finalTime: start, endReason: .reachedEndTime)
         }
 
@@ -80,10 +85,13 @@ extension GKSL.CPUEngine: GKSL.Implementation {
                     control = observer(outputTime, interpolatedState.densityMatrix)
                 }
                 if control == .stop {
+                    progress?.setValue(to: outputTime)
                     return PropagationRunSummary(finalTime: outputTime, endReason: .stoppedByObserver)
                 }
             }
+            progress?.setValue(to: step.endTime)
         }
+        progress?.setValue(to: end)
         return PropagationRunSummary(finalTime: end, endReason: .reachedEndTime)
     }
 }

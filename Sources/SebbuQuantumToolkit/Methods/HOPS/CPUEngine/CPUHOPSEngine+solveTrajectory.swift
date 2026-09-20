@@ -310,6 +310,9 @@ extension HOPS.CPUEngine {
 		ensembleSampling: EnsembleSampling,
 		observing observer: (Double, borrowing State) -> PropagationControl
 	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+		let progress = propagation.progress.incrementing(total: 1)
+		defer { progress?.finish() }
+
 		let start = propagation.timeSpan.start
 		let end = propagation.timeSpan.end
 		let configuration = preparation.configuration
@@ -330,6 +333,7 @@ extension HOPS.CPUEngine {
 			if let time = cursor.takeInitialTime(), observer(time, state) == .stop {
 				return .init(finalTime: time, endReason: .stoppedByObserver)
 			}
+			progress?.increment()
 			return .init(finalTime: end, endReason: .reachedEndTime)
 		}
 
@@ -465,6 +469,7 @@ extension HOPS.CPUEngine {
 				}
 			}
 		}
+		progress?.increment()
 		return .init(finalTime: end, endReason: .reachedEndTime)
 	}
 

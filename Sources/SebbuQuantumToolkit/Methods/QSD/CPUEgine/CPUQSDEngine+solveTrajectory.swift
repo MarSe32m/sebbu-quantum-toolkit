@@ -97,6 +97,9 @@ extension QSD.CPUEngine {
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
     ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+        let progress = propagation.progress.incrementing(total: 1)
+        defer { progress?.finish() }
+
         let start = propagation.timeSpan.start
         let end = propagation.timeSpan.end
         var outputCursor = OutputCursor(
@@ -124,6 +127,7 @@ extension QSD.CPUEngine {
         }
 
         guard start < end else {
+            progress?.increment()
             return PropagationRunSummary(
                 finalTime: start,
                 endReason: .reachedEndTime
@@ -192,6 +196,7 @@ extension QSD.CPUEngine {
             }
         }
 
+        progress?.increment()
         return PropagationRunSummary(
             finalTime: end,
             endReason: .reachedEndTime

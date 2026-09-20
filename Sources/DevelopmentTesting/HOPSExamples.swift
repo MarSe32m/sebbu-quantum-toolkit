@@ -40,6 +40,10 @@ public func exampleHOPSRadiativeDamping(endTime: Double) {
             maximumStepSize: 0.01,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
+        ),
+        progress: .console(
+            style: .bar,
+            label: "HOPS Radiative Damping"
         )
     )
     let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, 1], rows: 2, columns: 2))
@@ -174,6 +178,10 @@ public func exampleHOPSIBM(endTime: Double, trajectories: Int = 4096) {
             maximumStepSize: 0.01,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
+        ),
+        progress: .console(
+            style: .bar,
+            label: "HOPS IBM"
         )
     )
     let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, .one], rows: 2, columns: 2))
@@ -284,6 +292,10 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
             maximumStepSize: maximumStep,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
+        ),
+        progress: .console(
+            style: .bar,
+            label: "HOPS Steady State"
         )
     )
     var steadyState: Matrix<Complex<Double>> = .zeros(rows: 2, columns: 2)
@@ -323,6 +335,10 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
             maximumStepSize: maximumStep,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
+        ),
+        progress: .console(
+            style: .bar,
+            label: "HOPS RF Spectrum"
         )
     )
     var correlationFunction: [Complex<Double>] = []

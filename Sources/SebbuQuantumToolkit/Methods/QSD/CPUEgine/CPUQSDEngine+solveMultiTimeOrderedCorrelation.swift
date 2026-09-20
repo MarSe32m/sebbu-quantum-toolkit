@@ -16,6 +16,10 @@ extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
 	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
+		defer { progress?.finish() }
+		let propagation = propagation.withoutProgressReporting
+
 		try _validateMultiTimeOrderedCorrelationRequest(
 			request,
 			timeSpan: propagation.timeSpan,
@@ -75,6 +79,7 @@ extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 					)
 				}
 				completed += 1
+				progress?.increment()
 				trajectoryID = currentID.add(1, ordering: .relaxed).oldValue
 			}
 			sums.withLock { total in
@@ -87,6 +92,7 @@ extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 			throw failure.error
 		}
 		precondition(results.reduce(0) { $0 + $1.trajectoryCount } == trajectoryCount)
+		progress?.finish()
 		let inverseCount = 1 / Double(trajectoryCount)
 		var summary = PropagationRunSummary(
 			finalTime: propagation.timeSpan.end,

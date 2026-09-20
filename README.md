@@ -71,6 +71,13 @@ Set `ensembleSampling: .antithetic` on `TrajectoryExecution` to pair global
 trajectory IDs `(0, 1), (2, 3), ...` in HOPS, QSD and MCWF. Independent sampling
 remains the default.
 
+### Optional progress
+
+Set `propagation.progress = .console(style: .bar, label: "HOPS")` to show a
+percentage-based progress bar with estimated time remaining. GKSL and HEOM reports accepted
+time steps; QSD, MCWF and HOPS report trajectory completions. Reporting is disabled
+by default.
+
 ## Unified solver interface
 
 Trajectory methods follow a common API shape.

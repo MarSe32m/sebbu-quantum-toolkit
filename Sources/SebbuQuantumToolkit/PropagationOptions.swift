@@ -6,15 +6,29 @@ public struct PropagationOptions<Integration: Sendable>: Sendable {
 	public var output: OutputSchedule
 	public var integration: Integration
 
+	/// Optional progress for the whole invocation. Defaults to no output.
+	/// Deterministic methods report time steps. Trajectory methods report completions.
+	public var progress: ProgressReporting
+
 	@inlinable
 	public init(
 		timeSpan: SimulationTimeSpan,
 		output: OutputSchedule,
-		integration: Integration
+		integration: Integration,
+		progress: ProgressReporting = .none
 	) {
 		self.timeSpan = timeSpan
 		self.output = output
 		self.integration = integration
+		self.progress = progress
+	}
+
+	/// Worker trajectories and preparation segments must not create nested displays.
+	@inlinable
+	internal var withoutProgressReporting: Self {
+		var copy = self
+		copy.progress = .none
+		return copy
 	}
 }
 
