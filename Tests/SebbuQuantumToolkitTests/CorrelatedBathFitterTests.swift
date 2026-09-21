@@ -136,8 +136,11 @@ struct CorrelatedBathFitterTests {
 		#expect(analysis.minimalPoleCount == 2)
 	}
 
-	@Test("Rank-revealing restart removes a redundant latent input")
-	func rankRevealingRestart() throws {
+	@Test(
+		"Fitting removes a redundant latent input",
+		arguments: [nil, 1e-3] as [Double?]
+	)
+	func rankRevealingRestart(poleTolerance: Double?) throws {
 		let expected = CorrelatedBathModel(
 			channelCount: 1,
 			latentBaths: [
@@ -152,21 +155,39 @@ struct CorrelatedBathFitterTests {
 			]
 		)
 		let times = (0..<40).map { Double($0) * 0.08 }
+		var options = fittingOptions(
+			maximumPencilPoleCount: 2,
+			latentBathCount: 2,
+			targetRelativeRMSError: 2e-6
+		)
+		// The redundant fit is ill-conditioned: roundoff can separate the two
+		// fitted poles beyond the default grouping tolerance while preserving
+		// an accurate BCF. The default case may therefore use ordinary pruning.
+		// Use explicit approximate grouping to exercise the restart as well;
+		// its refitted model must still satisfy the same strict error bound.
+		if let poleTolerance {
+			options.minimalRealizationPoleTolerance = poleTolerance
+		}
 
 		let result = try CorrelatedBathFitter.fitBathCorrelation(
 			times: times,
 			values: times.map(expected.bathCorrelation(at:)),
-			options: fittingOptions(
-				maximumPencilPoleCount: 2,
-				latentBathCount: 2,
-				targetRelativeRMSError: 2e-6
-			)
+			options: options
 		)
 
 		#expect(result.diagnostics.initialPoleCount == 2)
 		#expect(result.diagnostics.rankRevealedPoleCount == 1)
-		#expect(result.diagnostics.rankRevealingTrials >= 1)
-		#expect(result.diagnostics.acceptedRankRevealingRemovals == 1)
+		#expect(
+			result.diagnostics.acceptedRankRevealingRemovals
+				+ result.diagnostics.acceptedPoleRemovals == 1
+		)
+		if poleTolerance != nil {
+			#expect(result.diagnostics.rankRevealingTrials >= 1)
+			#expect(result.diagnostics.acceptedRankRevealingRemovals == 1)
+			#expect(result.diagnostics.pruningTrials == 0)
+		}
+		#expect(result.model.latentBaths.count == 1)
+		#expect(result.model.poleCount == 1)
 		#expect(result.diagnostics.finalPoleCount == 1)
 		#expect(result.diagnostics.relativeRMSError < 2e-6)
 	}
