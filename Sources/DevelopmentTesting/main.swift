@@ -15,10 +15,11 @@ PythonLibrary.useLibrary(at: "/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0")
 
 exampleHEOMRadiativeDamping(endTime: 200)
 exampleHEOMResonanceFluorescenceSpectrum(A: 0.27)
+exampleHEOMIBM(endTime: 700)
 
 
-exampleHOPSResonanceFluorescenceSpectrum(A: 0.27, trajectories: 8192)
 exampleHOPSIBM(endTime: 700)
+exampleHOPSResonanceFluorescenceSpectrum(A: 0.27, trajectories: 8192)
 exampleHOPSRadiativeDamping(endTime: 200)
 
 exampleTLSVibrationalModeHOPSGKSLComparison()
@@ -31,7 +32,6 @@ exampleQSDRadiativeDamping(endTime: 200)
 exampleGKSLRadiativeDamping(endTime: 200)
 exampleMCWFRadiativeDamping(endTime: 200)
 
-//exampleHEOMIBM(endTime: 200)
 
 BCFFittingExample()
 hierarchyExample()

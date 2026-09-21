@@ -7,13 +7,14 @@ import Testing
 
 @testable import SebbuQuantumToolkit
 
-@Test("HEOM drift matches a literal multi-channel, multi-pole reference", arguments: heomShifts)
-func heomDriftReference(shift: HEOM.ShiftType) throws {
+@Test("HEOM drift matches a literal multi-channel, multi-pole reference", arguments: heomShifts, [1, 3])
+func heomDriftReference(shift: HEOM.ShiftType, workers: Int) throws {
     let model = hopsFixtureModel()
     let h = hopsMatrix([Complex(0.1), Complex(0.2, 0.1), Complex(0.2, -0.1), Complex(-0.3)])
     let l = hopsMatrix([0, 1, 0, 0])
-    let configuration = heomConfiguration(
+    var configuration = heomConfiguration(
         shift: shift, depth: 2, model: model, operators: hopsFixtureOperators)
+    configuration.parallelism = .maximumWorkers(workers)
     let problem = DensityMatrixProblem(
         initialState: hopsMatrix([Complex(0.3), Complex(0.1), Complex(0.1), Complex(0.7)]),
         system: QuantumSystem(h),
@@ -31,7 +32,7 @@ func heomDriftReference(shift: HEOM.ShiftType) throws {
     for i in 0..<shiftCount { state.shifts[i] = Complex(0.03 * Double(i + 1), -0.02 * Double(i + 2)) }
     let failure = HEOM.CPUEngine.Failure()
     var rhs = try HEOM.CPUEngine.RightHandSide(
-        problem: problem, configuration: configuration, failure: failure)
+        problem: problem, configuration: configuration, failure: failure, copies: 2)
     rhs.evaluate(t: 0.17, y: state, dy: &derivative)
     try failure.check()
 

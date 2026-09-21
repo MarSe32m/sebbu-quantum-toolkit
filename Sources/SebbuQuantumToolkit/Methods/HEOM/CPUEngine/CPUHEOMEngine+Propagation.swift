@@ -7,6 +7,7 @@ import SebbuScience
 extension HEOM.CPUEngine {
     /// One event-aware driver for ordinary propagation and correlations.
     /// Only insertion times constrain steps; output uses Verner dense output.
+    @inlinable
     internal func run<Hamiltonian: HamiltonianFunction>(
         problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
@@ -36,7 +37,8 @@ extension HEOM.CPUEngine {
         var cursor = OutputCursor(timeSpan: propagation.timeSpan, schedule: propagation.output)
         if let last = insertions.last { cursor.discardTimes(before: last.time) }
         let failure = Failure()
-        let rhs = try RightHandSide(problem: problem, configuration: configuration, failure: failure)
+        let rhs = try RightHandSide(
+            problem: problem, configuration: configuration, failure: failure, copies: copies)
 
         if start == end {
             for index in insertions.indices {
@@ -138,6 +140,7 @@ extension HEOM.CPUEngine {
         return .init(finalTime: end, endReason: .reachedEndTime)
     }
 
+    @inlinable
     internal static func validate(_ state: borrowing State, at time: Double) throws {
         for j in 0..<(state.ados.rows * state.ados.columns) {
             let value = state.ados.elements[j]
@@ -152,6 +155,7 @@ extension HEOM.CPUEngine {
         }
     }
 
+    @inlinable
     internal static func apply(
         _ event: TimedCorrelationInsertion, index: Int, dimension d: Int,
         hierarchyCount: Int, offset: Int, to state: inout State,

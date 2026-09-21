@@ -7,7 +7,9 @@ import SebbuBLAS
 extension HEOM.CPUEngine {
     /// Operates directly on row-major ADO slices. No temporary matrix owners
     /// are constructed in the hierarchy loop. Tiny products avoid BLAS dispatch.
+    @usableFromInline
     internal enum MatrixAction {
+        @inlinable
         @inline(always)
         static func product(
             _ a: UnsafePointer<Complex<Double>>, _ b: UnsafePointer<Complex<Double>>,
@@ -37,6 +39,7 @@ extension HEOM.CPUEngine {
             }
         }
 
+        @inlinable
         @inline(always)
         static func commutator(
             _ op: UnsafePointer<Complex<Double>>, _ rho: UnsafePointer<Complex<Double>>,

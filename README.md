@@ -53,7 +53,7 @@ Markovian processes are represented as Lindblad channels,
 A channel may therefore contain a time-dependent rate and operator.
 
 ```swift
-let decay = LindbladChannel(
+let decay = MarkovianChannel(
     rate: { t in
         gamma
     },
@@ -144,6 +144,15 @@ support pure-state and density-matrix initial conditions, time-dependent
 Hamiltonians and coupling operators, and additional Lindblad channels.
 The initial bath is factorized and all nonroot ADOs and displacements start at
 zero. No renormalization or positivity projection is applied.
+
+HEOM executes serially by default. Configure parallel ADO evaluation with
+`HEOM.Configuration(hierarchy: hierarchy, shiftType: .meanField, parallelism: .automatic)`
+or set `parallelism: .maximumWorkers(4)`. The worker count includes the calling
+thread and is capped by the available CPU cores and the number of ADOs being
+propagated, including the guide and companion in centered correlations.
+`.automatic` estimates dense matrix work from the system dimension, ADO count,
+latent poles and Lindblad channels, keeping small problems serial. Explicit
+limits must be positive; `.maximumWorkers(1)` is equivalent to `.serial`.
 
 For `P` latent poles, HEOM uses `2P` directions, ordered as all ket occupations
 followed by all bra occupations. `.maximumTier(D)` retains `|m| + |n| <= D`

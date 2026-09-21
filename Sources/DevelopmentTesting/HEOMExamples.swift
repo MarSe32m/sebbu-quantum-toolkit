@@ -43,7 +43,7 @@ public func exampleHEOMRadiativeDamping(endTime: Double) {
         ),
         progress: .console(
             style: .bar,
-            label: "HOPS Radiative Damping"
+            label: "HEOM Radiative Damping"
         )
     )
     let L = TimeDependentOperator.constant(Matrix<Complex<Double>>.init(elements: [.zero, .zero, .zero, 1], rows: 2, columns: 2))
@@ -52,7 +52,8 @@ public func exampleHEOMRadiativeDamping(endTime: Double) {
     let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(0))
     let configuration = HEOM.Configuration(
         hierarchy: hierarchy,
-        shiftType: .meanField
+        shiftType: .meanField,
+        parallelism: .automatic
     )
     var X: [Double] = []
     var Y: [Double] = []
@@ -165,7 +166,7 @@ public func exampleHEOMIBM(endTime: Double) {
         initialState: initialState,
         system: system
     )
-    let timeSpan: [Double] = .linearSpace(0.0, endTime, 0.01)
+    var timeSpan: [Double] = []
     let propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: endTime),
         output: .uniform(step: 0.01),
@@ -185,7 +186,9 @@ public func exampleHEOMIBM(endTime: Double) {
     let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(4))
     let configuration = HEOM.Configuration(
         hierarchy: hierarchy,
-        shiftType: .meanField)
+        shiftType: .meanField,
+        parallelism: .automatic
+    )
     var X: [Double] = []
     var Y: [Double] = []
     var Z: [Double] = []
@@ -195,7 +198,8 @@ public func exampleHEOMIBM(endTime: Double) {
                 problem: problem,
                 configuration: configuration,
                 propagation: propagationOptions
-            ) { _, densityMatrix in
+            ) { time, densityMatrix in
+                timeSpan.append(time)
                 X.append(2 * densityMatrix[0, 1].real)
                 Y.append(-2 * densityMatrix[0, 1].imaginary)
                 Z.append((densityMatrix[0, 0] - densityMatrix[1, 1]).real)
@@ -276,7 +280,8 @@ public func exampleHEOMResonanceFluorescenceSpectrum(
     let hierarchy = HEOM.Hierarchy(environment: environment, truncation: .maximumTier(maximumTier))
     let configuration = HEOM.Configuration(
         hierarchy: hierarchy,
-        shiftType: .meanField
+        shiftType: .meanField,
+        parallelism: .automatic
     )
     var propagationOptions = PropagationOptions(
         timeSpan: .init(start: 0.0, end: tSteady),

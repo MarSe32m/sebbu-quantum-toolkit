@@ -187,6 +187,7 @@ internal func _validateTwoTimeCorrelationRequest(
 	}
 }
 
+@inlinable
 internal func _validateMultiTimeOrderedCorrelationRequest(
 	_ request: MultiTimeOrderedCorrelationRequest,
 	timeSpan: SimulationTimeSpan,
@@ -241,6 +242,8 @@ internal func _validateMultiTimeOrderedCorrelationRequest(
 	}
 }
 
+@inlinable
+@inline(always)
 internal func _multiTimeOrderedRequest(
 	_ request: TwoTimeCorrelationRequest
 ) -> MultiTimeOrderedCorrelationRequest {
@@ -255,6 +258,7 @@ internal func _multiTimeOrderedRequest(
 	)
 }
 
+@inlinable
 internal func _mapMultiTimeOrderedErrorToTwoTime(
 	_ error: MultiTimeOrderedCorrelationError
 ) -> TwoTimeCorrelationError {
@@ -289,6 +293,7 @@ internal func _mapMultiTimeOrderedErrorToTwoTime(
 }
 
 /// Applies one insertion to the ket or bra side of `|ket><bra|`.
+@inlinable
 internal func _applyMultiTimeCorrelationInsertion(
 	_ insertion: CorrelationInsertion,
 	index: Int,
@@ -325,6 +330,7 @@ internal func _applyMultiTimeCorrelationInsertion(
 	}
 }
 
+@inlinable
 internal func _multiTimeCorrelationSample(
 	observable: TimeDependentOperator,
 	at time: Double,

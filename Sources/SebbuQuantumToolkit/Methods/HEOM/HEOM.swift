@@ -18,13 +18,17 @@ extension HEOM {
     public struct Configuration: Sendable {
         public let hierarchy: Hierarchy
         public var shiftType: ShiftType
+        /// Parallelism within each RHS evaluation. Serial execution is the default.
+        public var parallelism: Parallelism
 
         public init(
             hierarchy: Hierarchy,
-            shiftType: ShiftType = .none
+            shiftType: ShiftType = .none,
+            parallelism: Parallelism = .serial
         ) {
             self.hierarchy = hierarchy
             self.shiftType = shiftType
+            self.parallelism = parallelism
         }
     }
 }

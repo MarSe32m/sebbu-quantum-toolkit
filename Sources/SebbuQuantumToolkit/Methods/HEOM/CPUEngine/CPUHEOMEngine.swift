@@ -19,6 +19,7 @@ extension HEOM {
 }
 
 extension HEOM.CPUEngine: HEOM.Implementation, HEOM.HierarchyProvidingImplementation {
+    @inlinable
     @discardableResult
     public func solve<Hamiltonian: HamiltonianFunction>(
         problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
@@ -34,6 +35,7 @@ extension HEOM.CPUEngine: HEOM.Implementation, HEOM.HierarchyProvidingImplementa
         }
     }
 
+    @inlinable
     @discardableResult
     public func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
         problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
@@ -50,6 +52,7 @@ extension HEOM.CPUEngine: HEOM.Implementation, HEOM.HierarchyProvidingImplementa
 extension HEOM.CPUEngine: HEOM.TwoTimeCorrelationImplementation, HEOM
         .MultiTimeOrderedCorrelationImplementation
 {
+    @inlinable
     @discardableResult
     public func solveTwoTimeCorrelation<Hamiltonian: HamiltonianFunction>(
         problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
@@ -65,6 +68,7 @@ extension HEOM.CPUEngine: HEOM.TwoTimeCorrelationImplementation, HEOM
         }
     }
 
+    @inlinable
     @discardableResult
     public func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
         problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
@@ -93,6 +97,7 @@ extension HEOM.CPUEngine: HEOM.TwoTimeCorrelationImplementation, HEOM
 }
 
 extension HEOM.CPUEngine {
+    @inlinable
     internal static func withHierarchyView<Result>(
         _ state: borrowing State, dimension: Int,
         _ body: (borrowing HEOM.HierarchyStateView) -> Result

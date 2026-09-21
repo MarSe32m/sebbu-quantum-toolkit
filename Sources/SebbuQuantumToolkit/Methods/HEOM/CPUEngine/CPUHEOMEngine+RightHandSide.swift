@@ -8,18 +8,34 @@ extension HEOM.CPUEngine {
     /// ODERHSFunction is nonthrowing. A run-local error slot lets generated
     /// operators fail without indexing invalid storage; the driver checks it
     /// immediately after each attempted step, before delivering any output.
+    @usableFromInline
     internal final class Failure {
+        @usableFromInline
         var error: SolverError?
+        
+        @inlinable
+        init(error: SolverError? = nil) {
+            self.error = error
+        }
+        
+        @inlinable
         func check() throws { if let error { throw error } }
     }
 
+    @usableFromInline
     internal struct Operator: ~Copyable {
+        @usableFromInline
         let source: TimeDependentOperator
+        @usableFromInline
         let isConstant: Bool
+        @usableFromInline
         var matrix: UniqueMatrix<Complex<Double>>
+        @usableFromInline
         var loss: UniqueMatrix<Complex<Double>>
+        @usableFromInline
         let needsLoss: Bool
 
+        @inlinable
         init(_ source: TimeDependentOperator, dimension: Int, needsLoss: Bool = false) throws {
             if source.firstDimensionMismatch(expected: dimension) != nil {
                 throw SolverError.operatorDimensionMismatch
@@ -39,6 +55,7 @@ extension HEOM.CPUEngine {
             }
         }
 
+        @inlinable
         mutating func update(at time: Double, dimension: Int) -> Bool {
             if !isConstant {
                 source.insert(t: time, into: &matrix)
@@ -56,27 +73,52 @@ extension HEOM.CPUEngine {
     /// Equations (11.5), (11.8) and (11.9) of the latent-basis notes.
     /// All buffers are allocated at construction. The Hamiltonian, bath and
     /// collapse operators are evaluated once per RK stage, shared by all ADOs.
+    @usableFromInline
     internal struct RightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable, ODERHSFunction {
+        @usableFromInline
         let hamiltonian: Hamiltonian
+        @usableFromInline
         let hierarchy: HEOM.Hierarchy
+        @usableFromInline
         let dimension: Int
+        @usableFromInline
         let centered: Bool
+        @usableFromInline
         let failure: Failure
+        @usableFromInline
         let coefficients: _LatentBathCoefficients
+        @usableFromInline
         let bathIsConstant: Bool
+        @usableFromInline
         let rates: [ScalarTimeFunction]
+        @usableFromInline
         var bathOperators: UniqueArray<Operator>
+        @usableFromInline
         var collapseOperators: UniqueArray<Operator>
-        var rateValues: UniqueArray<Double>
+        @usableFromInline
+        var collapseViews: UniqueVector<CollapseView>
+        @usableFromInline
         var h: UniqueMatrix<Complex<Double>>
+        @usableFromInline
+        var hRight: UniqueMatrix<Complex<Double>>
+        @usableFromInline
         var lambda: UniqueMatrix<Complex<Double>>
+        @usableFromInline
         var memory: UniqueMatrix<Complex<Double>>
+        @usableFromInline
         var means: UniqueVector<Complex<Double>>
+        @usableFromInline
         var temporary: UniqueMatrix<Complex<Double>>
+        @usableFromInline
+        let pool: PersistentWorkerPool<ADOBatch>?
 
+        @usableFromInline
+        internal var workerCount: Int { pool?.workerCount ?? 1 }
+
+        @inlinable
         init(
             problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
-            failure: Failure
+            failure: Failure, copies: Int = 1
         ) throws {
             let d = problem.system.dimension
             precondition(d > 0, "The system dimension must be positive.")
@@ -87,9 +129,18 @@ extension HEOM.CPUEngine {
                 preparedBath.append(try Operator(op, dimension: d))
             }
             var preparedCollapse = UniqueArray<Operator>()
+            var views: [CollapseView] = []
             for channel in problem.markovianChannels {
-                preparedCollapse.append(try Operator(channel.collapseOperator, dimension: d, needsLoss: true))
+                let op = try Operator(channel.collapseOperator, dimension: d, needsLoss: true)
+                views.append(CollapseView(matrix: UnsafePointer(op.matrix.elements), rate: 0))
+                preparedCollapse.append(op)
             }
+            let workers = configuration.parallelism.workerCount(
+                dimension: d, adoCount: configuration.hierarchy.count * copies,
+                poleCount: configuration.hierarchy.multiIndexCount / 2,
+                collapseCount: problem.markovianChannels.count)
+            let preparedPool: PersistentWorkerPool<ADOBatch>? = workers > 1
+                ? .init(workers: workers) { batch, worker in batch.evaluate(worker: worker) } : nil
             hamiltonian = problem.system.hamiltonian
             hierarchy = configuration.hierarchy
             dimension = d
@@ -100,15 +151,18 @@ extension HEOM.CPUEngine {
             bathOperators = preparedBath
             collapseOperators = preparedCollapse
             rates = problem.markovianChannels.map(\.rate)
-            rateValues = .init(repeating: 0, count: rates.count)
+            collapseViews = .init(views)
             h = .zeros(rows: d, columns: d)
+            hRight = .zeros(rows: d, columns: d)
             lambda = .zeros(rows: coefficients.poles.count, columns: d * d)
             memory = .zeros(rows: coefficients.poles.count, columns: d * d)
             means = coefficients.poles.isEmpty ? .init() : .zero(coefficients.poles.count)
-            temporary = .zeros(rows: d, columns: d)
+            temporary = .zeros(rows: preparedPool?.workerCount ?? 1, columns: d * d)
+            pool = preparedPool
             if bathIsConstant { buildBathOperators() }
         }
 
+        @inlinable
         mutating func buildBathOperators() {
             lambda.zeroElements()
             memory.zeroElements()
@@ -126,9 +180,11 @@ extension HEOM.CPUEngine {
             }
         }
 
+        @inlinable
         mutating func evaluate(t: Double, y: borrowing State, dy: inout State) {
-            dy.zero()
-            if failure.error != nil { return }
+            // Successful stages overwrite every ADO in parallel. Avoid a serial
+            // pass over the entire hierarchy merely to initialize the outputs.
+            if failure.error != nil { dy.zero(); return }
             let d = dimension
             let size = d * d
             let poles = coefficients.poles
@@ -137,12 +193,14 @@ extension HEOM.CPUEngine {
             hamiltonian.hamiltonian(t: t, into: &h)
             guard h.rows == d && h.columns == d else {
                 failure.error = .operatorDimensionMismatch
+                dy.zero()
                 return
             }
             if !bathIsConstant {
                 for i in 0..<bathOperators.count {
                     guard bathOperators[i].update(at: t, dimension: d) else {
                         failure.error = .operatorDimensionMismatch
+                        dy.zero()
                         return
                     }
                 }
@@ -152,13 +210,17 @@ extension HEOM.CPUEngine {
                 let rate = rates[i](t)
                 guard rate.isFinite && rate >= 0 else {
                     failure.error = .invalidMarkovianRate(time: t)
+                    dy.zero()
                     return
                 }
-                rateValues[i] = rate
                 guard collapseOperators[i].update(at: t, dimension: d) else {
                     failure.error = .operatorDimensionMismatch
+                    dy.zero()
                     return
                 }
+                // Generated operators may replace their storage on each call.
+                collapseViews[i] = CollapseView(
+                    matrix: UnsafePointer(collapseOperators[i].matrix.elements), rate: rate)
             }
 
             if centered && pCount > 0 {
@@ -167,6 +229,7 @@ extension HEOM.CPUEngine {
                 for i in 0..<d { trace += y.ados.elements[i * d + i] }
                 guard trace.real.isFinite && trace.imaginary.isFinite && trace.length > 0 else {
                     failure.error = .invalidGuideTrace(time: t)
+                    dy.zero()
                     return
                 }
                 for p in 0..<pCount {
@@ -191,68 +254,30 @@ extension HEOM.CPUEngine {
                 }
             }
 
-            let count = hierarchy.count
-            for block in 0..<(y.ados.rows / count) {
-                let base = block * count * size
-                for ado in 0..<count {
-                    let input = y.ados.elements + base + ado * size
-                    let output = dy.ados.elements + base + ado * size
-                    let damping = hierarchy.kWArray[ado]
-                    for j in 0..<size { output[j] = damping * input[j] }
-                    MatrixAction.commutator(h.elements, input, dimension: d, scale: -.i, into: output)
-                    for i in 0..<collapseOperators.count where rateValues[i] != 0 {
-                        let rate = Complex<Double>(rateValues[i])
-                        let op = collapseOperators[i].matrix.elements
-                        let loss = collapseOperators[i].loss.elements
-                        MatrixAction.product(op, input, dimension: d, adding: false, into: temporary.elements)
-                        MatrixAction.product(
-                            temporary.elements, op, dimension: d, adjointB: true,
-                            scale: rate, into: output)
-                        MatrixAction.product(loss, input, dimension: d, scale: -0.5 * rate, into: output)
-                        MatrixAction.product(input, loss, dimension: d, scale: -0.5 * rate, into: output)
-                    }
-                    for p in 0..<pCount {
-                        let op = lambda.elements + p * size
-                        let down = memory.elements + p * size
-                        let ket = ado * (2 * pCount) + p
-                        let bra = ket + pCount
-                        let ketChild = hierarchy.childIndices[ket]
-                        let braChild = hierarchy.childIndices[bra]
-                        if ketChild >= 0 {
-                            MatrixAction.commutator(
-                                op, y.ados.elements + base + ketChild * size, dimension: d,
-                                adjoint: true, scale: Complex(-hierarchy.childWeights[ket]), into: output)
-                        }
-                        if braChild >= 0 {
-                            MatrixAction.commutator(
-                                op, y.ados.elements + base + braChild * size, dimension: d,
-                                scale: Complex(hierarchy.childWeights[bra]), into: output)
-                        }
-                        let ketParent = hierarchy.parentIndices[ket]
-                        let braParent = hierarchy.parentIndices[bra]
-                        if ketParent >= 0 {
-                            let parent = y.ados.elements + base + ketParent * size
-                            let weight = hierarchy.parentWeights[ket]
-                            MatrixAction.product(
-                                down, parent, dimension: d, scale: Complex(weight), into: output)
-                            if centered {
-                                let value = weight * means[p]
-                                for j in 0..<size { output[j] -= value * parent[j] }
-                            }
-                        }
-                        if braParent >= 0 {
-                            let parent = y.ados.elements + base + braParent * size
-                            let weight = hierarchy.parentWeights[bra]
-                            MatrixAction.product(
-                                parent, down, dimension: d, adjointB: true,
-                                scale: Complex(weight), into: output)
-                            if centered {
-                                let value = weight * means[p].conjugate
-                                for j in 0..<size { output[j] -= value * parent[j] }
-                            }
-                        }
-                    }
+            // Prepare H_eff and its right-action partner once per stage.
+            // Keeping both also preserves the commutator for a supplied H that
+            // is not exactly Hermitian, without conjugating the companion ADO.
+            hRight.copyElements(from: h)
+            for i in 0..<collapseOperators.count where collapseViews[i].rate != 0 {
+                let factor = Complex<Double>(0, 0.5 * collapseViews[i].rate)
+                let loss = collapseOperators[i].loss.elements
+                for j in 0..<size {
+                    h.elements[j] -= factor * loss[j]
+                    hRight.elements[j] += factor * loss[j]
                 }
+            }
+            let batch = ADOBatch(
+                hierarchy: hierarchy, dimension: d, centered: centered,
+                workerCount: workerCount, adoCount: y.ados.rows,
+                input: UnsafePointer(y.ados.elements), output: dy.ados.elements,
+                hLeft: UnsafePointer(h.elements), hRight: UnsafePointer(hRight.elements),
+                lambda: UnsafePointer(lambda.elements), memory: UnsafePointer(memory.elements),
+                means: UnsafePointer(means.components), collapse: UnsafePointer(collapseViews.components),
+                collapseCount: collapseViews.count, temporaries: temporary.elements)
+            if let pool {
+                pool.run(batch)
+            } else {
+                batch.evaluate(worker: 0)
             }
         }
     }
