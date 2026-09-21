@@ -143,15 +143,19 @@ internal struct NativeWorkerThread {
             }
             self.handle = handle
         #elseif canImport(Darwin) || canImport(Glibc) || canImport(Musl)
-            #if canImport(Darwin)
+            #if canImport(Darwin) || canImport(Musl)
                 var handle: pthread_t? = nil
-            #else
+            #elseif canImport(Glibc)
                 var handle = pthread_t()
             #endif
             let result = pthread_create(
                 &handle, nil,
                 { pointer in
+                    #if canImport(Darwin)
                     let entry = Unmanaged<Entry>.fromOpaque(pointer).takeRetainedValue()
+                    #elseif canImport(Musl) || canImport(Glibc)
+                    let entry = Unmanaged<Entry>.fromOpaque(pointer!).takeRetainedValue()
+                    #endif
                     entry.body()
                     return nil
                 }, entry.toOpaque())
@@ -159,7 +163,7 @@ internal struct NativeWorkerThread {
                 entry.release()
                 return nil
             }
-            #if canImport(Darwin)
+            #if canImport(Darwin) || canImport(Musl)
                 self.handle = handle!
             #else
                 self.handle = handle
