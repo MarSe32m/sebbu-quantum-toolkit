@@ -29,25 +29,18 @@ extension HOPS.CPUEngine {
 		struct BathChannel: ~Copyable, Sendable {
 			@usableFromInline
 			let physicalIndex: Int
-			/// Index into trajectory-local storage for a time-dependent operator.
-			/// Constant operators use -1 and remain owned by Preparation.
 			@usableFromInline
-			let dynamicMatrixIndex: Int
-			@usableFromInline
-			let op: PreparedOperator
+			let op: PreparedBathOperator
 			@usableFromInline
 			let directions: UniqueArray<Direction>
 
 			@inlinable
 			init(
 				physicalIndex: Int,
-				dynamicMatrixIndex: Int,
-				op: consuming PreparedOperator,
+				op: consuming PreparedBathOperator,
 				directions: consuming UniqueArray<Direction>
 			) {
-				precondition(dynamicMatrixIndex >= -1)
 				self.physicalIndex = physicalIndex
-				self.dynamicMatrixIndex = dynamicMatrixIndex
 				self.op = op
 				self.directions = directions
 			}
@@ -114,8 +107,6 @@ extension HOPS.CPUEngine {
 			for i in 0..<model.channelCount {
 				let source =
 					configuration.hierarchy.environment.couplingOperators[i]
-				let op = try PreparedOperator(
-					source, dimension: dimension, needsLoss: false)
 				var directions = UniqueArray<Direction>()
 				for p in coefficients.poles.indices {
 					let up = coefficients.upward[i, p]
@@ -125,17 +116,19 @@ extension HOPS.CPUEngine {
 					}
 				}
 				if !directions.isEmpty {
-					let dynamicMatrixIndex: Int
-					if source.isConstant {
-						dynamicMatrixIndex = -1
-					} else {
-						dynamicMatrixIndex = dynamicBathMatrixCount
+					let dynamicMatrixIndex =
+						source.isConstant ? -1 : dynamicBathMatrixCount
+					let op = try PreparedBathOperator(
+						source,
+						dimension: dimension,
+						policyCode: configuration._bathOperatorStoragePolicyCode,
+						dynamicMatrixIndex: dynamicMatrixIndex)
+					if !source.isConstant {
 						dynamicBathMatrixCount += 1
 					}
 					bathChannels.append(
 						.init(
 							physicalIndex: i,
-							dynamicMatrixIndex: dynamicMatrixIndex,
 							op: op,
 							directions: directions))
 				}
@@ -163,6 +156,136 @@ extension HOPS.CPUEngine {
 				rates.append(PreparedTimeFunction(channel.rate))
 			}
 			self.rates = rates
+		}
+	}
+
+	/// Prepared representation used only for physical HOPS bath operators.
+	///
+	/// Constant sparse operators keep both CSR orientations because HOPS uses
+	/// both L*x and L^dagger*x at every hierarchy action. Dynamic operators stay
+	/// dense and materialize into trajectory-local buffers exactly as before.
+	@usableFromInline
+	internal enum PreparedBathOperator: ~Copyable, Sendable {
+		case dense(UniqueMatrix<Complex<Double>>)
+		case sparse(SparseBathOperator)
+		case dynamic(PreparedSource, matrixIndex: Int)
+
+		@inlinable
+		init(
+			_ source: TimeDependentOperator,
+			dimension: Int,
+			policyCode: UInt8,
+			dynamicMatrixIndex: Int
+		) throws {
+			switch source {
+			case .constant(let op):
+				guard
+					op.matrix.rows == dimension
+						&& op.matrix.columns == dimension
+				else {
+					throw SolverError.operatorDimensionMismatch
+				}
+			case .linearCombination(let expansion):
+				for op in expansion.operators {
+					guard
+						op.matrix.rows == dimension
+							&& op.matrix.columns == dimension
+					else {
+						throw SolverError.operatorDimensionMismatch
+					}
+				}
+			case .generatedDense:
+				break
+			}
+
+			if source.isConstant {
+				var original = UniqueMatrix<Complex<Double>>.zeros(
+					rows: dimension, columns: dimension)
+				source.insert(t: 0, into: &original)
+				if BathOperatorStorage.shouldUseSparse(
+					original, policyCode: policyCode)
+				{
+					let matrix = UniqueCSRMatrix<Complex<Double>>(from: original)
+					let adjoint = matrix.conjugateTranspose
+					self = .sparse(
+						.init(matrix: matrix, adjoint: adjoint))
+				} else {
+					self = .dense(original)
+				}
+				return
+			}
+
+			precondition(dynamicMatrixIndex >= 0)
+			self = .dynamic(
+				PreparedSource(source),
+				matrixIndex: dynamicMatrixIndex)
+		}
+
+		@inlinable
+		var isSparse: Bool {
+			switch self {
+			case .sparse: true
+            case .dense: false
+            case .dynamic: false
+			}
+		}
+
+		@inlinable
+		var isDynamic: Bool {
+			switch self {
+			case .dynamic: true
+            case .dense: false
+            case .sparse: false
+			}
+		}
+	}
+
+	@usableFromInline
+	internal struct SparseBathOperator: ~Copyable, Sendable {
+		@usableFromInline
+		let matrix: UniqueCSRMatrix<Complex<Double>>
+		@usableFromInline
+		let adjoint: UniqueCSRMatrix<Complex<Double>>
+
+		@inlinable
+		init(
+			matrix: consuming UniqueCSRMatrix<Complex<Double>>,
+			adjoint: consuming UniqueCSRMatrix<Complex<Double>>
+		) {
+			self.matrix = matrix
+			self.adjoint = adjoint
+		}
+	}
+
+	/// Centralized crossover policy. The cutoff keeps tiny matrices on the
+	/// existing scalar dense kernels; exact structural zeros determine density.
+	@usableFromInline
+	internal enum BathOperatorStorage {
+		@usableFromInline static let automaticMinimumDimension = 8
+		@usableFromInline static let automaticMaximumDensity = 0.25
+
+		@inlinable
+		static func shouldUseSparse(
+			_ matrix: borrowing UniqueMatrix<Complex<Double>>,
+			policyCode: UInt8
+		) -> Bool {
+			// Preserve the hand-specialized TLS path unconditionally.
+			if matrix.rows == 2 { return false }
+			if policyCode == 1 { return false }
+			if policyCode == 2 { return true }
+			precondition(policyCode == 0)
+			if matrix.rows < automaticMinimumDimension { return false }
+			var nnz = 0
+			for i in 0..<matrix.rows {
+				for j in 0..<matrix.columns {
+					if matrix[unchecked: i, unchecked: j] != .zero {
+						nnz += 1
+					}
+				}
+			}
+			return Double(nnz)
+				<= automaticMaximumDensity
+					* Double(matrix.rows * matrix.columns)
 		}
 	}
 

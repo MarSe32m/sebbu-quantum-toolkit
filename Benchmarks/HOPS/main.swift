@@ -26,9 +26,13 @@ let step = Double(option("--step", "0.01"))!
 let samples = Int(option("--samples", "251"))!
 let repeats = Int(option("--repeats", "1"))!
 let mixed = arguments.contains("--mixed")
+let operatorStorageName = option("--operator-storage", "automatic")
+let couplingStructure = option("--coupling-structure", "diagonal")
+let requestedDensity = Double(option("--operator-density", "0.1"))!
 precondition(dimension >= 2 && trajectories > 0 && tier >= 0 && (0...3).contains(poleCount))
 precondition(warmup > 0 && delay > 0 && step > 0 && samples >= 2 && repeats > 0)
 precondition(workers.allSatisfy { $0 > 0 })
+precondition((0...1).contains(requestedDensity))
 
 var h = Matrix<Complex<Double>>.zeros(rows: dimension, columns: dimension)
 var l = h
@@ -37,7 +41,51 @@ for i in 1..<dimension {
 	h[i - 1, i] = Complex(0.5)
 	h[i, i - 1] = Complex(0.5)
 	l[i - 1, i] = Complex(Double(i).squareRoot())
-	coupling[i, i] = .one
+}
+switch couplingStructure {
+case "diagonal":
+	for i in 0..<dimension { coupling[i, i] = .one }
+case "banded":
+	for i in 0..<dimension {
+		coupling[i, i] = .one
+		if i + 1 < dimension {
+			coupling[i, i + 1] = Complex(0.35, 0.1)
+		}
+	}
+case "dense":
+	for i in 0..<dimension {
+		for j in 0..<dimension {
+			coupling[i, j] = Complex(
+				0.01 * Double(1 + (7 * i + 3 * j) % 17),
+				0.005 * Double((5 * i + j) % 11))
+		}
+	}
+case "controlled":
+	let scale = 10_000
+	let cutoff = Int(requestedDensity * Double(scale))
+	for i in 0..<dimension {
+		for j in 0..<dimension {
+			let hash = (1_103 * i + 3_571 * j + 97 * i * j + 13) % scale
+			if hash < cutoff {
+				coupling[i, j] = Complex(
+					0.05 + 0.001 * Double((i + j) % 19),
+					0.002 * Double((3 * i + j) % 13))
+			}
+		}
+	}
+default:
+	preconditionFailure(
+		"--coupling-structure must be diagonal, banded, controlled, or dense")
+}
+
+let operatorStorage: HOPS.BathOperatorStoragePolicy
+switch operatorStorageName {
+case "automatic": operatorStorage = .automatic
+case "dense": operatorStorage = .dense
+case "sparse": operatorStorage = .sparse
+default:
+	preconditionFailure(
+		"--operator-storage must be automatic, dense, or sparse")
 }
 let poles = [Complex(0.7, 0.9), Complex(1.2, 1.7), Complex(0.9, -0.4)]
 let residues = [Complex(0.3, -0.1), Complex(0.2, 0.12), Complex(0.13, -0.2)]
@@ -56,9 +104,10 @@ let bath: CorrelatedBathModel =
 let hierarchy = HOPS.Hierarchy(
 	environment: .init(couplingOperator: .constant(coupling), bath: bath),
 	truncation: .maximumTier(tier))
-let configuration = HOPS.Configuration(
+var configuration = HOPS.Configuration(
 	hierarchy: hierarchy, equationType: .nonLinearNormalized,
 	shiftType: .meanField, noiseStepSize: step)
+configuration.bathOperatorStoragePolicy = operatorStorage
 var initial = [Complex<Double>](repeating: .zero, count: dimension)
 initial[0] = Complex(0.5.squareRoot())
 initial[1] = initial[0]
@@ -79,7 +128,7 @@ func seconds(_ duration: Duration) -> Double {
 	Double(duration.components.seconds) + Double(duration.components.attoseconds) * 1e-18
 }
 print(
-	"# dimension=\(dimension), poles=\(poleCount), hierarchy=\(hierarchy.count), trajectories=\(trajectories), tier=\(tier), warmup=\(warmup), delay=\(delay), step=\(step), samples=\(samples), mixed=\(mixed)"
+	"# dimension=\(dimension), poles=\(poleCount), hierarchy=\(hierarchy.count), trajectories=\(trajectories), tier=\(tier), warmup=\(warmup), delay=\(delay), step=\(step), samples=\(samples), mixed=\(mixed), operator_storage=\(operatorStorageName), coupling_structure=\(couplingStructure), requested_density=\(requestedDensity)"
 )
 print("phase,workers,repeat,seconds,checksum_real,checksum_imaginary")
 for workerCount in workers {

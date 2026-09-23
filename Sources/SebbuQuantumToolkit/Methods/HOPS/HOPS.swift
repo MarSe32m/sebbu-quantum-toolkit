@@ -17,11 +17,38 @@ extension HOPS {
 		case meanField
 	}
 
+	/// Package-only control used by tests and the HOPS benchmark. Normal user
+	/// code keeps `.automatic`; this is deliberately not part of the public API.
+	package enum BathOperatorStoragePolicy: Sendable {
+		case automatic
+		case dense
+		case sparse
+	}
+
 	public struct Configuration: Sendable {
 		public let hierarchy: Hierarchy
 		public var equationType: EquationType
 		public var shiftType: ShiftType
 		public var unravelling: MarkovianUnravelling
+		@usableFromInline
+		internal var _bathOperatorStoragePolicyCode: UInt8 = 0
+
+		package var bathOperatorStoragePolicy: BathOperatorStoragePolicy {
+			get {
+				switch _bathOperatorStoragePolicyCode {
+				case 1: .dense
+				case 2: .sparse
+				default: .automatic
+				}
+			}
+			set {
+				switch newValue {
+				case .automatic: _bathOperatorStoragePolicyCode = 0
+				case .dense: _bathOperatorStoragePolicyCode = 1
+				case .sparse: _bathOperatorStoragePolicyCode = 2
+				}
+			}
+		}
 
 		/// Uniform OU mesh spacing. Nil uses the integrator's maximum step.
 		/// Converge this independently of the ODE tolerances. The CPU engine
