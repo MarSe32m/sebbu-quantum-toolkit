@@ -246,7 +246,8 @@ public func exampleHEOMResonanceFluorescenceSpectrum(
     A: Double = .zero, cutoff: Double = 1.447,
     maximumTier: Int = 4,
     steadyTime: Double = 200, delayTime: Double = 200,
-    maximumStep: Double = 1
+    maximumStep: Double = 1,
+    plotCorrelation: Bool = false
 ) {
     let tSteady = steadyTime
     let ibmBath: IBMBath
@@ -354,14 +355,16 @@ public func exampleHEOMResonanceFluorescenceSpectrum(
         print("Failed to solve two time correlation function:", error)
         return
     }
-    plt.figure()
-    plt.plot(x: times, y: correlationFunction.real, label: "Re C(t)")
-    plt.plot(x: times, y: correlationFunction.imaginary, label: "Im C(t)")
-    plt.legend()
-    plt.xlabel("t")
-    plt.ylabel("C(t)")
-    plt.show()
-    plt.close()
+    if plotCorrelation {
+        plt.figure()
+        plt.plot(x: times, y: correlationFunction.real, label: "Re C(t)")
+        plt.plot(x: times, y: correlationFunction.imaginary, label: "Im C(t)")
+        plt.legend()
+        plt.xlabel("t")
+        plt.ylabel("C(t)")
+        plt.show()
+        plt.close()
+    }
     
     let omegaSpace: [Double] = .linearSpace(-1, 1, 2000)
     var spectrum: [Double] = []
@@ -376,10 +379,10 @@ public func exampleHEOMResonanceFluorescenceSpectrum(
     spectrum = spectrum.map { $0 / max }
     
     plt.figure()
-    plt.plot(x: omegaSpace, y: spectrum, label: "S(w)")
+    plt.plot(x: omegaSpace, y: spectrum, label: "HEOM S(w)")
     plt.legend()
     plt.xlabel("w")
     plt.ylabel("S(w)")
-    plt.show()
-    plt.close()
+//    plt.show()
+//    plt.close()
 }

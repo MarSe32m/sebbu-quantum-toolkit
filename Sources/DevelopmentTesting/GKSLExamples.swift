@@ -40,6 +40,10 @@ public func exampleGKSLRadiativeDamping(endTime: Double) {
             maximumStepSize: 0.5,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
+        ),
+        progress: .console(
+            style: .bar,
+            label: "GKSL Radiative Damping"
         )
     )
     var X: [Double] = []

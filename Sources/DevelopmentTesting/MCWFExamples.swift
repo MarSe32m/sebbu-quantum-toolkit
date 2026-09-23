@@ -40,6 +40,10 @@ public func exampleMCWFRadiativeDamping(endTime: Double) {
             maximumStepSize: 1,
             absoluteTolerance: 1e-9,
             relativeTolerance: 1e-9
+        ),
+        progress: .console(
+            style: .bar,
+            label: "MCWF Radiative Damping"
         )
     )
     let configuration = MCWF.Configuration(

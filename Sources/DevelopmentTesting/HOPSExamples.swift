@@ -250,7 +250,8 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
     A: Double = .zero, cutoff: Double = 1.447,
     maximumTier: Int = 4,
     trajectories: Int = 8192, steadyTime: Double = 200, delayTime: Double = 200,
-    maximumStep: Double = 0.01
+    maximumStep: Double = 0.01,
+    plotCorrelation: Bool = false
 ) {
     let tSteady = steadyTime
     let ibmBath: IBMBath
@@ -364,14 +365,16 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
         print("Failed to solve two time correlation function:", error)
         return
     }
-    plt.figure()
-    plt.plot(x: times, y: correlationFunction.real, label: "Re C(t)")
-    plt.plot(x: times, y: correlationFunction.imaginary, label: "Im C(t)")
-    plt.legend()
-    plt.xlabel("t")
-    plt.ylabel("C(t)")
-    plt.show()
-    plt.close()
+    if plotCorrelation {
+        plt.figure()
+        plt.plot(x: times, y: correlationFunction.real, label: "Re C(t)")
+        plt.plot(x: times, y: correlationFunction.imaginary, label: "Im C(t)")
+        plt.legend()
+        plt.xlabel("t")
+        plt.ylabel("C(t)")
+        plt.show()
+        plt.close()
+    }
     
     let omegaSpace: [Double] = .linearSpace(-1, 1, 2000)
     var spectrum: [Double] = []
@@ -385,8 +388,8 @@ public func exampleHOPSResonanceFluorescenceSpectrum(
     let max = spectrum.max()!
     spectrum = spectrum.map { $0 / max }
     
-    plt.figure()
-    plt.plot(x: omegaSpace, y: spectrum, label: "S(w)")
+//    plt.figure()
+    plt.plot(x: omegaSpace, y: spectrum, label: "HOPS S(w)")
     plt.legend()
     plt.xlabel("w")
     plt.ylabel("S(w)")

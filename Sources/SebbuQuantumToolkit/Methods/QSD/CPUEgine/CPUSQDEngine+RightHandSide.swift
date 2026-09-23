@@ -225,7 +225,7 @@ extension QSD.CPUEngine {
 
 			// The numerical generator samples the real and imaginary parts of
 			// each complex Wiener value with unit variance, hence sqrt(rate / 2).
-			lossOperator.dotBLAS(
+			lossOperator.dot(
 				y.state,
 				multiplied: Complex(-0.5 * rate),
 				addingInto: &dy.state
@@ -239,7 +239,7 @@ extension QSD.CPUEngine {
 				let expectationAdjoint =
 					y.state.inner(metric: collapseOperatorAdjoint, y.state)
 					/ normSquared
-				collapseOperator.dotBLAS(
+				collapseOperator.dot(
 					y.state,
 					multiplied: rate * expectationAdjoint,
 					addingInto: &dy.state
@@ -269,7 +269,7 @@ extension QSD.CPUEngine {
 		) {
 			guard rate != .zero else { return }
 			let coefficient = (0.5 * rate).squareRoot()
-			collapseOperator.dotBLAS(
+			collapseOperator.dot(
 				y.state,
 				multiplied: Complex(coefficient),
 				addingInto: &dy.state
