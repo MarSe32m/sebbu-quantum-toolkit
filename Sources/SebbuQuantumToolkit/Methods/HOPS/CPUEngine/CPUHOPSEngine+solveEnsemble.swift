@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Sebastian Toivonen
 // SPDX-License-Identifier: Apache-2.0
 
-import BasicContainers
 import Numerics
 import SebbuBLAS
 import SebbuScience

@@ -142,31 +142,76 @@ extension HOPS.CPUEngine {
 				borrowing: owner)
 		}
 
-		/// Execute `body` with the instantaneous physical-bath matrix without
-		/// copying constant matrices into trajectory-local storage.
-		///
-		/// The closure is nonescaping and this function is always inlined, so
-		/// the constant/dynamic distinction reduces to one predictable branch
-		/// at the call site.
 		@inlinable
 		@inline(always)
-		internal static func withBathMatrix(
+		internal static func withDenseBathMatrix(
 			_ channel: borrowing Preparation.BathChannel,
 			dynamicBathMatrices:
 				borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
 			_ body: (borrowing UniqueMatrix<Complex<Double>>) -> Void
 		) {
-			let index = channel.dynamicMatrixIndex
-			if index >= 0 {
-				body(dynamicBathMatrices[index])
-				return
-			}
-			switch channel.op.constant {
-			case .some(let constant):
-				body(constant.matrix)
-			case .none:
+			switch channel.op {
+			case .dense(let matrix):
+				body(matrix)
+			case .dynamic(_, let matrixIndex):
+				body(dynamicBathMatrices[matrixIndex])
+			case .sparse:
 				preconditionFailure(
-					"A constant HOPS bath channel must own a prepared matrix.")
+					"The specialized d == 2 path must remain dense.")
+			}
+		}
+
+		@inlinable
+		@inline(always)
+		internal static func applyBathForward(
+			_ channel: borrowing Preparation.BathChannel,
+			dynamicBathMatrices:
+				borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+			x: UnsafePointer<Complex<Double>>,
+			y: UnsafeMutablePointer<Complex<Double>>,
+			coefficient: Complex<Double> = .one
+		) {
+			switch channel.op {
+			case .dense(let matrix):
+				OperatorApplication.vector(
+					matrix, x: x, y: y,
+					coefficient: coefficient, adding: true)
+			case .sparse(let sparse):
+				OperatorApplication.vector(
+					sparse.matrix, x: x, y: y,
+					coefficient: coefficient, adding: true)
+			case .dynamic(_, let matrixIndex):
+				OperatorApplication.vector(
+					dynamicBathMatrices[matrixIndex],
+					x: x, y: y,
+					coefficient: coefficient, adding: true)
+			}
+		}
+
+		@inlinable
+		@inline(always)
+		internal static func applyBathAdjoint(
+			_ channel: borrowing Preparation.BathChannel,
+			dynamicBathMatrices:
+				borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+			x: UnsafePointer<Complex<Double>>,
+			y: UnsafeMutablePointer<Complex<Double>>,
+			coefficient: Complex<Double> = .one
+		) {
+			switch channel.op {
+			case .dense(let matrix):
+				OperatorApplication.vector(
+					matrix, adjoint: true, x: x, y: y,
+					coefficient: coefficient, adding: true)
+			case .sparse(let sparse):
+				OperatorApplication.vector(
+					sparse.adjoint, x: x, y: y,
+					coefficient: coefficient, adding: true)
+			case .dynamic(_, let matrixIndex):
+				OperatorApplication.vector(
+					dynamicBathMatrices[matrixIndex],
+					adjoint: true, x: x, y: y,
+					coefficient: coefficient, adding: true)
 			}
 		}
 
@@ -228,37 +273,35 @@ extension HOPS.CPUEngine {
 			do {
 				var matrices = dynamicBathMatrices.mutableSpan
 				for i in 0..<bathChannels.count {
-					let index =
-						bathChannels[i].dynamicMatrixIndex
-					if index < 0 { continue }
-					bathChannels[i].op.source.insert(
-						t: t, into: &matrices[index])
-					Self.validateOperator(
-						matrices[index], dimension: dimension)
+					switch bathChannels[i].op {
+					case .dynamic(let source, let matrixIndex):
+						source.insert(
+							t: t, into: &matrices[matrixIndex])
+						Self.validateOperator(
+							matrices[matrixIndex],
+							dimension: dimension)
+                    case .dense: continue
+                    case  .sparse: continue
+					}
 				}
 			}
 
 			// Compute guide-root means, shift equations and all colored-noise /
 			// nonlinear / nuHOPS contributions to the common system generator
 			for i in 0..<bathChannels.count {
-				Self.withBathMatrix(
+				bathMeans[unchecked: i] =
+					Self.accumulateBathGenerator(
 					bathChannels[unchecked: i],
-					dynamicBathMatrices: dynamicBathMatrices
-				) { matrix in
-					bathMeans[unchecked: i] =
-						Self.accumulateBathGenerator(
-							bathChannels[unchecked: i],
-							matrix: matrix,
-							noise:
-								physicalNoise[
-									bathChannels[unchecked: i].physicalIndex],
-							nonlinear: nonlinear,
-							displaced: displaced,
-							inverseNorm: inverseNorm,
-							y: y,
-							dy: &dy,
-							generator: &generator)
-				}
+					dynamicBathMatrices: dynamicBathMatrices,
+					noise:
+						physicalNoise[
+							bathChannels[unchecked: i].physicalIndex],
+					nonlinear: nonlinear,
+					displaced: displaced,
+					inverseNorm: inverseNorm,
+					y: y,
+					dy: &dy,
+					generator: &generator)
 			}
 
 			// Markovian drift is also common to every hierarchy row, so fold it
@@ -388,6 +431,56 @@ extension HOPS.CPUEngine {
 		@inlinable
 		internal static func accumulateBathGenerator(
 			_ channel: borrowing Preparation.BathChannel,
+			dynamicBathMatrices:
+				borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+			noise: Complex<Double>,
+			nonlinear: Bool,
+			displaced: Bool,
+			inverseNorm: Double,
+			y: borrowing State,
+			dy: inout State,
+			generator: inout UniqueMatrix<Complex<Double>>
+		) -> Complex<Double> {
+			switch channel.op {
+			case .dense(let matrix):
+				return accumulateDenseBathGenerator(
+					channel,
+					matrix: matrix,
+					noise: noise,
+					nonlinear: nonlinear,
+					displaced: displaced,
+					inverseNorm: inverseNorm,
+					y: y,
+					dy: &dy,
+					generator: &generator)
+			case .dynamic(_, let matrixIndex):
+				return accumulateDenseBathGenerator(
+					channel,
+					matrix: dynamicBathMatrices[matrixIndex],
+					noise: noise,
+					nonlinear: nonlinear,
+					displaced: displaced,
+					inverseNorm: inverseNorm,
+					y: y,
+					dy: &dy,
+					generator: &generator)
+			case .sparse(let sparse):
+				return accumulateSparseBathGenerator(
+					channel,
+					matrix: sparse.matrix,
+					noise: noise,
+					nonlinear: nonlinear,
+					displaced: displaced,
+					inverseNorm: inverseNorm,
+					y: y,
+					dy: &dy,
+					generator: &generator)
+			}
+		}
+
+		@inlinable
+		internal static func accumulateDenseBathGenerator(
+			_ channel: borrowing Preparation.BathChannel,
 			matrix: borrowing UniqueMatrix<Complex<Double>>,
 			noise: Complex<Double>,
 			nonlinear: Bool,
@@ -440,6 +533,57 @@ extension HOPS.CPUEngine {
 				}
 			}
 
+			return mean
+		}
+
+		@inlinable
+		internal static func accumulateSparseBathGenerator(
+			_ channel: borrowing Preparation.BathChannel,
+			matrix: borrowing UniqueCSRMatrix<Complex<Double>>,
+			noise: Complex<Double>,
+			nonlinear: Bool,
+			displaced: Bool,
+			inverseNorm: Double,
+			y: borrowing State,
+			dy: inout State,
+			generator: inout UniqueMatrix<Complex<Double>>
+		) -> Complex<Double> {
+			let mean =
+				nonlinear || displaced
+				? OperatorApplication.expectation(
+					matrix, state: y.amplitudes.elements) * inverseNorm
+				: .zero
+
+			var physicalShift = Complex<Double>.zero
+			if y.shifts.count > 0 {
+				for i in 0..<channel.directions.count {
+					let direction = channel.directions[i]
+					physicalShift +=
+						direction.upward
+						* y.shifts[unchecked: direction.index]
+					dy.shifts[unchecked: direction.index] +=
+						direction.downward * mean
+				}
+			}
+
+			let forwardCoefficient =
+				noise.conjugate
+					+ (nonlinear
+						? physicalShift.conjugate
+						: .zero)
+			let adjointCoefficient =
+				displaced ? -physicalShift : .zero
+			OperatorApplication.addSparseBathContributions(
+				matrix,
+				forwardCoefficient: forwardCoefficient,
+				adjointCoefficient: adjointCoefficient,
+				into: &generator)
+
+			if displaced && nonlinear {
+				addDiagonal(
+					physicalShift * mean.conjugate,
+					into: &generator)
+			}
 			return mean
 		}
 
