@@ -146,6 +146,38 @@ struct ProgressReporterTests {
 		#expect(capture.percentages == [0, 28, 71])
 	}
 
+	@Test("Concurrent console lines stack automatically and keep stable rows")
+	func stackedLines() {
+		let chunks = Mutex<[String]>([])
+		let coordinator = ProgressLineCoordinator(
+			write: { text in chunks.withLock { $0.append(text) } })
+		var first = ProgressLine(coordinator: coordinator)
+		var second = ProgressLine(coordinator: coordinator)
+
+		first.update("First 0%")
+		second.update("Second 0%")
+		first.update("First 50%")
+		first.finish()
+		second.update("Second 100%")
+		second.finish()
+
+		// Once all concurrent rows are committed, the next progress starts a fresh wave.
+		var third = ProgressLine(coordinator: coordinator)
+		third.update("Third 0%")
+		third.finish()
+
+		#expect(
+			chunks.withLock { $0 } == [
+				"\rFirst 0%",
+				"\rFirst 0%\nSecond 0%",
+				"\u{001B}[1A\rFirst 50%\nSecond 0%",
+				"\u{001B}[1A\rFirst 50%\nSecond 100%",
+				"\n",
+				"\rThird 0%",
+				"\n",
+			])
+	}
+
 	@Test("A shorter redraw clears the previous suffix and finishing is idempotent")
 	func lineCleanup() {
 		let chunks = Mutex<[String]>([])

@@ -26,7 +26,7 @@ internal final class ContinuousProgressReporter {
 		self.initialValue = currentValue
 		self.currentValue = currentValue
 		self.display = display
-		self.progressLine = ProgressLine(write: display.write)
+		self.progressLine = ProgressLine(display: display)
 		self.startTime = .now
 		// A zero-duration solve reports completion only after it returns successfully.
 		self.lastReportedPercentage =

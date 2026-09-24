@@ -119,7 +119,7 @@ extension IncrementingProgressReporter {
 			self.currentValue = .init(currentValue)
 			self.startTime = .now
 			self.display = display
-			var line = ProgressLine(write: display.write)
+			var line = ProgressLine(display: display)
 			line.update(
 				display.message(
 					percentage: lastReportedPercentage, fraction: 0,

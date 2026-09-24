@@ -23,7 +23,8 @@ public struct ProgressReporting: Sendable {
 	/// No reporting, reporter allocation, clock reads, locking or output.
 	public static let none = ProgressReporting(display: nil)
 
-	/// Prints one line, redrawn only when the integer percentage increases.
+	/// Prints one progress line, redrawn only when the integer percentage increases.
+	/// Concurrent console reporters targeting the same stream are stacked automatically.
 	///
 	/// The time estimate uses elapsed wall time and completed work. It is an
 	/// estimate: adaptive time steps and trajectories can have different costs.
@@ -38,8 +39,7 @@ public struct ProgressReporting: Sendable {
 		Self(
 			display: Display(
 				style: style, label: label, printTimeLeft: printTimeLeft,
-				barWidth: barWidth,
-				write: { ProgressLine.write($0, to: stream) }))
+				barWidth: barWidth, stream: stream))
 	}
 
 	@usableFromInline
@@ -71,21 +71,44 @@ extension ProgressReporting {
 		let printTimeLeft: Bool
 		let barWidth: Int
 		@usableFromInline let write: @Sendable (String) -> Void
+		@usableFromInline let stream: Stream?
 
 		@usableFromInline
 		init(
 			style: Style, label: String, printTimeLeft: Bool, barWidth: Int,
 			write: @escaping @Sendable (String) -> Void
 		) {
+			self.init(
+				style: style, label: label, printTimeLeft: printTimeLeft,
+				barWidth: barWidth, write: write, stream: nil)
+		}
+
+		@usableFromInline
+		init(
+			style: Style, label: String, printTimeLeft: Bool, barWidth: Int,
+			stream: Stream
+		) {
+			self.init(
+				style: style, label: label, printTimeLeft: printTimeLeft,
+				barWidth: barWidth,
+				write: { ProgressLine.write($0, to: stream) }, stream: stream)
+		}
+
+		@usableFromInline
+		init(
+			style: Style, label: String, printTimeLeft: Bool, barWidth: Int,
+			write: @escaping @Sendable (String) -> Void, stream: Stream?
+		) {
 			precondition(
 				barWidth > 0 && barWidth <= 200,
 				"Progress bar width must be in 1...200")
 			self.style = style
-			// A progress display occupies one terminal line.
+			// A progress display occupies one terminal row.
 			self.label = label.replacingProgressControlCharacters()
 			self.printTimeLeft = printTimeLeft
 			self.barWidth = barWidth
 			self.write = write
+			self.stream = stream
 		}
 
 		@usableFromInline
