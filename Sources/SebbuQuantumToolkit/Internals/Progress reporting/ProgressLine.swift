@@ -5,6 +5,8 @@ import Synchronization
 
 #if os(Windows)
 	import ucrt
+	nonisolated(unsafe) let stdout = __acrt_iob_func(1)
+	nonisolated(unsafe) let stderr = __acrt_iob_func(2)
 #elseif canImport(Darwin)
 	import Darwin
 #elseif canImport(Glibc)
