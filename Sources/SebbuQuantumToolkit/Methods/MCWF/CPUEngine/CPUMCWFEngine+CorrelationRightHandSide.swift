@@ -6,11 +6,9 @@ import SebbuScience
 
 extension MCWF.CPUEngine {
     @usableFromInline
-	internal struct CorrelationRightHandSide<
-		Hamiltonian: HamiltonianFunction
-	>: ~Copyable, ODERHSFunction {
+	internal struct CorrelationRightHandSide: ~Copyable, ODERHSFunction {
         @usableFromInline
-		internal let hamiltonian: Hamiltonian
+		internal let hamiltonian: TimeDependentOperator
         @usableFromInline
 		internal let channels: [PreparedChannel]
 
@@ -31,7 +29,7 @@ extension MCWF.CPUEngine {
 
         @inlinable
 		internal init(
-			hamiltonian: Hamiltonian,
+			hamiltonian: TimeDependentOperator,
 			channels: [PreparedChannel],
 			dimension: Int
 		) {
@@ -67,7 +65,8 @@ extension MCWF.CPUEngine {
 				"The MCWF guide state must have a positive finite norm"
 			)
 
-			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
+            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
+            hamiltonian.insert(t: t, into: &hamiltonianBuffer)
 			hamiltonianBuffer.dotBLAS(
 				y.guide,
 				multiplied: -.i,

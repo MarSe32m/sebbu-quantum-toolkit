@@ -4,15 +4,15 @@
 import Numerics
 import SebbuScience
 
-public struct PureStateProblem<Hamiltonian: HamiltonianFunction>: Sendable {
+public struct PureStateProblem: Sendable {
 	public let initialState: Vector<Complex<Double>>
-	public let system: QuantumSystem<Hamiltonian>
+	public let system: QuantumSystem
 	public let markovianChannels: [MarkovianChannel]
 
 	@inlinable
 	public init(
 		initialState: Vector<Complex<Double>>,
-		system: QuantumSystem<Hamiltonian>,
+		system: QuantumSystem,
 		markovianChannels: [MarkovianChannel] = []
 	) {
 		precondition(
@@ -27,7 +27,7 @@ public struct PureStateProblem<Hamiltonian: HamiltonianFunction>: Sendable {
     @inlinable
     public init(
         initialState: borrowing UniqueVector<Complex<Double>>,
-        system: QuantumSystem<Hamiltonian>,
+        system: QuantumSystem,
         markovianChannels: [MarkovianChannel] = []
     ) {
         precondition(
@@ -40,15 +40,15 @@ public struct PureStateProblem<Hamiltonian: HamiltonianFunction>: Sendable {
     }
 }
 
-public struct DensityMatrixProblem<Hamiltonian: HamiltonianFunction>: Sendable {
+public struct DensityMatrixProblem: Sendable {
 	public let initialState: Matrix<Complex<Double>>
-	public let system: QuantumSystem<Hamiltonian>
+	public let system: QuantumSystem
 	public let markovianChannels: [MarkovianChannel]
 
 	@inlinable
 	public init(
 		initialState: Matrix<Complex<Double>>,
-		system: QuantumSystem<Hamiltonian>,
+		system: QuantumSystem,
 		markovianChannels: [MarkovianChannel] = []
 	) {
 		precondition(
@@ -65,7 +65,7 @@ public struct DensityMatrixProblem<Hamiltonian: HamiltonianFunction>: Sendable {
     @inlinable
     public init(
         initialState: borrowing UniqueMatrix<Complex<Double>>,
-        system: QuantumSystem<Hamiltonian>,
+        system: QuantumSystem,
         markovianChannels: [MarkovianChannel] = []
     ) {
         precondition(
@@ -80,7 +80,7 @@ public struct DensityMatrixProblem<Hamiltonian: HamiltonianFunction>: Sendable {
     }
     
     @inlinable
-    public init(_ pureStateProblem: borrowing PureStateProblem<Hamiltonian>) {
+    public init(_ pureStateProblem: borrowing PureStateProblem) {
         let initialState = pureStateProblem.initialState.outer(pureStateProblem.initialState.conjugate)
         self.init(initialState: initialState, system: pureStateProblem.system, markovianChannels: pureStateProblem.markovianChannels)
     }

@@ -468,7 +468,7 @@ private let mcwfAlgorithms: [MCWF.JumpAlgorithm] = [
 	.discreteTime,
 ]
 
-private var mcwfZeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {
+private var mcwfZeroTwoLevelSystem: QuantumSystem {
 	QuantumSystem(
 		Matrix<Complex<Double>>(
 			elements: [.zero, .zero, .zero, .zero],
@@ -481,7 +481,7 @@ private var mcwfZeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {
 private func mcwfProblem(
 	initialState: [Complex<Double>] = [.one, .zero],
 	markovianChannels: [MarkovianChannel]
-) -> PureStateProblem<ConstantHamiltonian> {
+) -> PureStateProblem {
 	PureStateProblem(
 		initialState: Vector(initialState),
 		system: mcwfZeroTwoLevelSystem,
@@ -522,7 +522,7 @@ private func mcwfPropagationOptions(
 }
 
 private func finalMCWFState(
-	problem: PureStateProblem<ConstantHamiltonian>,
+	problem: PureStateProblem,
 	algorithm: MCWF.JumpAlgorithm,
 	seed: UInt64,
 	trajectoryID: UInt64

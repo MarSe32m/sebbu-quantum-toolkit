@@ -8,14 +8,14 @@ import Synchronization
 
 extension MCWF.CPUEngine: MCWF.MultiTimeOrderedCorrelationImplementation {
 	@discardableResult
-	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: MCWF.Configuration,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
 		defer { progress?.finish() }
 		let propagation = propagation.withoutProgressReporting
@@ -124,14 +124,14 @@ extension MCWF.CPUEngine: MCWF.MultiTimeOrderedCorrelationImplementation {
 
 extension MCWF {
 	@discardableResult
-	public static func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: MCWF.Configuration = .init(),
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,

@@ -14,12 +14,12 @@ public extension GKSL {
 
 extension GKSL.CPUEngine: GKSL.Implementation {
     @inlinable
-    public func solve<Hamiltonian>(
-        problem: borrowing DensityMatrixProblem<Hamiltonian>,
+    public func solve(
+        problem: DensityMatrixProblem,
         configuration: GKSL.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, borrowing UniqueMatrix<Complex<Double>>) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let progress = propagation.progress.continuous(in: propagation.timeSpan)
         defer { progress?.finish() }
 
@@ -100,12 +100,12 @@ extension GKSL {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solve<Hamiltonian>(
-        problem: borrowing DensityMatrixProblem<Hamiltonian>,
+    public static func solve(
+        problem: borrowing DensityMatrixProblem,
         configuration: Configuration = .init(),
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (Double, borrowing UniqueMatrix<Complex<Double>>) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let implementation = CPUEngine()
         return try implementation.solve(
             problem: problem, configuration: configuration, propagation: propagation,
@@ -115,8 +115,8 @@ extension GKSL {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solve<Hamiltonian: HamiltonianFunction>(
-        problem: borrowing PureStateProblem<Hamiltonian>,
+    public static func solve(
+        problem: borrowing PureStateProblem,
         configuration: GKSL.Configuration = .init(),
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (

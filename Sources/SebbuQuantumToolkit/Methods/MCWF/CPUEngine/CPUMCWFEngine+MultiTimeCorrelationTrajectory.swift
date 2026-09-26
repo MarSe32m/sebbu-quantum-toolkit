@@ -5,15 +5,15 @@ import Numerics
 import SebbuScience
 
 extension MCWF.CPUEngine {
-	internal func solveMultiTimeCorrelationTrajectory<Hamiltonian, RNG>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+	internal func solveMultiTimeCorrelationTrajectory<RNG>(
+		problem: borrowing PureStateProblem,
 		configuration: MCWF.Configuration,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		rng: inout RNG,
 		observing observer: (Double, Complex<Double>) -> Void
 	) throws -> PropagationRunSummary
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let start = propagation.timeSpan.start
 		let end = propagation.timeSpan.end
 		let firstTime = request.insertions[0].time

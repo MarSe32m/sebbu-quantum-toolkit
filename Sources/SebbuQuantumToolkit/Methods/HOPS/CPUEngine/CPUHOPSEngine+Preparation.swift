@@ -70,8 +70,8 @@ extension HOPS.CPUEngine {
 		let noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator
 
 		@inlinable
-		init<Hamiltonian>(
-			problem: borrowing PureStateProblem<Hamiltonian>,
+		init(
+			problem: borrowing PureStateProblem,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegrationOptions>
 		) throws {
@@ -179,20 +179,28 @@ extension HOPS.CPUEngine {
 		) throws {
 			switch source {
 			case .constant(let op):
-				guard
-					op.matrix.rows == dimension
-						&& op.matrix.columns == dimension
-				else {
-					throw SolverError.operatorDimensionMismatch
-				}
+                switch op.storage {
+                    case .dense(let matrix):
+                        guard matrix.rows == dimension && matrix.columns == dimension else {
+                            throw SolverError.operatorDimensionMismatch
+                        }
+                    case .sparse(let matrix):
+                        guard matrix.rows == dimension && matrix.columns == dimension else {
+                            throw SolverError.operatorDimensionMismatch
+                        }
+                }
 			case .linearCombination(let expansion):
 				for op in expansion.operators {
-					guard
-						op.matrix.rows == dimension
-							&& op.matrix.columns == dimension
-					else {
-						throw SolverError.operatorDimensionMismatch
-					}
+                    switch op.storage {
+                        case .dense(let matrix):
+                            guard matrix.rows == dimension && matrix.columns == dimension else {
+                                throw SolverError.operatorDimensionMismatch
+                            }
+                        case .sparse(let matrix):
+                            guard matrix.rows == dimension && matrix.columns == dimension else {
+                                throw SolverError.operatorDimensionMismatch
+                            }
+                    }
 				}
 			case .generatedDense:
 				break
@@ -304,18 +312,27 @@ extension HOPS.CPUEngine {
 		) throws {
 			switch source {
 			case .constant(let op):
-				guard op.matrix.rows == dimension && op.matrix.columns == dimension
-				else {
-					throw SolverError.operatorDimensionMismatch
-				}
+                switch op.storage {
+                    case .dense(let matrix):
+                        guard matrix.rows == dimension && matrix.columns == dimension else {
+                            throw SolverError.operatorDimensionMismatch
+                        }
+                    case .sparse(_):
+                        preconditionFailure("TODO: Handle sparse operators")
+                }
 			case .linearCombination(let expansion):
 				for op in expansion.operators {
-					guard
-						op.matrix.rows == dimension
-							&& op.matrix.columns == dimension
-					else {
-						throw SolverError.operatorDimensionMismatch
-					}
+                    switch op.storage {
+                        case .dense(let matrix):
+                            guard
+                                matrix.rows == dimension
+                                    && matrix.columns == dimension
+                                    else {
+                                throw SolverError.operatorDimensionMismatch
+                            }
+                        case .sparse(_):
+                            preconditionFailure("TODO: Handle sparse operators")
+                    }
 				}
 			case .generatedDense:
 				break

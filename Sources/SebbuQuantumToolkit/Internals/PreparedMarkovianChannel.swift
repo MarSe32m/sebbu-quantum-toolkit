@@ -59,14 +59,21 @@ internal final class _PreparedConstantMarkovianChannel: Sendable {
 	) {
 		switch channel.collapseOperator {
 		case .constant(let constantOperator):
-			Self.validate(
-				constantOperator.matrix,
-				dimension: dimension
-			)
-			self.init(
-				collapseOperator: UniqueMatrix(copying: constantOperator.matrix),
-				rate: channel.rate
-			)
+                switch constantOperator.storage {
+                    case .dense(let matrix):
+                        Self.validate(
+                            matrix,
+                            dimension: dimension
+                        )
+                        self.init(
+                            collapseOperator: UniqueMatrix(copying: matrix),
+                            rate: channel.rate
+                        )
+                    case .sparse(let cSRMatrix):
+                        Self.validate(cSRMatrix, dimension: dimension)
+                        fatalError("TODO: Sparse matrices isn't supported yet")
+                }
+			
 
 		case .linearCombination(let expansion):
 			guard expansion.isConstant else { return nil }
@@ -76,17 +83,22 @@ internal final class _PreparedConstantMarkovianChannel: Sendable {
 				columns: dimension
 			)
 			for index in expansion.operators.indices {
-				let matrix = expansion.operators[index].matrix
-				Self.validate(matrix, dimension: dimension)
-				guard
-					case .constant(let coefficient) = expansion.coefficients[
-						index]
-				else {
-					preconditionFailure(
-						"A constant operator expansion contains a generated coefficient"
-					)
-				}
-				collapseOperator.add(matrix, multiplied: coefficient)
+                switch expansion.operators[index].storage {
+                    case .dense(let matrix):
+                        Self.validate(matrix, dimension: dimension)
+                        guard
+                            case .constant(let coefficient) = expansion.coefficients[
+                                index]
+                                else {
+                            preconditionFailure(
+                                "A constant operator expansion contains a generated coefficient"
+                            )
+                        }
+                        collapseOperator.add(matrix, multiplied: coefficient)
+                    case .sparse(let cSRMatrix):
+                        Self.validate(cSRMatrix, dimension: dimension)
+                        fatalError("TODO: Sparse matrices isn't supported yet")
+                }
 			}
 
 			self.init(
@@ -109,6 +121,16 @@ internal final class _PreparedConstantMarkovianChannel: Sendable {
 			"Collapse-operator dimensions do not match the quantum system"
 		)
 	}
+    
+    @inlinable
+    @inline(always)
+    internal static func validate(
+        _ matrix: CSRMatrix<Complex<Double>>,
+        dimension: Int
+    ) {
+        precondition(matrix.rows == dimension && matrix.columns == dimension,
+                     "Collapse-operator dimensions do not match the quantum system")
+    }
 }
 
 /// A channel whose collapse operator must be materialized at every RHS time.
@@ -123,10 +145,20 @@ internal struct _PreparedDynamicMarkovianChannel: Sendable {
 	internal init(_ channel: MarkovianChannel, dimension: Int) {
 		switch channel.collapseOperator {
 		case .constant(let constantOperator):
-			Self.validate(constantOperator.matrix, dimension: dimension)
+                switch constantOperator.storage {
+                    case .dense(let matrix):
+                        Self.validate(matrix, dimension: dimension)
+                    case .sparse(let cSRMatrix):
+                        Self.validate(cSRMatrix, dimension: dimension)
+                }
 		case .linearCombination(let expansion):
 			for operatorComponent in expansion.operators {
-				Self.validate(operatorComponent.matrix, dimension: dimension)
+                switch operatorComponent.storage {
+                    case .dense(let matrix):
+                        Self.validate(matrix, dimension: dimension)
+                    case .sparse(let cSRMatrix):
+                        Self.validate(cSRMatrix, dimension: dimension)
+                }
 			}
 		case .generatedDense:
 			break
@@ -156,4 +188,14 @@ internal struct _PreparedDynamicMarkovianChannel: Sendable {
 			"Collapse-operator dimensions do not match the quantum system"
 		)
 	}
+    
+    @inlinable
+    @inline(always)
+    internal static func validate(
+        _ matrix: CSRMatrix<Complex<Double>>,
+        dimension: Int
+    ) {
+        precondition(matrix.rows == dimension && matrix.columns == dimension,
+        "Collapse-operator dimensions do not match the quantum system")
+    }
 }

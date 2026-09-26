@@ -21,8 +21,9 @@ extension HEOM {
 extension HEOM.CPUEngine: HEOM.Implementation, HEOM.HierarchyProvidingImplementation {
     @inlinable
     @discardableResult
-    public func solve<Hamiltonian: HamiltonianFunction>(
-        problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
+    public func solve(
+        problem: DensityMatrixProblem,
+        configuration: HEOM.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, borrowing UniqueMatrix<Complex<Double>>) -> PropagationControl
     ) throws -> PropagationRunSummary {
@@ -37,8 +38,9 @@ extension HEOM.CPUEngine: HEOM.Implementation, HEOM.HierarchyProvidingImplementa
 
     @inlinable
     @discardableResult
-    public func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
-        problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
+    public func solveWithHierarchy(
+        problem: DensityMatrixProblem,
+        configuration: HEOM.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, borrowing HEOM.HierarchyStateView) -> PropagationControl
     ) throws -> PropagationRunSummary {
@@ -54,8 +56,9 @@ extension HEOM.CPUEngine: HEOM.TwoTimeCorrelationImplementation, HEOM
 {
     @inlinable
     @discardableResult
-    public func solveTwoTimeCorrelation<Hamiltonian: HamiltonianFunction>(
-        problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
+    public func solveTwoTimeCorrelation(
+        problem: DensityMatrixProblem,
+        configuration: HEOM.Configuration,
         request: TwoTimeCorrelationRequest, propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
     ) throws -> PropagationRunSummary {
@@ -70,8 +73,9 @@ extension HEOM.CPUEngine: HEOM.TwoTimeCorrelationImplementation, HEOM
 
     @inlinable
     @discardableResult
-    public func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
-        problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
+    public func solveMultiTimeOrderedCorrelation(
+        problem: DensityMatrixProblem,
+        configuration: HEOM.Configuration,
         request: MultiTimeOrderedCorrelationRequest, propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
     ) throws -> PropagationRunSummary {

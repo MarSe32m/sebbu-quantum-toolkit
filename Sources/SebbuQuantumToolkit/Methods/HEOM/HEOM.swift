@@ -93,8 +93,8 @@ extension HEOM {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
 
         @discardableResult
-        func solve<Hamiltonian: HamiltonianFunction>(
-            problem: DensityMatrixProblem<Hamiltonian>,
+        func solve(
+            problem: DensityMatrixProblem,
             configuration: HEOM.Configuration,
             propagation: PropagationOptions<IntegratorConfiguration>,
             observing observer: (
@@ -108,8 +108,8 @@ extension HEOM {
 extension HEOM.Implementation {
     @inlinable
     @discardableResult
-    public func solve<Hamiltonian: HamiltonianFunction>(
-        problem: PureStateProblem<Hamiltonian>,
+    public func solve(
+        problem: PureStateProblem,
         configuration: HEOM.Configuration,
         propagation: PropagationOptions<IntegratorConfiguration>,
         observing observer: (
@@ -126,8 +126,8 @@ extension HEOM.Implementation {
 extension HEOM {
     public protocol HierarchyProvidingImplementation: Implementation {
         @discardableResult
-        func solveWithHierarchy<Hamiltonian: HamiltonianFunction>(
-            problem: DensityMatrixProblem<Hamiltonian>,
+        func solveWithHierarchy(
+            problem: DensityMatrixProblem,
             configuration: HEOM.Configuration,
             propagation: PropagationOptions<IntegratorConfiguration>,
             observing observer: (
@@ -141,10 +141,8 @@ extension HEOM {
     /// In centered mode, a separate physical guide determines all shifts.
     public protocol TwoTimeCorrelationImplementation: Implementation {
         @discardableResult
-        func solveTwoTimeCorrelation<
-            Hamiltonian: HamiltonianFunction
-        >(
-            problem: DensityMatrixProblem<Hamiltonian>,
+        func solveTwoTimeCorrelation(
+            problem: DensityMatrixProblem,
             configuration: HEOM.Configuration,
             request: TwoTimeCorrelationRequest,
             propagation: PropagationOptions<IntegratorConfiguration>,
@@ -157,8 +155,8 @@ extension HEOM {
 
     public protocol MultiTimeOrderedCorrelationImplementation: Implementation {
         @discardableResult
-        func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
-            problem: DensityMatrixProblem<Hamiltonian>,
+        func solveMultiTimeOrderedCorrelation(
+            problem: DensityMatrixProblem,
             configuration: HEOM.Configuration,
             request: MultiTimeOrderedCorrelationRequest,
             propagation: PropagationOptions<IntegratorConfiguration>,

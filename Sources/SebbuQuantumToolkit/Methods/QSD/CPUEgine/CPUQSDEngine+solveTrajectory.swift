@@ -7,8 +7,8 @@ import SebbuScience
 extension QSD.CPUEngine {
     @inlinable
     @discardableResult
-    public func solveTrajectory<Hamiltonian>(
-        problem: PureStateProblem<Hamiltonian>,
+    public func solveTrajectory(
+        problem: PureStateProblem,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         seed: UInt64,
@@ -17,7 +17,7 @@ extension QSD.CPUEngine {
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> TrajectoryRunSummary {
         try solveTrajectory(
             problem: problem, configuration: configuration, propagation: propagation,
             seed: seed, trajectoryID: trajectoryID,
@@ -27,8 +27,8 @@ extension QSD.CPUEngine {
 
     @inlinable
     @discardableResult
-    public func solveTrajectory<Hamiltonian>(
-        problem: PureStateProblem<Hamiltonian>,
+    public func solveTrajectory(
+        problem: PureStateProblem,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         seed: UInt64,
@@ -38,7 +38,7 @@ extension QSD.CPUEngine {
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> TrajectoryRunSummary {
         precondition(
             trajectoryID < UInt64.max,
             "UInt64.max cannot be represented in the half-open trajectory-ID range"
@@ -64,8 +64,8 @@ extension QSD.CPUEngine {
     
     @inlinable
     @discardableResult
-    public func solveTrajectory<Hamiltonian, RNG>(
-        problem: PureStateProblem<Hamiltonian>,
+    public func solveTrajectory<RNG>(
+        problem: PureStateProblem,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         rng: inout RNG,
@@ -73,7 +73,7 @@ extension QSD.CPUEngine {
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+    ) throws -> PropagationRunSummary where RNG: RandomNumberGenerator {
         return try _solveTrajectory(
             problem: problem,
             configuration: configuration,
@@ -85,8 +85,8 @@ extension QSD.CPUEngine {
     }
     
     @inlinable
-    internal func _solveTrajectory<Hamiltonian>(
-        problem: borrowing PureStateProblem<Hamiltonian>,
+    internal func _solveTrajectory(
+        problem: borrowing PureStateProblem,
         configuration: QSD.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         seed: UInt64,
@@ -96,7 +96,7 @@ extension QSD.CPUEngine {
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let progress = propagation.progress.incrementing(total: 1)
         defer { progress?.finish() }
 
@@ -231,8 +231,8 @@ extension QSD {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solveTrajectory<Hamiltonian>(
-        problem: PureStateProblem<Hamiltonian>,
+    public static func solveTrajectory(
+        problem: PureStateProblem,
         configuration: Configuration,
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         seed: UInt64,
@@ -242,7 +242,7 @@ extension QSD {
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> TrajectoryRunSummary {
         let implementation = CPUEngine()
         return try implementation.solveTrajectory(
             problem: problem,
@@ -258,8 +258,8 @@ extension QSD {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solveTrajectory<Hamiltonian, RNG>(
-        problem: PureStateProblem<Hamiltonian>,
+    public static func solveTrajectory<RNG>(
+        problem: PureStateProblem,
         configuration: Configuration,
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         rng: inout RNG,
@@ -267,7 +267,7 @@ extension QSD {
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+    ) throws -> PropagationRunSummary where RNG: RandomNumberGenerator {
         let implementation = CPUEngine()
         return try implementation.solveTrajectory(
             problem: problem,
@@ -281,15 +281,15 @@ extension QSD {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solveTrajectory<Hamiltonian>(
-        problem: PureStateProblem<Hamiltonian>,
+    public static func solveTrajectory(
+        problem: PureStateProblem,
         configuration: Configuration,
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (
             Double,
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let implementation = CPUEngine()
         var rng = SystemRandomNumberGenerator()
         return try implementation.solveTrajectory(

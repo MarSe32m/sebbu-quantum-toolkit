@@ -24,13 +24,13 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveWithHierarchy<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+	public static func solveWithHierarchy<RNG>(
+		problem: PureStateProblem, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, rng: inout RNG,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let engine = CPUEngine()
 		return try engine.solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -40,13 +40,15 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveWithHierarchy<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
+	public static func solveWithHierarchy(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		let engine = CPUEngine()
 		return try engine.solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -55,14 +57,16 @@ extension HOPS {
 	}
 
 	@discardableResult
-	public static func solveWithHierarchy<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, rng: inout RNG,
+	public static func solveWithHierarchy<RNG>(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        rng: inout RNG,
 		observingWithNoise observer: (
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let engine = CPUEngine()
 		return try engine.solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -70,15 +74,17 @@ extension HOPS {
 	}
 
 	@discardableResult
-	public static func solveWithHierarchy<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
+	public static func solveWithHierarchy(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		let engine = CPUEngine()
 		return try engine.solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -89,14 +95,16 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveTrajectory<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, rng: inout RNG,
+	public static func solveTrajectory<RNG>(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        rng: inout RNG,
 		observing observer: (
 			Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>
 		) -> PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let engine = CPUEngine()
 		return try engine.solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -106,15 +114,17 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveTrajectory<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
+	public static func solveTrajectory(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (
 			Double, borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>
 		) -> PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		let engine = CPUEngine()
 		return try engine.solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -123,14 +133,16 @@ extension HOPS {
 	}
 
 	@discardableResult
-	public static func solveTrajectory<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, rng: inout RNG,
+	public static func solveTrajectory<RNG>(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        rng: inout RNG,
 		observingWithNoise observer: (
 			Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>
 		) -> PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let engine = CPUEngine()
 		return try engine.solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -138,15 +150,17 @@ extension HOPS {
 	}
 
 	@discardableResult
-	public static func solveTrajectory<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>, seed: UInt64,
+	public static func solveTrajectory(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (
 			Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>
 		) -> PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		let engine = CPUEngine()
 		return try engine.solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -157,14 +171,15 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveEnsemble<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+	public static func solveEnsemble(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach: (
 			Double, borrowing SebbuScience.UniqueMatrix<ComplexModule.Complex<Double>>
 		) -> Void
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		let engine = CPUEngine()
 		return try engine.solveEnsemble(
 			problem: problem, configuration: configuration, propagation: propagation,
@@ -174,8 +189,8 @@ extension HOPS {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveTrajectories<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+	public static func solveTrajectories(
+		problem: PureStateProblem, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
 		_ forEach:
@@ -183,7 +198,7 @@ extension HOPS {
 				UInt64, Double,
 				borrowing SebbuScience.UniqueVector<ComplexModule.Complex<Double>>
 			) -> Void
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		let engine = CPUEngine()
 		return try engine.solveTrajectories(
 			problem: problem, configuration: configuration, propagation: propagation,

@@ -6,14 +6,14 @@ import SebbuScience
 
 extension HOPS.CPUEngine: HOPS.TwoTimeCorrelationImplementation {
 	@discardableResult
-	public func solveTwoTimeCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveTwoTimeCorrelation(
+		problem: PureStateProblem,
 		configuration: HOPS.Configuration,
 		request: TwoTimeCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		try _validateTwoTimeCorrelationRequest(
 			request,
 			timeSpan: propagation.timeSpan,
@@ -36,14 +36,14 @@ extension HOPS.CPUEngine: HOPS.TwoTimeCorrelationImplementation {
 
 extension HOPS {
 	@discardableResult
-	public static func solveTwoTimeCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveTwoTimeCorrelation(
+		problem: PureStateProblem,
 		configuration: HOPS.Configuration,
 		request: TwoTimeCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		try CPUEngine().solveTwoTimeCorrelation(
 			problem: problem,
 			configuration: configuration,

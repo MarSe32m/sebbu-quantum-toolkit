@@ -5,13 +5,13 @@ import Numerics
 import SebbuScience
 
 extension GKSL.CPUEngine: GKSL.TwoTimeCorrelationImplementation {
-    public func solveTwoTimeCorrelation<Hamiltonian>(
-        problem: borrowing DensityMatrixProblem<Hamiltonian>,
+    public func solveTwoTimeCorrelation(
+        problem: DensityMatrixProblem,
         configuration: GKSL.Configuration = .init(),
         request: TwoTimeCorrelationRequest,
         propagation: PropagationOptions<IntegrationOptions>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let progress = propagation.progress.continuous(in: propagation.timeSpan)
         defer { progress?.finish() }
 
@@ -261,13 +261,13 @@ extension GKSL {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solveTwoTimeCorrelation<Hamiltonian>(
-        problem: borrowing DensityMatrixProblem<Hamiltonian>,
+    public static func solveTwoTimeCorrelation(
+        problem: borrowing DensityMatrixProblem,
         configuration: GKSL.Configuration = .init(),
         request: TwoTimeCorrelationRequest,
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let implementation = CPUEngine()
         return try implementation.solveTwoTimeCorrelation(
             problem: problem,
@@ -281,13 +281,13 @@ extension GKSL {
     @inlinable
     @inline(always)
     @discardableResult
-    public static func solveTwoTimeCorrelation<Hamiltonian>(
-        problem: borrowing PureStateProblem<Hamiltonian>,
+    public static func solveTwoTimeCorrelation(
+        problem: borrowing PureStateProblem,
         configuration: GKSL.Configuration = .init(),
         request: TwoTimeCorrelationRequest,
         propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
         observing observer: (Double, Complex<Double>) -> PropagationControl
-    ) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+    ) throws -> PropagationRunSummary {
         let implementation = CPUEngine()
         return try implementation.solveTwoTimeCorrelation(
             problem: problem,

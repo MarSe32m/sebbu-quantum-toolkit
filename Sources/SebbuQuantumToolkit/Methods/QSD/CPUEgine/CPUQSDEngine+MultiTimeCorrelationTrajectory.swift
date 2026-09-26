@@ -6,8 +6,8 @@ import SebbuBLAS
 import SebbuScience
 
 extension QSD.CPUEngine {
-	internal func solveMultiTimeCorrelationTrajectory<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+	internal func solveMultiTimeCorrelationTrajectory(
+		problem: borrowing PureStateProblem,
 		configuration: QSD.Configuration,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
@@ -15,7 +15,7 @@ extension QSD.CPUEngine {
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, Complex<Double>) -> Void
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		let start = propagation.timeSpan.start
 		let end = propagation.timeSpan.end
 		let dimension = problem.system.dimension

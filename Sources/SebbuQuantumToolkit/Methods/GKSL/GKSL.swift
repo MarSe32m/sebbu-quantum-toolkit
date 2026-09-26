@@ -17,8 +17,8 @@ extension GKSL {
 		associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         @discardableResult
-        func solve<Hamiltonian: HamiltonianFunction>(
-            problem: borrowing DensityMatrixProblem<Hamiltonian>,
+        func solve(
+            problem: DensityMatrixProblem,
             configuration: GKSL.Configuration,
             propagation: PropagationOptions<IntegratorConfiguration>,
             observing observer: (
@@ -32,8 +32,8 @@ extension GKSL {
 extension GKSL.Implementation {
     @inlinable
     @discardableResult
-    public func solve<Hamiltonian: HamiltonianFunction>(
-        problem: borrowing PureStateProblem<Hamiltonian>,
+    public func solve(
+        problem: PureStateProblem,
         configuration: GKSL.Configuration = .init(),
         propagation: PropagationOptions<IntegratorConfiguration>,
         observing observer: (
@@ -58,8 +58,8 @@ extension GKSL {
         ///
         /// Scheduled output times before `request.insertionTime` are skipped.
         @discardableResult
-        func solveTwoTimeCorrelation<Hamiltonian: HamiltonianFunction>(
-            problem: borrowing DensityMatrixProblem<Hamiltonian>,
+        func solveTwoTimeCorrelation(
+            problem: DensityMatrixProblem,
             configuration: GKSL.Configuration,
             request: TwoTimeCorrelationRequest,
             propagation: PropagationOptions<IntegratorConfiguration>,
@@ -74,10 +74,8 @@ extension GKSL {
 extension GKSL.TwoTimeCorrelationImplementation {
     @inlinable
     @discardableResult
-    public func solveTwoTimeCorrelation<
-        Hamiltonian: HamiltonianFunction
-    >(
-        problem: borrowing PureStateProblem<Hamiltonian>,
+    public func solveTwoTimeCorrelation(
+        problem: PureStateProblem,
         configuration: GKSL.Configuration = .init(),
         request: TwoTimeCorrelationRequest,
         propagation: PropagationOptions<IntegratorConfiguration>,
@@ -100,8 +98,8 @@ extension GKSL.TwoTimeCorrelationImplementation {
 extension GKSL {
 	public protocol MultiTimeOrderedCorrelationImplementation: Implementation {
 		@discardableResult
-		func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
-			problem: borrowing DensityMatrixProblem<Hamiltonian>,
+		func solveMultiTimeOrderedCorrelation(
+			problem: borrowing DensityMatrixProblem,
 			configuration: GKSL.Configuration,
 			request: MultiTimeOrderedCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,
@@ -112,8 +110,8 @@ extension GKSL {
 
 extension GKSL.MultiTimeOrderedCorrelationImplementation {
 	@discardableResult
-	public func solveMultiTimeOrderedCorrelation<Hamiltonian: HamiltonianFunction>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+	public func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: GKSL.Configuration = .init(),
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegratorConfiguration>,

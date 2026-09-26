@@ -7,13 +7,15 @@ import SebbuScience
 extension HOPS.CPUEngine {
     @inlinable
 	@discardableResult
-	public func solveTrajectory<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	public func solveTrajectory(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		try solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed, trajectoryID: trajectoryID,
@@ -23,14 +25,16 @@ extension HOPS.CPUEngine {
 
 	@inlinable
 	@discardableResult
-	public func solveTrajectory<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	public func solveTrajectory(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -60,13 +64,15 @@ extension HOPS.CPUEngine {
 	/// purpose-separated Philox streams. UInt64.max maps to the valid ID zero.
 	@inlinable
     @discardableResult
-	public func solveTrajectory<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
+	public func solveTrajectory<RNG>(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        rng: inout RNG,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		try solveTrajectory(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: rng.next(), trajectoryID: rng.next() % UInt64.max, observing: observer
@@ -77,14 +83,16 @@ extension HOPS.CPUEngine {
 	/// evaluated at each output time. The observation values are borrowed and no
 	/// samples are retained after the callback returns.
 	@discardableResult
-	public func solveTrajectory<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	public func solveTrajectory(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>) ->
 			PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -119,13 +127,13 @@ extension HOPS.CPUEngine {
 
 	/// RNG convenience matching the state-only trajectory observer.
 	@discardableResult
-	public func solveTrajectory<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+	public func solveTrajectory<RNG>(
+		problem: PureStateProblem, configuration: HOPS.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
 		observingWithNoise observer: (Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let seed = rng.next()
 		let trajectoryID = rng.next() % UInt64.max
 		return try solveTrajectory(
@@ -134,14 +142,16 @@ extension HOPS.CPUEngine {
 	}
 
     @inlinable
-	internal func _solveTrajectory<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>, preparation: Preparation,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	internal func _solveTrajectory(
+		problem: borrowing PureStateProblem,
+        preparation: Preparation,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, borrowing UniqueVector<Complex<Double>>) ->
 			PropagationControl
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		var root = UniqueVector<Complex<Double>>.zero(preparation.dimension)
 		return try propagate(
 			problem: problem, preparation: preparation, propagation: propagation,
@@ -155,12 +165,14 @@ extension HOPS.CPUEngine {
 
     @inlinable
 	@discardableResult
-	public func solveWithHierarchy<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	public func solveWithHierarchy(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		try solveWithHierarchy(
 			problem: problem, configuration: configuration, propagation: propagation,
 			seed: seed, trajectoryID: trajectoryID,
@@ -170,13 +182,15 @@ extension HOPS.CPUEngine {
 
 	@inlinable
 	@discardableResult
-	public func solveWithHierarchy<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	public func solveWithHierarchy(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) -> Void
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -209,13 +223,15 @@ extension HOPS.CPUEngine {
 
     @inlinable
 	@discardableResult
-	public func solveWithHierarchy<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
+	public func solveWithHierarchy<RNG>(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        rng: inout RNG,
 		observing observer: (Double, borrowing HOPS.HierarchyStateView) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let seed = rng.next()
 		let id = rng.next() % UInt64.max
 		let preparation = try Preparation(
@@ -242,15 +258,17 @@ extension HOPS.CPUEngine {
 	/// Solves one HOPS trajectory while exposing both the complete hierarchy and
 	/// the exact colored bath noise evaluated at each output time.
 	@discardableResult
-	public func solveWithHierarchy<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	public func solveWithHierarchy(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observingWithNoise observer: (
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
-	) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.TrajectoryRunResult {
 		precondition(
 			trajectoryID < UInt64.max,
 			"The trajectory ID must fit in a half-open range.")
@@ -287,14 +305,16 @@ extension HOPS.CPUEngine {
 
 	/// RNG convenience matching the hierarchy-only observer.
 	@discardableResult
-	public func solveWithHierarchy<Hamiltonian, RNG>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, rng: inout RNG,
+	public func solveWithHierarchy<RNG>(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        rng: inout RNG,
 		observingWithNoise observer: (
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
 	) throws -> HOPS.TrajectoryRunResult
-	where Hamiltonian: HamiltonianFunction, RNG: RandomNumberGenerator {
+	where RNG: RandomNumberGenerator {
 		let seed = rng.next()
 		let trajectoryID = rng.next() % UInt64.max
 		return try solveWithHierarchy(
@@ -303,13 +323,15 @@ extension HOPS.CPUEngine {
 	}
 
     @inlinable
-	internal func propagate<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>, preparation: Preparation,
-		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
+	internal func propagate(
+		problem: borrowing PureStateProblem,
+        preparation: Preparation,
+		propagation: PropagationOptions<IntegrationOptions>,
+        seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling,
 		observing observer: (Double, borrowing State) -> PropagationControl
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		let progress = propagation.progress.incrementing(total: 1)
 		defer { progress?.finish() }
 

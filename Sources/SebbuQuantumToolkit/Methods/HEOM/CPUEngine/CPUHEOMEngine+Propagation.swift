@@ -8,8 +8,9 @@ extension HEOM.CPUEngine {
     /// One event-aware driver for ordinary propagation and correlations.
     /// Only insertion times constrain steps; output uses Verner dense output.
     @inlinable
-    internal func run<Hamiltonian: HamiltonianFunction>(
-        problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
+    internal func run(
+        problem: DensityMatrixProblem,
+        configuration: HEOM.Configuration,
         propagation: PropagationOptions<IntegrationOptions>,
         insertions: [TimedCorrelationInsertion] = [],
         observing observer: (Double, borrowing State, Int) throws -> PropagationControl

@@ -74,9 +74,9 @@ extension HEOM.CPUEngine {
     /// All buffers are allocated at construction. The Hamiltonian, bath and
     /// collapse operators are evaluated once per RK stage, shared by all ADOs.
     @usableFromInline
-    internal struct RightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable, ODERHSFunction {
+    internal struct RightHandSide: ~Copyable, ODERHSFunction {
         @usableFromInline
-        let hamiltonian: Hamiltonian
+        let hamiltonian: TimeDependentOperator
         @usableFromInline
         let hierarchy: HEOM.Hierarchy
         @usableFromInline
@@ -117,8 +117,10 @@ extension HEOM.CPUEngine {
 
         @inlinable
         init(
-            problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
-            failure: Failure, copies: Int = 1
+            problem: DensityMatrixProblem,
+            configuration: HEOM.Configuration,
+            failure: Failure,
+            copies: Int = 1
         ) throws {
             let d = problem.system.dimension
             precondition(d > 0, "The system dimension must be positive.")
@@ -190,7 +192,8 @@ extension HEOM.CPUEngine {
             let poles = coefficients.poles
             let pCount = poles.count
             let hamiltonian = self.hamiltonian
-            hamiltonian.hamiltonian(t: t, into: &h)
+            //TODO: Take advantage of potentially sparse Hamiltonian etc.
+            hamiltonian.insert(t: t, into: &h)
             guard h.rows == d && h.columns == d else {
                 failure.error = .operatorDimensionMismatch
                 dy.zero()

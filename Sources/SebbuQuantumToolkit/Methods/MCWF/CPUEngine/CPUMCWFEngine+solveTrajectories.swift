@@ -9,8 +9,8 @@ import SebbuBLAS
 
 extension MCWF.CPUEngine {
 	@discardableResult
-	public func solveTrajectories<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveTrajectories(
+		problem: PureStateProblem,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -20,7 +20,7 @@ extension MCWF.CPUEngine {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
         let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
         defer { progress?.finish() }
         let propagation = propagation.withoutProgressReporting
@@ -90,8 +90,8 @@ extension MCWF {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveTrajectories<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveTrajectories(
+		problem: PureStateProblem,
 		configuration: MCWF.Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
@@ -101,7 +101,7 @@ extension MCWF {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		let implementation = CPUEngine()
 		return try implementation.solveTrajectories(
 			problem: problem,

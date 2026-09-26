@@ -6,13 +6,11 @@ import SebbuScience
 
 extension QSD.CPUEngine {
     @usableFromInline
-	internal struct CorrelationRightHandSide<
-		Hamiltonian: HamiltonianFunction
-	>: ~Copyable, SDERHSFunction {
+	internal struct CorrelationRightHandSide: ~Copyable, SDERHSFunction {
 		@usableFromInline
         internal let equationType: QSD.EquationType
 		@usableFromInline
-        internal let hamiltonian: Hamiltonian
+        internal let hamiltonian: TimeDependentOperator
 		@usableFromInline
         internal let channels: [PreparedChannel]
 		@usableFromInline
@@ -29,7 +27,7 @@ extension QSD.CPUEngine {
 
         @inlinable
 		internal init(
-			_ problem: borrowing PureStateProblem<Hamiltonian>,
+			_ problem: borrowing PureStateProblem,
 			equationType: QSD.EquationType,
 			seed: UInt64,
 			trajectoryID: UInt64,
@@ -94,7 +92,8 @@ extension QSD.CPUEngine {
 			y: borrowing CorrelationState,
 			into dy: inout CorrelationState
 		) {
-			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
+            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
+            hamiltonian.insert(t: t, into: &hamiltonianBuffer)
 			hamiltonianBuffer.dot(
 				y.guide,
 				multiplied: -.i,

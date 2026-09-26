@@ -8,14 +8,14 @@ import Synchronization
 
 extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 	@discardableResult
-	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: HOPS.Configuration,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
 		defer { progress?.finish() }
 		let propagation = propagation.withoutProgressReporting
@@ -137,14 +137,14 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 
 extension HOPS {
 	@discardableResult
-	public static func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: HOPS.Configuration,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,

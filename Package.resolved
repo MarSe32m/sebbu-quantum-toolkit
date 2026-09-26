@@ -1,5 +1,5 @@
 {
-  "originHash" : "333321eb452ad4fb7ba3e2b7f69433cf39f65c3eb4a3e900c8b6d680e95c40a8",
+  "originHash" : "6c3977433f75f347e5f9f2c7dc653b4bc9e26c6ba76b6b2142ca07c760d66b12",
   "pins" : [
     {
       "identity" : "pythonkit",
@@ -87,8 +87,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MarSe32m/sebbu-science",
       "state" : {
-        "revision" : "c158f3ddc8fb3de44b39093fe6541327d77fb8b0",
-        "version" : "0.4.14"
+        "revision" : "435f865df73ea1d2edc19110280abfcfa554dad5",
+        "version" : "0.4.15"
       }
     },
     {
@@ -103,10 +103,10 @@
     {
       "identity" : "swift-collections",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-collections",
+      "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "a0cb0954ecb21e4e31b0070e6ed5674e8556685a",
-        "version" : "1.6.0"
+        "revision" : "a66de878e87ef5a3d5d390e0f6d9002aa5541a43",
+        "version" : "1.7.0"
       }
     },
     {

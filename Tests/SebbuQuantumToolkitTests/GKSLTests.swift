@@ -3,137 +3,140 @@ import SebbuQuantumToolkit
 import SebbuScience
 import Testing
 
-@Test("GKSL reproduces analytic amplitude damping")
-func gkslAmplitudeDamping() throws {
-	let decayRate = 0.4
-	let outputTimes = [0.0, 0.1, 0.5, 1.0, 2.0]
-	let problem = amplitudeDampingProblem(
-		rate: .constant(decayRate),
-		collapseOperator: loweringOperator
-	)
-
-	var results: [(time: Double, ground: Double, excited: Double, trace: Double)] = []
-	try GKSL.solve(
-		problem: problem,
-		propagation: propagationOptions(
-			end: outputTimes.last!,
-			output: .times(outputTimes)
-		)
-	) { time, densityMatrix in
-		results.append(
-			(
-				time,
-				densityMatrix[0, 0].real,
-				densityMatrix[1, 1].real,
-				densityMatrix[0, 0].real + densityMatrix[1, 1].real
-			)
-		)
-        return .proceed
-	}
-
-	#expect(results.count == outputTimes.count)
-	for result in results {
-		let expectedExcited = Double.exp(-decayRate * result.time)
-		#expect(abs(result.excited - expectedExcited) < 2e-8)
-		#expect(abs(result.ground - (1 - expectedExcited)) < 2e-8)
-		#expect(abs(result.trace - 1) < 2e-10)
-	}
-}
-
-@Test("Generated collapse operators use the dynamic GKSL path")
-func gkslGeneratedCollapseOperator() throws {
-	let decayRate = 0.25
-	let end = 1.5
-	let generatedOperator = TimeDependentOperator.generatedDense(
-		DynamicDenseOperator { _, output in
-			output[0, 0] = .zero
-			output[0, 1] = .one
-			output[1, 0] = .zero
-			output[1, 1] = .zero
-		}
-	)
-	let problem = amplitudeDampingProblem(
-		rate: .generated { _ in decayRate },
-		collapseOperator: generatedOperator
-	)
-
-	var callbackCount = 0
-	var finalExcitedPopulation = Double.nan
-	try GKSL.solve(
-		problem: problem,
-        propagation: propagationOptions(end: end, output: .final),
-    ) { time, densityMatrix in
-        callbackCount += 1
-        #expect(time == end)
-        finalExcitedPopulation = densityMatrix[1, 1].real
-        return .proceed
+@Suite("GKSL Tests")
+struct GKSLTests {
+    @Test("GKSL reproduces analytic amplitude damping")
+    func gkslAmplitudeDamping() throws {
+        let decayRate = 0.4
+        let outputTimes = [0.0, 0.1, 0.5, 1.0, 2.0]
+        let problem = amplitudeDampingProblem(
+            rate: .constant(decayRate),
+            collapseOperator: loweringOperator
+        )
+        
+        var results: [(time: Double, ground: Double, excited: Double, trace: Double)] = []
+        try GKSL.solve(
+            problem: problem,
+            propagation: propagationOptions(
+                end: outputTimes.last!,
+                output: .times(outputTimes)
+            )
+        ) { time, densityMatrix in
+            results.append(
+                (
+                    time,
+                    densityMatrix[0, 0].real,
+                    densityMatrix[1, 1].real,
+                    densityMatrix[0, 0].real + densityMatrix[1, 1].real
+                )
+            )
+            return .proceed
+        }
+        
+        #expect(results.count == outputTimes.count)
+        for result in results {
+            let expectedExcited = Double.exp(-decayRate * result.time)
+            #expect(abs(result.excited - expectedExcited) < 2e-8)
+            #expect(abs(result.ground - (1 - expectedExcited)) < 2e-8)
+            #expect(abs(result.trace - 1) < 2e-10)
+        }
     }
-
-	#expect(callbackCount == 1)
-	#expect(
-		abs(finalExcitedPopulation - .exp(-decayRate * end)) < 2e-8
-	)
+    
+    @Test("Generated collapse operators use the dynamic GKSL path")
+    func gkslGeneratedCollapseOperator() throws {
+        let decayRate = 0.25
+        let end = 1.5
+        let generatedOperator = TimeDependentOperator.generatedDense(
+            DynamicDenseOperator { _, output in
+                output[0, 0] = .zero
+                output[0, 1] = .one
+                output[1, 0] = .zero
+                output[1, 1] = .zero
+            }
+        )
+        let problem = amplitudeDampingProblem(
+            rate: .generated { _ in decayRate },
+            collapseOperator: generatedOperator
+        )
+        
+        var callbackCount = 0
+        var finalExcitedPopulation = Double.nan
+        try GKSL.solve(
+            problem: problem,
+            propagation: propagationOptions(end: end, output: .final),
+        ) { time, densityMatrix in
+            callbackCount += 1
+            #expect(time == end)
+            finalExcitedPopulation = densityMatrix[1, 1].real
+            return .proceed
+        }
+        
+        #expect(callbackCount == 1)
+        #expect(
+            abs(finalExcitedPopulation - .exp(-decayRate * end)) < 2e-8
+        )
+    }
+    
+    @Test("The pure-state GKSL overload constructs the initial projector")
+    func gkslPureStateOverload() throws {
+        let decayRate = 0.3
+        let end = 1.0
+        let system = zeroTwoLevelSystem
+        let problem = PureStateProblem(
+            initialState: Vector<Complex<Double>>([.zero, .one]),
+            system: system,
+            markovianChannels: [
+                MarkovianChannel(
+                    rate: .constant(decayRate),
+                    collapseOperator: loweringOperator
+                )
+            ]
+        )
+        
+        var finalExcitedPopulation = Double.nan
+        try GKSL.solve(
+            problem: problem,
+            propagation: propagationOptions(end: end, output: .final)
+        ) { _, densityMatrix in
+            finalExcitedPopulation = densityMatrix[1, 1].real
+            return .proceed
+        }
+        
+        #expect(
+            abs(finalExcitedPopulation - .exp(-decayRate * end)) < 2e-8
+        )
+    }
+    
+    @Test("Every accepted GKSL step is reported exactly once")
+    func gkslEveryAcceptedStepSchedule() throws {
+        let problem = DensityMatrixProblem(
+            initialState: excitedStateDensityMatrix,
+            system: zeroTwoLevelSystem
+        )
+        var outputTimes: [Double] = []
+        
+        try GKSL.solve(
+            problem: problem,
+            propagation: propagationOptions(
+                end: 1,
+                output: .everyAcceptedStep,
+                maximumStep: 0.2
+            )
+        ) { time, _ in
+            outputTimes.append(time)
+            return .proceed
+        }
+        
+        #expect(!outputTimes.isEmpty)
+        #expect(outputTimes.count <= 6)
+        #expect(abs((outputTimes.last ?? .nan) - 1) < 1e-14)
+        for index in outputTimes.indices.dropFirst() {
+            #expect(outputTimes[index] > outputTimes[index - 1])
+        }
+    }
 }
 
-@Test("The pure-state GKSL overload constructs the initial projector")
-func gkslPureStateOverload() throws {
-	let decayRate = 0.3
-	let end = 1.0
-	let system = zeroTwoLevelSystem
-	let problem = PureStateProblem(
-		initialState: Vector<Complex<Double>>([.zero, .one]),
-		system: system,
-		markovianChannels: [
-			MarkovianChannel(
-				rate: .constant(decayRate),
-				collapseOperator: loweringOperator
-			)
-		]
-	)
-
-	var finalExcitedPopulation = Double.nan
-	try GKSL.solve(
-		problem: problem,
-		propagation: propagationOptions(end: end, output: .final)
-	) { _, densityMatrix in
-		finalExcitedPopulation = densityMatrix[1, 1].real
-        return .proceed
-	}
-
-	#expect(
-		abs(finalExcitedPopulation - .exp(-decayRate * end)) < 2e-8
-	)
-}
-
-@Test("Every accepted GKSL step is reported exactly once")
-func gkslEveryAcceptedStepSchedule() throws {
-	let problem = DensityMatrixProblem(
-		initialState: excitedStateDensityMatrix,
-		system: zeroTwoLevelSystem
-	)
-	var outputTimes: [Double] = []
-
-	try GKSL.solve(
-		problem: problem,
-		propagation: propagationOptions(
-			end: 1,
-			output: .everyAcceptedStep,
-			maximumStep: 0.2
-		)
-	) { time, _ in
-		outputTimes.append(time)
-        return .proceed
-	}
-
-	#expect(!outputTimes.isEmpty)
-	#expect(outputTimes.count <= 6)
-	#expect(abs((outputTimes.last ?? .nan) - 1) < 1e-14)
-	for index in outputTimes.indices.dropFirst() {
-		#expect(outputTimes[index] > outputTimes[index - 1])
-	}
-}
-
-private var zeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {
+private var zeroTwoLevelSystem: QuantumSystem {
 	QuantumSystem(
 		Matrix<Complex<Double>>(
 			elements: [.zero, .zero, .zero, .zero],
@@ -166,7 +169,7 @@ private var excitedStateDensityMatrix: Matrix<Complex<Double>> {
 private func amplitudeDampingProblem(
 	rate: ScalarTimeFunction,
 	collapseOperator: TimeDependentOperator
-) -> DensityMatrixProblem<ConstantHamiltonian> {
+) -> DensityMatrixProblem {
 	DensityMatrixProblem(
 		initialState: excitedStateDensityMatrix,
 		system: zeroTwoLevelSystem,

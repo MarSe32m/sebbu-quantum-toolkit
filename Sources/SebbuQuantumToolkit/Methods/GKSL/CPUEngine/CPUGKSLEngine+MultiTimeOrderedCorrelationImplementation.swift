@@ -5,13 +5,13 @@ import Numerics
 import SebbuScience
 
 extension GKSL.CPUEngine: GKSL.MultiTimeOrderedCorrelationImplementation {
-	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: borrowing DensityMatrixProblem<Hamiltonian>,
+	public func solveMultiTimeOrderedCorrelation(
+		problem: DensityMatrixProblem,
 		configuration: GKSL.Configuration = .init(),
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		let progress = propagation.progress.continuous(in: propagation.timeSpan)
 		defer { progress?.finish() }
 
@@ -212,13 +212,13 @@ extension GKSL.CPUEngine {
 
 extension GKSL {
 	@discardableResult
-	public static func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: borrowing DensityMatrixProblem<Hamiltonian>,
+	public static func solveMultiTimeOrderedCorrelation(
+		problem: borrowing DensityMatrixProblem,
 		configuration: GKSL.Configuration = .init(),
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,
@@ -229,13 +229,13 @@ extension GKSL {
 	}
 
 	@discardableResult
-	public static func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>,
+	public static func solveMultiTimeOrderedCorrelation(
+		problem: borrowing PureStateProblem,
 		configuration: GKSL.Configuration = .init(),
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,

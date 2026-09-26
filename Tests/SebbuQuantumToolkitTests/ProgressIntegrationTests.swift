@@ -10,7 +10,7 @@ import Testing
 
 @Suite("Solver progress integration", .serialized)
 struct ProgressIntegrationTests {
-	private var problem: PureStateProblem<ConstantHamiltonian> {
+	private var problem: PureStateProblem {
 		hopsProblem(markovian: [
 			.init(rate: 0.4, collapseOperator: hopsMatrix([0, 1, 0, 0]))
 		])

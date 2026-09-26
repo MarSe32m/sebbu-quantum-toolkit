@@ -9,8 +9,8 @@ import SebbuBLAS
 
 extension QSD.CPUEngine {
 	@discardableResult
-	public func solveEnsemble<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveEnsemble(
+		problem: PureStateProblem,
 		configuration: QSD.Configuration,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
@@ -18,7 +18,7 @@ extension QSD.CPUEngine {
 			Double,
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
         let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
         defer { progress?.finish() }
         let propagation = propagation.withoutProgressReporting
@@ -157,8 +157,8 @@ extension QSD {
 	@inlinable
 	@inline(always)
 	@discardableResult
-	public static func solveEnsemble<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveEnsemble(
+		problem: PureStateProblem,
 		configuration: Configuration,
 		propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
 		execution: TrajectoryExecution,
@@ -166,7 +166,7 @@ extension QSD {
 			Double,
 			borrowing UniqueMatrix<Complex<Double>>
 		) -> Void
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		let implementation = CPUEngine()
 		return try implementation.solveEnsemble(
 			problem: problem,

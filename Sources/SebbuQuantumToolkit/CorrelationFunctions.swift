@@ -450,18 +450,32 @@ extension TimeDependentOperator {
 	) -> (rows: Int, columns: Int)? {
 		switch self {
 		case .constant(let constantOperator):
-			let matrix = constantOperator.matrix
-			guard matrix.rows != dimension || matrix.columns != dimension else {
-				return nil
-			}
-			return (matrix.rows, matrix.columns)
+                switch constantOperator.storage {
+                    case .dense(let matrix):
+                        guard matrix.rows != dimension || matrix.columns != dimension else {
+                            return nil
+                        }
+                        return (matrix.rows, matrix.columns)
+                    case .sparse(let cSRMatrix):
+                        guard cSRMatrix.rows != dimension || cSRMatrix.columns != dimension else {
+                            return nil
+                        }
+                        return (cSRMatrix.rows, cSRMatrix.columns)
+                }
 
 		case .linearCombination(let expansion):
 			for component in expansion.operators {
-				let matrix = component.matrix
-				if matrix.rows != dimension || matrix.columns != dimension {
-					return (matrix.rows, matrix.columns)
-				}
+                switch component.storage {
+                    case .dense(let matrix):
+                        if matrix.rows != dimension || matrix.columns != dimension {
+                            return (matrix.rows, matrix.columns)
+                        }
+                    case .sparse(let cSRMatrix):
+                        if cSRMatrix.rows != dimension || cSRMatrix.columns != dimension {
+                            return (cSRMatrix.rows, cSRMatrix.columns)
+                        }
+                }
+				
 			}
 			return nil
 

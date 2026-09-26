@@ -9,11 +9,13 @@ import Synchronization
 extension HOPS.CPUEngine {
     @inlinable
 	@discardableResult
-	public func solveEnsemble<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, execution: TrajectoryExecution,
+	public func solveEnsemble(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        execution: TrajectoryExecution,
 		_ forEach: (Double, borrowing UniqueMatrix<Complex<Double>>) -> Void
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
 		defer { progress?.finish() }
 		let propagation = propagation.withoutProgressReporting
@@ -111,12 +113,14 @@ extension HOPS.CPUEngine {
 
     @inlinable
 	@discardableResult
-	public func solveTrajectories<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
-		propagation: PropagationOptions<IntegrationOptions>, execution: TrajectoryExecution,
+	public func solveTrajectories(
+		problem: PureStateProblem,
+        configuration: HOPS.Configuration,
+		propagation: PropagationOptions<IntegrationOptions>,
+        execution: TrajectoryExecution,
 		_ forEach:
 			@Sendable (UInt64, Double, borrowing UniqueVector<Complex<Double>>) -> Void
-	) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction {
+	) throws -> HOPS.EnsembleRunResult {
 		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
 		defer { progress?.finish() }
 		let propagation = propagation.withoutProgressReporting

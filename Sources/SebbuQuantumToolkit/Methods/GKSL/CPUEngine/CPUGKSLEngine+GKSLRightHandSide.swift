@@ -6,11 +6,9 @@ import SebbuScience
 
 extension GKSL.CPUEngine {
 	@usableFromInline
-	internal struct GKSLRightHandSide<Hamiltonian: HamiltonianFunction>:
-		~Copyable, ODERHSFunction
-	{
+    internal struct GKSLRightHandSide: ~Copyable, ODERHSFunction {
 		@usableFromInline
-		internal let hamiltonian: Hamiltonian
+		internal let hamiltonian: TimeDependentOperator
         @usableFromInline
         internal let channels: [PreparedChannel]
 
@@ -26,7 +24,7 @@ extension GKSL.CPUEngine {
 		internal var temporaryBuffer: UniqueMatrix<Complex<Double>>
 
 		@inlinable
-		internal init(_ problem: borrowing DensityMatrixProblem<Hamiltonian>) {
+		internal init(_ problem: DensityMatrixProblem) {
 			let dimension = problem.system.dimension
 			precondition(dimension > 0, "The quantum-system dimension must be positive")
 
@@ -71,7 +69,8 @@ extension GKSL.CPUEngine {
 			let hamiltonian = self.hamiltonian
 
 			// -i[H(t), rho]
-			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
+            //TODO: Take advantage of potentially sparse Hamiltonian etc.
+            hamiltonian.insert(t: t, into: &hamiltonianBuffer)
 			hamiltonianBuffer.dotBLAS(
 				y.densityMatrix,
 				multiplied: -.i,

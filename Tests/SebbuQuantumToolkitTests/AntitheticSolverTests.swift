@@ -15,7 +15,7 @@ struct AntitheticSolverTests {
 			5, model: noiseTestModel(0), operators: [hopsMatrix([1, 0, 0, -1])],
 			depth: 2)
 	}
-	private var problem: PureStateProblem<ConstantHamiltonian> {
+	private var problem: PureStateProblem {
 		hopsProblem(markovian: [.init(rate: 2, collapseOperator: hopsMatrix([0, 1, 0, 0]))])
 	}
 	private var propagation: PropagationOptions<IntegrationOptions> {

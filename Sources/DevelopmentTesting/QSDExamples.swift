@@ -87,7 +87,8 @@ public func exampleQSDResonanceFluorescenceSpectrum() {
     let system = QuantumSystem(
         Matrix.init(elements: [.zero, Complex(0.175), Complex(0.175), .zero], rows: 2, columns: 2)
     )
-    let sigmaMinus: ConstantOperator = .init(Matrix.init(elements: [.zero, .one, .zero, .zero], rows: 2, columns: 2))
+    let sigmaMinusMatrix = Matrix<Complex<Double>>(elements: [.zero, .one, .zero, .zero], rows: 2, columns: 2)
+    let sigmaMinus: ConstantOperator = .init(sigmaMinusMatrix)
     let sigmaPlus: ConstantOperator = .init(Matrix.init(elements: [.zero, .zero, .one, .zero], rows: 2, columns: 2))
     
     let markovianChannel = MarkovianChannel(
@@ -120,7 +121,7 @@ public func exampleQSDResonanceFluorescenceSpectrum() {
                 propagation: propagationOptions
             ) { time, rho in
                 steadyState = .init(copying: rho)
-                sigmaMinusExpectation = steadyState.dot(sigmaMinus.matrix).trace
+                sigmaMinusExpectation = steadyState.dot(sigmaMinusMatrix).trace
                 return .proceed
             }
         }

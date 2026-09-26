@@ -6,14 +6,15 @@ import SebbuScience
 extension HOPS.CPUEngine {
 	/// One guide-controlled generator, colored path, white-noise stream and
 	/// scalar gauge act on all branches at every integration stage.
-	internal func solveMultiTimeCorrelationTrajectory<Hamiltonian>(
-		problem: borrowing PureStateProblem<Hamiltonian>, preparation: Preparation,
+	internal func solveMultiTimeCorrelationTrajectory(
+		problem: borrowing PureStateProblem,
+        preparation: Preparation,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>, seed: UInt64,
 		trajectoryID: UInt64,
 		ensembleSampling: EnsembleSampling = .independent,
 		observing observer: (Double, Complex<Double>) -> Void
-	) throws -> PropagationRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> PropagationRunSummary {
 		let start = propagation.timeSpan.start
 		let end = propagation.timeSpan.end
 		let d = preparation.dimension

@@ -66,18 +66,32 @@ public enum TimeDependentOperator: Sendable {
 }
 
 public struct ConstantOperator: Sendable {
-	@usableFromInline
-	package let matrix: Matrix<Complex<Double>>
-
-	@inlinable
-	public init(_ matrix: Matrix<Complex<Double>>) {
-		self.matrix = matrix
-	}
-
-	@inlinable
-	public init(_ matrix: borrowing UniqueMatrix<Complex<Double>>) {
-		self.matrix = .init(copying: matrix)
-	}
+    public let storage: Storage
+    
+    public enum Storage: Sendable {
+        case dense(Matrix<Complex<Double>>)
+        case sparse(CSRMatrix<Complex<Double>>)
+    }
+    
+    @inlinable
+    public init(_ matrix: Matrix<Complex<Double>>) {
+        self.storage = .dense(matrix)
+    }
+    
+    @inlinable
+    public init(_ matrix: borrowing UniqueMatrix<Complex<Double>>) {
+        self.storage = .dense(.init(copying: matrix))
+    }
+    
+    @inlinable
+    public init(_ sparse: CSRMatrix<Complex<Double>>) {
+        self.storage = .sparse(sparse)
+    }
+    
+    @inlinable
+    public init(_ sparse: borrowing UniqueCSRMatrix<Complex<Double>>) {
+        self.storage = .sparse(.init(copying: sparse))
+    }
 }
 
 public extension TimeDependentOperator {
@@ -123,8 +137,7 @@ public struct DynamicDenseOperator: Sendable {
 	public typealias GeneratorFunction =
 		@Sendable (Double, inout UniqueMatrix<Complex<Double>>) -> Void
 
-	@usableFromInline
-	package let generator: GeneratorFunction
+	public let generator: GeneratorFunction
 
 	@inlinable
 	public init(_ generator: @escaping GeneratorFunction) {
@@ -138,4 +151,11 @@ public struct DynamicDenseOperator: Sendable {
 			output.copyElements(from: matrix)
 		}
 	}
+}
+
+public extension TimeDependentOperator {
+    @inlinable
+    init(_ generator: @escaping DynamicDenseOperator.GeneratorFunction) {
+        self = .generatedDense(.init(generator))
+    }
 }

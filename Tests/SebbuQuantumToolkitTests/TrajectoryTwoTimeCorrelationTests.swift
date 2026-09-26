@@ -462,7 +462,7 @@ private let trajectoryCorrelationMCWFAlgorithms: [MCWF.JumpAlgorithm] = [
 	.discreteTime,
 ]
 
-private var trajectoryCorrelationZeroSystem: QuantumSystem<ConstantHamiltonian> {
+private var trajectoryCorrelationZeroSystem: QuantumSystem {
 	QuantumSystem(
 		Matrix<Complex<Double>>(
 			elements: [.zero, .zero, .zero, .zero],
@@ -498,7 +498,7 @@ private var trajectoryCorrelationRaisingOperator: TimeDependentOperator {
 
 private func trajectoryCorrelationProblem(
 	markovianChannels: [MarkovianChannel]
-) -> PureStateProblem<ConstantHamiltonian> {
+) -> PureStateProblem {
 	PureStateProblem(
 		initialState: Vector<Complex<Double>>([.zero, .one]),
 		system: trajectoryCorrelationZeroSystem,

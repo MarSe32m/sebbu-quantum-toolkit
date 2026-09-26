@@ -419,7 +419,7 @@ private let qsdEquationTypes: [QSD.EquationType] = [
 	.nonLinearNormalized,
 ]
 
-private var qsdZeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {
+private var qsdZeroTwoLevelSystem: QuantumSystem {
 	QuantumSystem(
 		Matrix<Complex<Double>>(
 			elements: [.zero, .zero, .zero, .zero],
@@ -432,7 +432,7 @@ private var qsdZeroTwoLevelSystem: QuantumSystem<ConstantHamiltonian> {
 private func qsdProblem(
 	initialState: [Complex<Double>] = [.one, .zero],
 	markovianChannels: [MarkovianChannel]
-) -> PureStateProblem<ConstantHamiltonian> {
+) -> PureStateProblem {
 	PureStateProblem(
 		initialState: Vector(initialState),
 		system: qsdZeroTwoLevelSystem,
@@ -473,7 +473,7 @@ private func qsdPropagationOptions(
 }
 
 private func finalQSDState(
-	problem: PureStateProblem<ConstantHamiltonian>,
+	problem: PureStateProblem,
 	equationType: QSD.EquationType,
 	seed: UInt64,
 	trajectoryID: UInt64

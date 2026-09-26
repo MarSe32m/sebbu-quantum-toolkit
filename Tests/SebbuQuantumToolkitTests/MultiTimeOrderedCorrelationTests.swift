@@ -232,7 +232,7 @@ private var multiTimeExcitedProjector: TimeDependentOperator {
 
 private func multiTimeProblem(
 	channels: [MarkovianChannel]
-) -> PureStateProblem<ConstantHamiltonian> {
+) -> PureStateProblem {
 	PureStateProblem(
 		initialState: Vector<Complex<Double>>([.zero, .one]),
 		system: QuantumSystem(Matrix<Complex<Double>>.zeros(rows: 2, columns: 2)),

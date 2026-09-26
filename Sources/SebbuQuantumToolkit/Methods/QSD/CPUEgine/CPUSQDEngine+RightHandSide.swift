@@ -6,13 +6,13 @@ import SebbuScience
 
 extension QSD.CPUEngine {
 	@usableFromInline
-	internal struct QSDRightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable,
+	internal struct QSDRightHandSide: ~Copyable,
 		SDERHSFunction
 	{
 		@usableFromInline
 		internal let equationType: QSD.EquationType
 		@usableFromInline
-		internal let hamiltonian: Hamiltonian
+		internal let hamiltonian: TimeDependentOperator
 		@usableFromInline
 		internal let channels: [PreparedChannel]
 		@usableFromInline
@@ -29,7 +29,7 @@ extension QSD.CPUEngine {
 
 		@inlinable
 		internal init(
-			_ problem: borrowing PureStateProblem<Hamiltonian>,
+			_ problem: borrowing PureStateProblem,
 			equationType: QSD.EquationType,
 			seed: UInt64,
 			trajectoryID: UInt64,
@@ -79,8 +79,9 @@ extension QSD.CPUEngine {
 			y: borrowing StateVector,
 			into dy: inout StateVector
 		) {
-			hamiltonian.hamiltonian(t: t, into: &hamiltonianBuffer)
-			hamiltonianBuffer.dotBLAS(y.state, multiplied: -.i, into: &dy.state)
+            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
+            hamiltonian.insert(t: t, into: &hamiltonianBuffer)
+			hamiltonianBuffer.dot(y.state, multiplied: -.i, into: &dy.state)
 
 			let normSquared: Double
 			switch equationType {

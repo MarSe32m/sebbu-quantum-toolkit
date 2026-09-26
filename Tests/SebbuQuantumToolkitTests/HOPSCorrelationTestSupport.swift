@@ -25,8 +25,8 @@ func hcConfiguration(_ variant: Int, colored: Bool = false, depth: Int = 5) -> H
 	return hopsConfiguration(
 		variant, model: model, operators: [hcL], depth: depth, noiseStep: 0.005)
 }
-func hcValues<Hamiltonian>(
-	problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+func hcValues(
+	problem: PureStateProblem, configuration: HOPS.Configuration,
 	request: MultiTimeOrderedCorrelationRequest,
 	propagation: PropagationOptions<IntegrationOptions>,
 	execution: TrajectoryExecution = .init(trajectories: 1, seed: 71, parallelism: .serial)
@@ -41,8 +41,8 @@ func hcValues<Hamiltonian>(
 	}
 	return result
 }
-func hcPath<Hamiltonian>(
-	problem: PureStateProblem<Hamiltonian>, preparation: HCT.Preparation,
+func hcPath(
+	problem: PureStateProblem, preparation: HCT.Preparation,
 	request: MultiTimeOrderedCorrelationRequest,
 	propagation: PropagationOptions<IntegrationOptions>,
 	id: UInt64 = 3

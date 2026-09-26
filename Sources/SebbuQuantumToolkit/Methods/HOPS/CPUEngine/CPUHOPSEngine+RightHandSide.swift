@@ -6,7 +6,7 @@ import SebbuScience
 
 extension HOPS.CPUEngine {
 	@usableFromInline
-	internal struct RightHandSide<Hamiltonian: HamiltonianFunction>: ~Copyable, ~Escapable,
+	internal struct RightHandSide: ~Copyable, ~Escapable,
 		ODERHSFunction,
 		SDERHSFunction
 	{
@@ -23,7 +23,7 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		let hierarchy: HierarchyTables
 		@usableFromInline
-		let hamiltonian: Hamiltonian
+		let hamiltonian: TimeDependentOperator
 		@usableFromInline
 		var coloredRNG: TrajectoryRandomNumberGenerator
 		@usableFromInline
@@ -63,7 +63,7 @@ extension HOPS.CPUEngine {
 		@_lifetime(borrow preparation)
 		@inlinable
 		init(
-			hamiltonian: Hamiltonian,
+			hamiltonian: TimeDependentOperator,
 			preparation: borrowing Preparation,
 			seed: UInt64,
 			trajectoryID: UInt64,
@@ -260,7 +260,8 @@ extension HOPS.CPUEngine {
 			dy.zero()
 
 			// 1. Build the common effective system generator H_eff
-			hamiltonian.hamiltonian(t: t, into: &generator)
+            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
+            hamiltonian.insert(t: t, into: &generator)
 			generator.multiply(by: -.i)
 
 			for p in 0..<y.shifts.count {

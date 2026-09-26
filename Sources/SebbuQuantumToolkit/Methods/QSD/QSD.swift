@@ -28,8 +28,8 @@ public extension QSD {
 	protocol Implementation: ~Copyable {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
-		func solveTrajectory<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveTrajectory(
+			problem: PureStateProblem,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -39,7 +39,6 @@ public extension QSD {
 				borrowing UniqueVector<Complex<Double>>
 			) -> PropagationControl
 		) throws -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction
 
 		/// Solves and averages the requested trajectories into density matrices.
 		///
@@ -47,8 +46,8 @@ public extension QSD {
 		/// reduction. A fixed output schedule is required because independent
 		/// trajectories need a common set of sampling times.
 		@discardableResult
-		func solveEnsemble<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveEnsemble(
+			problem: PureStateProblem,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -57,12 +56,11 @@ public extension QSD {
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
 		) throws -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction
 
 		/// Solves the requested trajectories. The callback can run concurrently.
 		@discardableResult
-		func solveTrajectories<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveTrajectories(
+			problem: PureStateProblem,
 			configuration: QSD.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -73,15 +71,14 @@ public extension QSD {
 					borrowing UniqueVector<Complex<Double>>
 				) -> Void
 		) throws -> TrajectoryRunSummary
-        where Hamiltonian: HamiltonianFunction
 	}
 }
 
 public extension QSD {
     protocol TwoTimeCorrelationImplementation: Implementation {
         @discardableResult
-        func solveTwoTimeCorrelation<Hamiltonian>(
-            problem: PureStateProblem<Hamiltonian>,
+        func solveTwoTimeCorrelation(
+            problem: PureStateProblem,
             configuration: QSD.Configuration,
             request: TwoTimeCorrelationRequest,
             propagation: PropagationOptions<IntegratorConfiguration>,
@@ -91,20 +88,19 @@ public extension QSD {
                 Complex<Double>
             ) -> PropagationControl
         ) throws -> TrajectoryRunSummary
-        where Hamiltonian: HamiltonianFunction
     }
 }
 
 public extension QSD {
 	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
 		@discardableResult
-		func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveMultiTimeOrderedCorrelation(
+			problem: PureStateProblem,
 			configuration: QSD.Configuration,
 			request: MultiTimeOrderedCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			observing observer: (Double, Complex<Double>) -> PropagationControl
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+		) throws -> TrajectoryRunSummary
 	}
 }

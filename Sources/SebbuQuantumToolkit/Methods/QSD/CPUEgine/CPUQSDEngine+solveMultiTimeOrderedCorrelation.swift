@@ -8,14 +8,14 @@ import Synchronization
 
 extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 	@discardableResult
-	public func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: QSD.Configuration,
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		let progress = propagation.progress.incrementing(total: execution.trajectoryIDs.count)
 		defer { progress?.finish() }
 		let propagation = propagation.withoutProgressReporting
@@ -119,14 +119,14 @@ extension QSD.CPUEngine: QSD.MultiTimeOrderedCorrelationImplementation {
 
 extension QSD {
 	@discardableResult
-	public static func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveMultiTimeOrderedCorrelation(
+		problem: PureStateProblem,
 		configuration: QSD.Configuration = .init(),
 		request: MultiTimeOrderedCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		try CPUEngine().solveMultiTimeOrderedCorrelation(
 			problem: problem,
 			configuration: configuration,

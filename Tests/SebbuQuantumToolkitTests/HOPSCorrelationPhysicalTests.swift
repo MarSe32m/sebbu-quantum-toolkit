@@ -49,6 +49,7 @@ struct HOPSCorrelationPhysicalTests {
 				hybrid: hybrid, request: request, propagation: propagation)
 			expectHOPSClose(reference, converged, tolerance: 2e-6)
 			let trajectories = 768
+            
 			var sums = [Complex<Double>](repeating: .zero, count: reference.count)
 			var squares = [Double](repeating: 0, count: reference.count)
 			for id in 0..<trajectories {
@@ -96,7 +97,7 @@ struct HOPSCorrelationPhysicalTests {
 				observable: .constant(hcL)),
 			propagation: hopsPropagation(
 				end: 0.9, maximumStep: 0.002, output: .times(times)),
-			execution: .init(trajectories: 2048, seed: 0xDAA9, parallelism: .serial)
+            execution: .init(trajectories: 2048, seed: 0xDAA9, parallelism: .automatic)
 		) { _, value in
 			samples.append(value)
 			return .proceed

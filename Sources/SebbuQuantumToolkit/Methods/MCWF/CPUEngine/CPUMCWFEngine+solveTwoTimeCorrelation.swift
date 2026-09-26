@@ -6,14 +6,14 @@ import SebbuScience
 
 extension MCWF.CPUEngine {
 	@discardableResult
-	public func solveTwoTimeCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public func solveTwoTimeCorrelation(
+		problem: PureStateProblem,
 		configuration: MCWF.Configuration,
 		request: TwoTimeCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		try _validateTwoTimeCorrelationRequest(
 			request,
 			timeSpan: propagation.timeSpan,
@@ -36,14 +36,14 @@ extension MCWF.CPUEngine {
 
 extension MCWF {
 	@discardableResult
-	public static func solveTwoTimeCorrelation<Hamiltonian>(
-		problem: PureStateProblem<Hamiltonian>,
+	public static func solveTwoTimeCorrelation(
+		problem: PureStateProblem,
 		configuration: MCWF.Configuration = .init(),
 		request: TwoTimeCorrelationRequest,
 		propagation: PropagationOptions<IntegrationOptions>,
 		execution: TrajectoryExecution,
 		observing observer: (Double, Complex<Double>) -> PropagationControl
-	) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction {
+	) throws -> TrajectoryRunSummary {
 		try CPUEngine().solveTwoTimeCorrelation(
 			problem: problem,
 			configuration: configuration,

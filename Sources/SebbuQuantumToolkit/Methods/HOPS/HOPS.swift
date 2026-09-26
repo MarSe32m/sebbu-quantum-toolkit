@@ -81,8 +81,8 @@ public extension HOPS {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         @discardableResult
-        func solveTrajectory<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+        func solveTrajectory(
+			problem: PureStateProblem,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -91,11 +91,11 @@ public extension HOPS {
 				Double,
 				borrowing UniqueVector<Complex<Double>>
 			) -> PropagationControl
-		) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction
+		) throws -> HOPS.TrajectoryRunResult
 
 		@discardableResult
-        func solveEnsemble<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+        func solveEnsemble(
+			problem: PureStateProblem,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -104,11 +104,10 @@ public extension HOPS {
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
 		) throws -> HOPS.EnsembleRunResult
-		where Hamiltonian: HamiltonianFunction
 
         @discardableResult
-		func solveTrajectories<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveTrajectories(
+			problem: PureStateProblem,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -119,7 +118,6 @@ public extension HOPS {
 					borrowing UniqueVector<Complex<Double>>
 				) -> Void
 		) throws -> HOPS.EnsembleRunResult
-        where Hamiltonian: HamiltonianFunction
 	}
 }
 
@@ -127,8 +125,8 @@ public extension HOPS {
 public extension HOPS {
 	protocol HierarchyProvidingImplementation: Implementation {
         @discardableResult
-        func solveWithHierarchy<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+        func solveWithHierarchy(
+			problem: PureStateProblem,
 			configuration: HOPS.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -137,7 +135,7 @@ public extension HOPS {
 				Double,
 				borrowing HOPS.HierarchyStateView
 			) -> Void
-		) throws -> HOPS.TrajectoryRunResult where Hamiltonian: HamiltonianFunction
+		) throws -> HOPS.TrajectoryRunResult
 	}
 }
 
@@ -145,8 +143,8 @@ public extension HOPS {
 public extension HOPS {
     protocol TwoTimeCorrelationImplementation: Implementation {
         @discardableResult
-        func solveTwoTimeCorrelation<Hamiltonian>(
-            problem: PureStateProblem<Hamiltonian>,
+        func solveTwoTimeCorrelation(
+            problem: PureStateProblem,
             configuration: HOPS.Configuration,
             request: TwoTimeCorrelationRequest,
             propagation: PropagationOptions<IntegratorConfiguration>,
@@ -156,20 +154,19 @@ public extension HOPS {
                 Complex<Double>
             ) -> PropagationControl
         ) throws -> HOPS.EnsembleRunResult
-        where Hamiltonian: HamiltonianFunction
     }
 }
 
 public extension HOPS {
 	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
 		@discardableResult
-		func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveMultiTimeOrderedCorrelation(
+			problem: PureStateProblem,
 			configuration: HOPS.Configuration,
 			request: MultiTimeOrderedCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			observing observer: (Double, Complex<Double>) -> PropagationControl
-		) throws -> HOPS.EnsembleRunResult where Hamiltonian: HamiltonianFunction
+		) throws -> HOPS.EnsembleRunResult
 	}
 }

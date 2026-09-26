@@ -42,14 +42,14 @@ func hopsProblem(
 	_ h: Matrix<Complex<Double>> = hopsMatrix([0, Complex(0.4), Complex(0.4), Complex(0.2)]),
 	initial: [Complex<Double>] = [Complex(0.6), Complex(0, 0.8)],
 	markovian: [MarkovianChannel] = []
-) -> PureStateProblem<ConstantHamiltonian> {
+) -> PureStateProblem {
 	.init(
 		initialState: Vector<Complex<Double>>(initial), system: .init(h),
 		markovianChannels: markovian)
 }
 
-func hopsFinalState<Hamiltonian>(
-	problem: PureStateProblem<Hamiltonian>, configuration: HOPS.Configuration,
+func hopsFinalState(
+	problem: PureStateProblem, configuration: HOPS.Configuration,
 	propagation: PropagationOptions<IntegrationOptions> = hopsPropagation(),
 	seed: UInt64 = 71, id: UInt64 = 3
 ) throws -> [Complex<Double>] {

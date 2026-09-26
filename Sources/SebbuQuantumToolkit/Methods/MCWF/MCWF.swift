@@ -58,8 +58,8 @@ public extension MCWF {
         associatedtype IntegratorConfiguration: Sendable = IntegrationOptions
         
         @discardableResult
-		func solveTrajectory<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveTrajectory(
+			problem: PureStateProblem,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			seed: UInt64,
@@ -69,7 +69,6 @@ public extension MCWF {
 				borrowing UniqueVector<Complex<Double>>
 			) -> PropagationControl
 		) throws -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction
 
 		/// Solves and averages the requested trajectories into density matrices.
 		///
@@ -77,8 +76,8 @@ public extension MCWF {
 		/// reduction. A fixed output schedule is required because independent
 		/// trajectories need a common set of sampling times.
 		@discardableResult
-		func solveEnsemble<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveEnsemble(
+			problem: PureStateProblem,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -87,12 +86,11 @@ public extension MCWF {
 				borrowing UniqueMatrix<Complex<Double>>
 			) -> Void
 		) throws -> TrajectoryRunSummary
-		where Hamiltonian: HamiltonianFunction
 
 		/// Solves the requested trajectories. The callback can run concurrently.
         @discardableResult
-        func solveTrajectories<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+        func solveTrajectories(
+			problem: PureStateProblem,
 			configuration: MCWF.Configuration,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
@@ -103,15 +101,14 @@ public extension MCWF {
 					borrowing UniqueVector<Complex<Double>>
 				) -> Void
 		) throws -> TrajectoryRunSummary
-        where Hamiltonian: HamiltonianFunction
 	}
 }
 
 public extension MCWF {
     protocol TwoTimeCorrelationImplementation: Implementation {
         @discardableResult
-        func solveTwoTimeCorrelation<Hamiltonian>(
-            problem: PureStateProblem<Hamiltonian>,
+        func solveTwoTimeCorrelation(
+            problem: PureStateProblem,
             configuration: MCWF.Configuration,
             request: TwoTimeCorrelationRequest,
             propagation: PropagationOptions<IntegratorConfiguration>,
@@ -121,20 +118,19 @@ public extension MCWF {
                 Complex<Double>
             ) -> PropagationControl
         ) throws -> TrajectoryRunSummary
-        where Hamiltonian: HamiltonianFunction
     }
 }
 
 public extension MCWF {
 	protocol MultiTimeOrderedCorrelationImplementation: Implementation {
 		@discardableResult
-		func solveMultiTimeOrderedCorrelation<Hamiltonian>(
-			problem: PureStateProblem<Hamiltonian>,
+		func solveMultiTimeOrderedCorrelation(
+			problem: PureStateProblem,
 			configuration: MCWF.Configuration,
 			request: MultiTimeOrderedCorrelationRequest,
 			propagation: PropagationOptions<IntegratorConfiguration>,
 			execution: TrajectoryExecution,
 			observing observer: (Double, Complex<Double>) -> PropagationControl
-		) throws -> TrajectoryRunSummary where Hamiltonian: HamiltonianFunction
+		) throws -> TrajectoryRunSummary
 	}
 }

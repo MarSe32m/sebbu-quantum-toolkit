@@ -40,8 +40,8 @@ func heomIndices(_ hierarchy: HEOM.Hierarchy) -> [[Int]] {
     }
 }
 
-func heomFinal<Hamiltonian: HamiltonianFunction>(
-    problem: DensityMatrixProblem<Hamiltonian>, configuration: HEOM.Configuration,
+func heomFinal(
+    problem: DensityMatrixProblem, configuration: HEOM.Configuration,
     propagation: PropagationOptions<IntegrationOptions> = hopsPropagation(end: 1)
 ) throws -> [Complex<Double>] {
     var result: [Complex<Double>] = []
@@ -79,7 +79,7 @@ func heomPseudomodeProblem(
     h: Matrix<Complex<Double>>, coupling: Matrix<Complex<Double>>,
     rho: Matrix<Complex<Double>>, oscillatorDimension n: Int,
     strength: Double = 0.16, pole: Complex<Double> = Complex(0.6, 1.2), rate: Double = 0
-) -> DensityMatrixProblem<ConstantHamiltonian> {
+) -> DensityMatrixProblem {
     var b = Matrix<Complex<Double>>.zeros(rows: n, columns: n)
     var number = b
     var vacuum = b

@@ -18,12 +18,17 @@ extension TimeDependentOperator {
 	) {
 		switch self {
 		case .constant(let constantOperator):
-			precondition(
-				output.rows == constantOperator.matrix.rows
-					&& output.columns == constantOperator.matrix.columns,
-				"Operator dimensions do not match the output buffer"
-			)
-			output.copyElements(from: constantOperator.matrix)
+                switch constantOperator.storage {
+                    case .dense(let matrix):
+                        precondition(
+                            output.rows == matrix.rows
+                            && output.columns == matrix.columns,
+                            "Operator dimensions do not match the output buffer"
+                        )
+                        output.copyElements(from: matrix)
+                    case .sparse(_):
+                        fatalError("TODO: We shouldn't be calling this on sparse matrices...")
+                }
 
 		case .linearCombination(let expansion):
 			precondition(
@@ -33,7 +38,9 @@ extension TimeDependentOperator {
 			)
 
 			for index in expansion.operators.indices {
-				let matrix = expansion.operators[index].matrix
+                guard case .dense(let matrix) = expansion.operators[index].storage else {
+                    fatalError("TODO: Sparse matrices shouldn't be calling this..")
+                }
 				precondition(
 					output.rows == matrix.rows
 						&& output.columns == matrix.columns,

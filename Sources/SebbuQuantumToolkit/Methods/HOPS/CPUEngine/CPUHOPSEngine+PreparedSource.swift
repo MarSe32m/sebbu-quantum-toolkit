@@ -81,10 +81,17 @@ extension HOPS.CPUEngine {
 				var terms = UniqueArray<Term>(
 					minimumCapacity: expansion.operators.count)
 				for i in expansion.operators.indices {
-					terms.append(
-						Term(
-							coefficient: expansion.coefficients[i],
-							matrix: expansion.operators[i].matrix))
+                    switch expansion.operators[i].storage {
+                        case .dense(let matrix):
+                            terms.append(
+                                Term(
+                                    coefficient: expansion.coefficients[i],
+                                    matrix: matrix
+                                )
+                            )
+                        case .sparse(_):
+                            preconditionFailure("Sparse operators not yet supported")
+                    }
 				}
 				self = .expansion(terms)
 			}
