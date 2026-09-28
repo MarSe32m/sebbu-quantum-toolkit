@@ -42,6 +42,8 @@ internal struct _MatrixActionView {
         scale: Complex<Double> = .one, adding: Bool = false, adjoint: Bool = false,
         blas: Bool = false
     ) {
+        if scale == .zero && adding { return }
+        //TODO: Return early when scale == .zero && !adding
         let d = dimension
         if let rows {
             if adjoint {
@@ -91,6 +93,8 @@ internal struct _MatrixActionView {
         right: Bool = false, adjoint: Bool = false,
         scale: Complex<Double> = .one, adding: Bool = true
     ) {
+        if scale == .zero && adding { return }
+        //TODO: Return early when scale == .zero && !adding
         let d = dimension
         guard let rows else {
             _DenseMatrixAction.product(
@@ -107,9 +111,9 @@ internal struct _MatrixActionView {
                 let j = adjoint ? row : column
                 let value = scale * (adjoint ? values![k].conjugate : values![k])
                 if right {
-                    for r in 0..<d { output[r * d + j] += rho[r * d + i] * value }
+                    for r in 0..<d { output[r &* d &+ j] += rho[r &* d &+ i] * value }
                 } else {
-                    for c in 0..<d { output[i * d + c] += value * rho[j * d + c] }
+                    for c in 0..<d { output[i &* d &+ c] += value * rho[j &* d &+ c] }
                 }
             }
         }
@@ -117,13 +121,32 @@ internal struct _MatrixActionView {
 
     @inlinable
     func add(into output: UnsafeMutablePointer<Complex<Double>>, scale: Complex<Double> = .one) {
+        if scale == .zero { return }
         if let rows {
             for i in 0..<dimension {
-                for k in rows[i]..<rows[i + 1] { output[i * dimension + columns![k]] += scale * values![k] }
+                for k in rows[i]..<rows[i + 1] { output[i &* dimension &+ columns![k]] += scale * values![k] }
             }
         } else {
             for i in 0..<dimension * dimension { output[i] += scale * values![i] }
         }
+    }
+
+    /// Tr(A*rho), without forming a matrix product. In particular, this is a
+    /// transpose contraction, not a Hilbert-Schmidt (adjoint) inner product.
+    @inlinable
+    func traceProduct(_ rho: UnsafePointer<Complex<Double>>) -> Complex<Double> {
+        var result = Complex<Double>.zero
+        let d = dimension
+        for i in 0..<d {
+            if let rows {
+                for k in rows[i]..<rows[i + 1] {
+                    result += values![k] * rho[columns![k] &* d &+ i]
+                }
+            } else {
+                for j in 0..<d { result += values![i &* d &+ j] * rho[j &* d &+ i] }
+            }
+        }
+        return result
     }
 }
 
@@ -184,18 +207,30 @@ internal struct _OperatorAction {
     @inlinable
     func commutator(
         _ rho: UnsafePointer<Complex<Double>>, into output: UnsafeMutablePointer<Complex<Double>>,
-        scale: Complex<Double> = -.i, adding: Bool = false
+        scale: Complex<Double> = -.i, adding: Bool = false, adjoint: Bool = false
     ) {
-        matrix(rho, into: output, scale: scale, adding: adding)
-        matrix(rho, into: output, right: true, scale: -scale)
+        matrix(rho, into: output, adjoint: adjoint, scale: scale, adding: adding)
+        matrix(rho, into: output, right: true, adjoint: adjoint, scale: -scale)
     }
 
     @inlinable
+    @inline(always)
     func add(into output: UnsafeMutablePointer<Complex<Double>>, scale: Complex<Double> = .one) {
         for i in 0..<count { terms[i].matrix.add(into: output, scale: scale * terms[i].coefficient) }
     }
 
     @inlinable
+    @inline(always)
+    func traceProduct(_ rho: UnsafePointer<Complex<Double>>) -> Complex<Double> {
+        var result = Complex<Double>.zero
+        for i in 0..<count {
+            result += terms[i].coefficient * terms[i].matrix.traceProduct(rho)
+        }
+        return result
+    }
+
+    @inlinable
+    @inline(always)
     func expectation(_ x: UnsafePointer<Complex<Double>>, scratch: UnsafeMutablePointer<Complex<Double>>)
         -> Complex<Double>
     {
@@ -211,14 +246,17 @@ internal enum _ConstantOperatorStorage: ~Copyable, Sendable {
     case dense(UniqueMatrix<Complex<Double>>)
     case sparse(UniqueCSRMatrix<Complex<Double>>)
 
-    @inlinable init(_ source: ConstantOperator) {
+    @inlinable
+    internal init(_ source: ConstantOperator) {
         switch source.storage {
         case .dense(let matrix): self = .dense(.init(copying: matrix))
         case .sparse(let matrix): self = .sparse(.init(copying: matrix))
         }
     }
 
-    @inlinable var view: _MatrixActionView {
+    @inlinable
+    @inline(always)
+    var view: _MatrixActionView {
         switch self {
         case .dense(let matrix): _MatrixActionView(matrix)
         case .sparse(let matrix): _MatrixActionView(matrix)
@@ -239,7 +277,8 @@ internal struct _PreparedOperator: ~Copyable {
     @usableFromInline var buffer: UniqueMatrix<Complex<Double>>
     @usableFromInline var views: UniqueVector<_OperatorTermView>
 
-    @inlinable init(_ source: TimeDependentOperator, dimension: Int, aggregateDense: Bool = false) {
+    @inlinable
+    internal init(_ source: TimeDependentOperator, dimension: Int, aggregateDense: Bool = false) {
         precondition(
             source.firstDimensionMismatch(expected: dimension) == nil,
             "Operator dimensions do not match the system")
@@ -307,7 +346,8 @@ internal struct _PreparedOperator: ~Copyable {
     }
 
     /// HEOM reports malformed generated dimensions via its failure slot.
-    @inlinable mutating func update(at time: Double) -> Bool {
+    @inlinable
+    mutating func update(at time: Double) -> Bool {
         if isConstant { return true }
         if let generator {
             generator(time, &buffer)
@@ -330,7 +370,9 @@ internal struct _PreparedOperator: ~Copyable {
         return true
     }
 
-    @inlinable mutating func updateChecked(at time: Double) {
+    @inlinable
+    @inline(always)
+    mutating func updateChecked(at time: Double) {
         let valid = update(at: time)
         precondition(valid, "Generated operator dimensions do not match the system")
     }

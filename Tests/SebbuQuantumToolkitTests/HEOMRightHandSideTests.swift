@@ -9,14 +9,18 @@ import Testing
 
 @Suite("HEOM Right-hand-side tests")
 struct HEOMRightHandSideTests {
-    @Test("HEOM drift matches a literal multi-channel, multi-pole reference", arguments: heomShifts, [1, 3])
-    func heomDriftReference(shift: HEOM.ShiftType, workers: Int) throws {
+    @Test("HEOM drift matches a literal multi-channel, multi-pole reference", arguments: heomShifts, [0, 1, 2, 3])
+    func heomDriftReference(shift: HEOM.ShiftType, variant: Int) throws {
         let model = hopsFixtureModel()
         let h = hopsMatrix([Complex(0.1), Complex(0.2, 0.1), Complex(0.2, -0.1), Complex(-0.3)])
         let l = hopsMatrix([0, 1, 0, 0])
-        var configuration = heomConfiguration(
-            shift: shift, depth: 2, model: model, operators: hopsFixtureOperators)
-        configuration.parallelism = .maximumWorkers(workers)
+        let configuration = HEOM.Configuration(
+            hierarchy: .init(
+                environment: .init(
+                    couplingOperators: hopsFixtureOperators.map {
+                        variant % 2 == 0 ? .constant($0) : .constant(CSRMatrix(from: $0))
+                    }, bath: model), truncation: .maximumTier(2)),
+            shiftType: shift, parallelism: .maximumWorkers(variant < 2 ? 1 : 3))
         let problem = DensityMatrixProblem(
             initialState: hopsMatrix([Complex(0.3), Complex(0.1), Complex(0.1), Complex(0.7)]),
             system: QuantumSystem(h),

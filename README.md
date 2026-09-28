@@ -145,6 +145,12 @@ Hamiltonians and coupling operators, and additional Lindblad channels.
 The initial bath is factorized and all nonroot ADOs and displacements start at
 zero. No renormalization or positivity projection is applied.
 
+Explicit CSR bath couplings stay sparse in the latent operators and their
+centered-shift corrections. Mixed dense/CSR expansions retain their sparse
+terms while combining dense terms for BLAS. Time-dependent coefficients and
+generated dense couplings are evaluated once per RHS stage, before ADO workers
+run. The same actions are used by dynamics and correlation propagation.
+
 HEOM executes serially by default. Configure parallel ADO evaluation with
 `HEOM.Configuration(hierarchy: hierarchy, shiftType: .meanField, parallelism: .automatic)`
 or set `parallelism: .maximumWorkers(4)`. The worker count includes the calling

@@ -337,7 +337,8 @@ struct CPUQSDEngineTests {
 			problem,
 			equationType: .linear,
 			seed: 0,
-			trajectoryID: 0
+			trajectoryID: 0,
+			ensembleSampling: .independent
 		)
         let state = QSD.CPUEngine.StateVector(state: problem.initialState)
         var diffusion = QSD.CPUEngine.StateVector(dimension: 2)
@@ -361,7 +362,8 @@ struct CPUQSDEngineTests {
 			problem,
 			equationType: .nonLinearNormalized,
 			seed: 0,
-			trajectoryID: 0
+			trajectoryID: 0,
+			ensembleSampling: .independent
 		)
         let state = QSD.CPUEngine.StateVector(state: problem.initialState)
         var drift = QSD.CPUEngine.StateVector(dimension: 2)

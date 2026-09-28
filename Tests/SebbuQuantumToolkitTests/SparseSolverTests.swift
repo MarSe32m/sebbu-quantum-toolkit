@@ -86,8 +86,10 @@ struct SparseSolverTests {
         let d = 7
         let dense = sparseFixtureProblem(d, sparseH: false, sparseC: false, expansion: expansion)
         let sparse = sparseFixtureProblem(d, sparseH: true, sparseC: true, expansion: expansion)
-        var a = QSD.CPUEngine.QSDRightHandSide(dense, equationType: equation, seed: 17, trajectoryID: 3)
-        var b = QSD.CPUEngine.QSDRightHandSide(sparse, equationType: equation, seed: 17, trajectoryID: 3)
+        var a = QSD.CPUEngine.QSDRightHandSide(
+            dense, equationType: equation, seed: 17, trajectoryID: 3, ensembleSampling: .independent)
+        var b = QSD.CPUEngine.QSDRightHandSide(
+            sparse, equationType: equation, seed: 17, trajectoryID: 3, ensembleSampling: .independent)
         let y = QSD.CPUEngine.StateVector(state: sparseFixtureState(d))
         var da = QSD.CPUEngine.StateVector(dimension: d)
         var db = QSD.CPUEngine.StateVector(dimension: d)

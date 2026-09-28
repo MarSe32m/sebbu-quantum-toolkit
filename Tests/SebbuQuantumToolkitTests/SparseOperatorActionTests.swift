@@ -97,6 +97,15 @@ struct SparseOperatorActionTests {
         sparse.action.commutator(rho.elements, into: sa.elements)
         reference.action.commutator(rho.elements, into: da.elements)
         expectHOPSClose((0..<d * d).map { sa.elements[$0] }, (0..<d * d).map { da.elements[$0] })
+        sparse.action.commutator(rho.elements, into: sa.elements, scale: scale, adding: true, adjoint: true)
+        reference.action.commutator(rho.elements, into: da.elements, scale: scale, adding: true, adjoint: true)
+        expectHOPSClose((0..<d * d).map { sa.elements[$0] }, (0..<d * d).map { da.elements[$0] })
+        var trace = Complex<Double>.zero
+        for i in 0..<d {
+            for j in 0..<d { trace += dense[i, j] * rho[j, i] }
+        }
+        #expect((sparse.action.traceProduct(rho.elements) - trace).length < 1e-11)
+        #expect((reference.action.traceProduct(rho.elements) - trace).length < 1e-11)
         let mean = sparse.action.expectation(x.components, scratch: a.components)
         let expectedMean = reference.action.expectation(x.components, scratch: b.components)
         #expect((mean - expectedMean).length < 1e-11)

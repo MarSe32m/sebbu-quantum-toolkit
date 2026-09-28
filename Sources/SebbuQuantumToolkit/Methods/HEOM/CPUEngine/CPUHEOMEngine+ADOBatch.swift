@@ -48,9 +48,9 @@ extension HEOM.CPUEngine {
         @usableFromInline
         let hRight: UnsafePointer<Complex<Double>>
         @usableFromInline
-        let lambda: UnsafePointer<Complex<Double>>
+        let bath: UnsafePointer<BathView>
         @usableFromInline
-        let memory: UnsafePointer<Complex<Double>>
+        let shifts: UnsafePointer<Complex<Double>>
         @usableFromInline
         let means: UnsafePointer<Complex<Double>>
         @usableFromInline
@@ -61,7 +61,25 @@ extension HEOM.CPUEngine {
         let temporaries: UnsafeMutablePointer<Complex<Double>>
 
         @inlinable
-        init(hierarchy: HEOM.Hierarchy, dimension: Int, centered: Bool, hamiltonian: _OperatorAction, hasCorrection: Bool, workerCount: Int, adoCount: Int, input: UnsafePointer<Complex<Double>>, output: UnsafeMutablePointer<Complex<Double>>, hLeft: UnsafePointer<Complex<Double>>, hRight: UnsafePointer<Complex<Double>>, lambda: UnsafePointer<Complex<Double>>, memory: UnsafePointer<Complex<Double>>, means: UnsafePointer<Complex<Double>>, collapse: UnsafePointer<CollapseView>, collapseCount: Int, temporaries: UnsafeMutablePointer<Complex<Double>>) {
+        internal init(
+            hierarchy: HEOM.Hierarchy,
+            dimension: Int,
+            centered: Bool,
+            hamiltonian: _OperatorAction,
+            hasCorrection: Bool,
+            workerCount: Int,
+            adoCount: Int,
+            input: UnsafePointer<Complex<Double>>,
+            output: UnsafeMutablePointer<Complex<Double>>,
+            hLeft: UnsafePointer<Complex<Double>>,
+            hRight: UnsafePointer<Complex<Double>>,
+            bath: UnsafePointer<BathView>,
+            shifts: UnsafePointer<Complex<Double>>,
+            means: UnsafePointer<Complex<Double>>,
+            collapse: UnsafePointer<CollapseView>,
+            collapseCount: Int,
+            temporaries: UnsafeMutablePointer<Complex<Double>>
+        ) {
             self.hierarchy = hierarchy
             self.dimension = dimension
             self.centered = centered
@@ -73,8 +91,8 @@ extension HEOM.CPUEngine {
             self.hasCorrection = hasCorrection
             self.hLeft = hLeft
             self.hRight = hRight
-            self.lambda = lambda
-            self.memory = memory
+            self.bath = bath
+            self.shifts = shifts
             self.means = means
             self.collapse = collapse
             self.collapseCount = collapseCount
@@ -107,7 +125,7 @@ extension HEOM.CPUEngine {
                     MatrixAction.product(hLeft, rho, dimension: d, scale: -.i, into: derivative)
                     MatrixAction.product(rho, hRight, dimension: d, scale: .i, into: derivative)
                 }
-                for i in 0..<collapseCount where collapse[i].rate != 0 {
+                for i in 0..<collapseCount where collapse[i].rate != .zero {
                     let action = collapse[i].action
                     if action.loss != nil {
                         // Dense losses have been fused into hLeft/hRight.
@@ -119,29 +137,36 @@ extension HEOM.CPUEngine {
                     }
                 }
                 for p in 0..<pCount {
-                    let op = lambda + p * size
-                    let down = memory + p * size
+                    let op = bath[p].lambda
+                    let down = bath[p].memory
+                    if centered && bath[p].sparseLambda.count > 0 {
+                        // -i[H_mu - H, rho] = [mu* Lambda - mu Lambda†, rho].
+                        // The dense contribution is already in hLeft/hRight.
+                        bath[p].sparseLambda.commutator(
+                            rho, into: derivative, scale: shifts[p].conjugate, adding: true)
+                        bath[p].sparseLambda.commutator(
+                            rho, into: derivative, scale: -shifts[p], adding: true, adjoint: true)
+                    }
                     let ket = ado * (2 * pCount) + p
                     let bra = ket + pCount
                     let ketChild = hierarchy.childIndices[ket]
                     let braChild = hierarchy.childIndices[bra]
                     if ketChild >= 0 {
-                        MatrixAction.commutator(
-                            op, input + base + ketChild * size, dimension: d,
-                            adjoint: true, scale: Complex(-hierarchy.childWeights[ket]), into: derivative)
+                        op.commutator(
+                            input + base + ketChild * size, into: derivative,
+                            scale: Complex(-hierarchy.childWeights[ket]), adding: true, adjoint: true)
                     }
                     if braChild >= 0 {
-                        MatrixAction.commutator(
-                            op, input + base + braChild * size, dimension: d,
-                            scale: Complex(hierarchy.childWeights[bra]), into: derivative)
+                        op.commutator(
+                            input + base + braChild * size, into: derivative,
+                            scale: Complex(hierarchy.childWeights[bra]), adding: true)
                     }
                     let ketParent = hierarchy.parentIndices[ket]
                     let braParent = hierarchy.parentIndices[bra]
                     if ketParent >= 0 {
                         let parent = input + base + ketParent * size
                         let weight = hierarchy.parentWeights[ket]
-                        MatrixAction.product(
-                            down, parent, dimension: d, scale: Complex(weight), into: derivative)
+                        down.matrix(parent, into: derivative, scale: Complex(weight))
                         if centered {
                             let value = weight * means[p]
                             for j in 0..<size { derivative[j] -= value * parent[j] }
@@ -150,9 +175,7 @@ extension HEOM.CPUEngine {
                     if braParent >= 0 {
                         let parent = input + base + braParent * size
                         let weight = hierarchy.parentWeights[bra]
-                        MatrixAction.product(
-                            parent, down, dimension: d, adjointB: true,
-                            scale: Complex(weight), into: derivative)
+                        down.matrix(parent, into: derivative, right: true, adjoint: true, scale: Complex(weight))
                         if centered {
                             let value = weight * means[p].conjugate
                             for j in 0..<size { derivative[j] -= value * parent[j] }

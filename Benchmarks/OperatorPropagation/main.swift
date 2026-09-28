@@ -23,12 +23,14 @@ let end = Double(option("--end", "0.02"))!
 let step = Double(option("--step", "0.002"))!
 let structure = option("--structure", "banded")
 let bathStorage = option("--bath-storage", "dense")
+let shift = option("--shift", "none")
 precondition(
     dimensions.allSatisfy { $0 >= 2 } && tier >= 0 && repeats > 0 && workers > 0 && end > 0 && step > 0)
 precondition(methods.allSatisfy { ["hops", "heom"].contains($0) })
 precondition(storage.allSatisfy { ["dense", "sparse"].contains($0) })
 precondition(["diagonal", "banded", "dense"].contains(structure))
 precondition(["dense", "sparse"].contains(bathStorage))
+precondition(["none", "mean-field"].contains(shift))
 
 let bath = CorrelatedBathModel(
     channelCount: 1,
@@ -42,7 +44,7 @@ let propagation = PropagationOptions<IntegrationOptions>(
     integration: .init(
         minimumStepSize: 0, maximumStepSize: step, absoluteTolerance: 1e-9, relativeTolerance: 1e-9))
 print(
-    "method,dimension,structure,nnz,hierarchy,workers,bath_storage,storage,repeat,seconds,checksum_real,checksum_imaginary"
+    "method,dimension,structure,nnz,hierarchy,workers,bath_storage,storage,shift,repeat,seconds,checksum_real,checksum_imaginary"
 )
 for d in dimensions {
     var dense = Matrix<Complex<Double>>.zeros(rows: d, columns: d)
@@ -69,8 +71,10 @@ for d in dimensions {
     let environment = BathEnvironment(couplingOperator: .constant(bathOperator), bath: bath)
     let hc = HOPS.Configuration(
         hierarchy: .init(environment: environment, truncation: .maximumTier(tier)),
-        equationType: .linear, noiseStepSize: step)
-    var ec = HEOM.Configuration(hierarchy: .init(environment: environment, truncation: .maximumTier(tier)))
+        equationType: .linear, shiftType: shift == "mean-field" ? .meanField : .none, noiseStepSize: step)
+    var ec = HEOM.Configuration(
+        hierarchy: .init(environment: environment, truncation: .maximumTier(tier)),
+        shiftType: shift == "mean-field" ? .meanField : .none)
     ec.parallelism = .maximumWorkers(workers)
     let initial = Vector<Complex<Double>>((0..<d).map { _ in Complex(1 / Double(d).squareRoot()) })
     for method in methods {
@@ -104,7 +108,7 @@ for d in dimensions {
                     let seconds =
                         Double(duration.components.seconds) + Double(duration.components.attoseconds) * 1e-18
                     print(
-                        "\(method),\(d),\(structure),\(values.count),\(method == "heom" ? ec.hierarchy.count : hc.hierarchy.count),\(method == "heom" ? workers : 1),\(bathStorage),\(representation),\(repeatIndex),\(seconds),\(checksum.real),\(checksum.imaginary)"
+                        "\(method),\(d),\(structure),\(values.count),\(method == "heom" ? ec.hierarchy.count : hc.hierarchy.count),\(method == "heom" ? workers : 1),\(bathStorage),\(representation),\(shift),\(repeatIndex),\(seconds),\(checksum.real),\(checksum.imaginary)"
                     )
                 }
             }

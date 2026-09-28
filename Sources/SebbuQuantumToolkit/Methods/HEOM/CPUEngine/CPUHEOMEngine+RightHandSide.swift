@@ -54,9 +54,11 @@ extension HEOM.CPUEngine {
         @usableFromInline
         var hRight: UniqueMatrix<Complex<Double>>
         @usableFromInline
-        var lambda: UniqueMatrix<Complex<Double>>
+        var lambda: UniqueArray<BathOperator>
         @usableFromInline
-        var memory: UniqueMatrix<Complex<Double>>
+        var memory: UniqueArray<BathOperator>
+        @usableFromInline
+        var bathViews: UniqueVector<BathView>
         @usableFromInline
         var means: UniqueVector<Complex<Double>>
         @usableFromInline
@@ -102,36 +104,35 @@ extension HEOM.CPUEngine {
             dimension = d
             centered = configuration.shiftType == .meanField
             self.failure = failure
-            coefficients = _LatentBathCoefficients(hierarchy.environment.bath)
+            let preparedCoefficients = _LatentBathCoefficients(hierarchy.environment.bath)
+            coefficients = preparedCoefficients
             bathIsConstant = hierarchy.environment.couplingOperators.allSatisfy(\.isConstant)
-            bathOperators = preparedBath
             collapseOperators = preparedCollapse
             rates = problem.markovianChannels.map(\.rate)
             collapseViews = .init(views)
             h = .zeros(rows: d, columns: d)
             hRight = .zeros(rows: d, columns: d)
-            lambda = .zeros(rows: coefficients.poles.count, columns: d * d)
-            memory = .zeros(rows: coefficients.poles.count, columns: d * d)
+            var preparedLambda = UniqueArray<BathOperator>()
+            var preparedMemory = UniqueArray<BathOperator>()
+            var preparedViews: [BathView] = []
+            for p in coefficients.poles.indices {
+                preparedLambda.append(.init(
+                    sources: preparedBath,
+                    weights: (0..<preparedBath.count).map { preparedCoefficients.upward[$0, p].conjugate },
+                    dimension: d))
+                preparedMemory.append(.init(
+                    sources: preparedBath,
+                    weights: (0..<preparedBath.count).map { preparedCoefficients.downward[$0, p] },
+                    dimension: d))
+                preparedViews.append(.init(lambda: preparedLambda[p], memory: preparedMemory[p]))
+            }
+            bathOperators = preparedBath
+            lambda = preparedLambda
+            memory = preparedMemory
+            bathViews = .init(preparedViews)
             means = coefficients.poles.isEmpty ? .init() : .zero(coefficients.poles.count)
             temporary = .zeros(rows: preparedPool?.workerCount ?? 1, columns: d * d)
             pool = preparedPool
-            if bathIsConstant { buildBathOperators() }
-        }
-
-        @inlinable
-        mutating func buildBathOperators() {
-            lambda.zeroElements()
-            memory.zeroElements()
-            let size = dimension * dimension
-            for p in coefficients.poles.indices {
-                for i in 0..<bathOperators.count {
-                    let up = coefficients.upward[i, p].conjugate
-                    let down = coefficients.downward[i, p]
-                    // Scatter CSR nonzeros directly into the latent combinations.
-                    bathOperators[i].action.add(into: lambda.elements + p * size, scale: up)
-                    bathOperators[i].action.add(into: memory.elements + p * size, scale: down)
-                }
-            }
         }
 
         @inlinable
@@ -157,7 +158,10 @@ extension HEOM.CPUEngine {
                         return
                     }
                 }
-                buildBathOperators()
+                for p in 0..<pCount {
+                    lambda[p].update(sources: bathOperators)
+                    memory[p].update(sources: bathOperators)
+                }
             }
             for i in 0..<collapseOperators.count {
                 let rate = rates[i](t)
@@ -176,6 +180,7 @@ extension HEOM.CPUEngine {
                     action: collapseOperators[i].action, rate: rate)
             }
 
+            var hasCorrection = false
             if centered && pCount > 0 {
                 // The first block is always the unconditioned physical guide.
                 var trace = Complex<Double>.zero
@@ -186,22 +191,21 @@ extension HEOM.CPUEngine {
                     return
                 }
                 for p in 0..<pCount {
-                    var mean = Complex<Double>.zero
-                    for i in 0..<d {
-                        for j in 0..<d {
-                            mean += memory.elements[p * size + i * d + j] * y.ados.elements[j * d + i]
-                        }
-                    }
-                    mean /= trace
+                    let mean = bathViews[p].memory.traceProduct(y.ados.elements) / trace
                     means[p] = mean
                     dy.shifts[p] = -poles[p] * y.shifts[p] + mean
                     // H_mu = H + i sum_p (mu_p* Lambda_p - mu_p Lambda_p^dagger).
-                    for i in 0..<d {
-                        for j in 0..<d {
-                            h[i, j] +=
-                                .i
-                                * (y.shifts[p].conjugate * lambda.elements[p * size + i * d + j]
-                                    - y.shifts[p] * lambda.elements[p * size + j * d + i].conjugate)
+                    // Only fold the dense part into H_mu. Sparse terms remain
+                    // sparse in ADOBatch, including for centered propagation.
+                    if lambda[p].dense.rows > 0 {
+                        hasCorrection = true
+                        let op = lambda[p].dense.elements
+                        for i in 0..<d {
+                            for j in 0..<d {
+                                h[i, j] += .i * (
+                                    y.shifts[p].conjugate * op[i * d + j]
+                                    - y.shifts[p] * op[j * d + i].conjugate)
+                            }
                         }
                     }
                 }
@@ -210,7 +214,6 @@ extension HEOM.CPUEngine {
             // Prepare H_eff and its right-action partner once per stage.
             // Keeping both also preserves the commutator for a supplied H that
             // is not exactly Hermitian, without conjugating the companion ADO.
-            var hasCorrection = centered && pCount > 0
             hRight.copyElements(from: h)
             for i in 0..<collapseOperators.count where collapseViews[i].rate != 0 {
                 let factor = Complex<Double>(0, 0.5 * collapseViews[i].rate)
@@ -226,7 +229,7 @@ extension HEOM.CPUEngine {
                 workerCount: workerCount, adoCount: y.ados.rows,
                 input: UnsafePointer(y.ados.elements), output: dy.ados.elements,
                 hLeft: UnsafePointer(h.elements), hRight: UnsafePointer(hRight.elements),
-                lambda: UnsafePointer(lambda.elements), memory: UnsafePointer(memory.elements),
+                bath: UnsafePointer(bathViews.components), shifts: UnsafePointer(y.shifts.components),
                 means: UnsafePointer(means.components), collapse: UnsafePointer(collapseViews.components),
                 collapseCount: collapseViews.count, temporaries: temporary.elements)
             if let pool {
