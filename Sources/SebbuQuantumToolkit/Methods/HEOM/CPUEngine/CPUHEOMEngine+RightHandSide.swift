@@ -22,61 +22,13 @@ extension HEOM.CPUEngine {
         func check() throws { if let error { throw error } }
     }
 
-    @usableFromInline
-    internal struct Operator: ~Copyable {
-        @usableFromInline
-        let source: TimeDependentOperator
-        @usableFromInline
-        let isConstant: Bool
-        @usableFromInline
-        var matrix: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        var loss: UniqueMatrix<Complex<Double>>
-        @usableFromInline
-        let needsLoss: Bool
-
-        @inlinable
-        init(_ source: TimeDependentOperator, dimension: Int, needsLoss: Bool = false) throws {
-            if source.firstDimensionMismatch(expected: dimension) != nil {
-                throw SolverError.operatorDimensionMismatch
-            }
-            self.source = source
-            self.isConstant = source.isConstant
-            self.needsLoss = needsLoss
-            matrix = .zeros(rows: dimension, columns: dimension)
-            loss = .zeros(rows: needsLoss ? dimension : 0, columns: needsLoss ? dimension : 0)
-            if isConstant {
-                source.insert(t: 0, into: &matrix)
-                if needsLoss {
-                    MatrixAction.product(
-                        matrix.elements, matrix.elements, dimension: dimension,
-                        adjointA: true, adding: false, into: loss.elements)
-                }
-            }
-        }
-
-        @inlinable
-        mutating func update(at time: Double, dimension: Int) -> Bool {
-            if !isConstant {
-                source.insert(t: time, into: &matrix)
-                guard matrix.rows == dimension && matrix.columns == dimension else { return false }
-                if needsLoss {
-                    MatrixAction.product(
-                        matrix.elements, matrix.elements, dimension: dimension,
-                        adjointA: true, adding: false, into: loss.elements)
-                }
-            }
-            return true
-        }
-    }
-
     /// Equations (11.5), (11.8) and (11.9) of the latent-basis notes.
     /// All buffers are allocated at construction. The Hamiltonian, bath and
     /// collapse operators are evaluated once per RK stage, shared by all ADOs.
     @usableFromInline
     internal struct RightHandSide: ~Copyable, ODERHSFunction {
         @usableFromInline
-        let hamiltonian: TimeDependentOperator
+        var hamiltonian: _PreparedOperator
         @usableFromInline
         let hierarchy: HEOM.Hierarchy
         @usableFromInline
@@ -92,9 +44,9 @@ extension HEOM.CPUEngine {
         @usableFromInline
         let rates: [ScalarTimeFunction]
         @usableFromInline
-        var bathOperators: UniqueArray<Operator>
+        var bathOperators: UniqueArray<_PreparedOperator>
         @usableFromInline
-        var collapseOperators: UniqueArray<Operator>
+        var collapseOperators: UniqueArray<_PreparedMarkovianChannel>
         @usableFromInline
         var collapseViews: UniqueVector<CollapseView>
         @usableFromInline
@@ -126,15 +78,17 @@ extension HEOM.CPUEngine {
             precondition(d > 0, "The system dimension must be positive.")
             // Complete throwing preparation before initializing the
             // noncopyable RHS (Swift cannot unwind a partially initialized one).
-            var preparedBath = UniqueArray<Operator>()
+            var preparedBath = UniqueArray<_PreparedOperator>()
             for op in configuration.hierarchy.environment.couplingOperators {
-                preparedBath.append(try Operator(op, dimension: d))
+                guard op.firstDimensionMismatch(expected: d) == nil else { throw SolverError.operatorDimensionMismatch }
+                preparedBath.append(_PreparedOperator(op, dimension: d, aggregateDense: true))
             }
-            var preparedCollapse = UniqueArray<Operator>()
+            var preparedCollapse = UniqueArray<_PreparedMarkovianChannel>()
             var views: [CollapseView] = []
             for channel in problem.markovianChannels {
-                let op = try Operator(channel.collapseOperator, dimension: d, needsLoss: true)
-                views.append(CollapseView(matrix: UnsafePointer(op.matrix.elements), rate: 0))
+                guard channel.collapseOperator.firstDimensionMismatch(expected: d) == nil else { throw SolverError.operatorDimensionMismatch }
+                let op = _PreparedMarkovianChannel(channel, dimension: d)
+                views.append(CollapseView(action: op.action, rate: 0))
                 preparedCollapse.append(op)
             }
             let workers = configuration.parallelism.workerCount(
@@ -143,7 +97,7 @@ extension HEOM.CPUEngine {
                 collapseCount: problem.markovianChannels.count)
             let preparedPool: PersistentWorkerPool<ADOBatch>? = workers > 1
                 ? .init(workers: workers) { batch, worker in batch.evaluate(worker: worker) } : nil
-            hamiltonian = problem.system.hamiltonian
+            hamiltonian = .init(problem.system.hamiltonian, dimension: d, aggregateDense: true)
             hierarchy = configuration.hierarchy
             dimension = d
             centered = configuration.shiftType == .meanField
@@ -173,11 +127,9 @@ extension HEOM.CPUEngine {
                 for i in 0..<bathOperators.count {
                     let up = coefficients.upward[i, p].conjugate
                     let down = coefficients.downward[i, p]
-                    for j in 0..<size {
-                        let value = bathOperators[i].matrix.elements[j]
-                        lambda.elements[p * size + j] += up * value
-                        memory.elements[p * size + j] += down * value
-                    }
+                    // Scatter CSR nonzeros directly into the latent combinations.
+                    bathOperators[i].action.add(into: lambda.elements + p * size, scale: up)
+                    bathOperators[i].action.add(into: memory.elements + p * size, scale: down)
                 }
             }
         }
@@ -191,17 +143,15 @@ extension HEOM.CPUEngine {
             let size = d * d
             let poles = coefficients.poles
             let pCount = poles.count
-            let hamiltonian = self.hamiltonian
-            //TODO: Take advantage of potentially sparse Hamiltonian etc.
-            hamiltonian.insert(t: t, into: &h)
-            guard h.rows == d && h.columns == d else {
+            h.zeroElements()
+            guard hamiltonian.update(at: t) else {
                 failure.error = .operatorDimensionMismatch
                 dy.zero()
                 return
             }
             if !bathIsConstant {
                 for i in 0..<bathOperators.count {
-                    guard bathOperators[i].update(at: t, dimension: d) else {
+                    guard bathOperators[i].update(at: t) else {
                         failure.error = .operatorDimensionMismatch
                         dy.zero()
                         return
@@ -216,20 +166,20 @@ extension HEOM.CPUEngine {
                     dy.zero()
                     return
                 }
-                guard collapseOperators[i].update(at: t, dimension: d) else {
+                guard collapseOperators[i].update(at: t) else {
                     failure.error = .operatorDimensionMismatch
                     dy.zero()
                     return
                 }
                 // Generated operators may replace their storage on each call.
                 collapseViews[i] = CollapseView(
-                    matrix: UnsafePointer(collapseOperators[i].matrix.elements), rate: rate)
+                    action: collapseOperators[i].action, rate: rate)
             }
 
             if centered && pCount > 0 {
                 // The first block is always the unconditioned physical guide.
                 var trace = Complex<Double>.zero
-                for i in 0..<d { trace += y.ados.elements[i * d + i] }
+                for i in 0..<d { trace += y.ados.elements[i &* d &+ i] }
                 guard trace.real.isFinite && trace.imaginary.isFinite && trace.length > 0 else {
                     failure.error = .invalidGuideTrace(time: t)
                     dy.zero()
@@ -260,17 +210,19 @@ extension HEOM.CPUEngine {
             // Prepare H_eff and its right-action partner once per stage.
             // Keeping both also preserves the commutator for a supplied H that
             // is not exactly Hermitian, without conjugating the companion ADO.
+            var hasCorrection = centered && pCount > 0
             hRight.copyElements(from: h)
             for i in 0..<collapseOperators.count where collapseViews[i].rate != 0 {
                 let factor = Complex<Double>(0, 0.5 * collapseViews[i].rate)
-                let loss = collapseOperators[i].loss.elements
+                guard let loss = collapseOperators[i].action.loss else { continue }
+                hasCorrection = true
                 for j in 0..<size {
                     h.elements[j] -= factor * loss[j]
                     hRight.elements[j] += factor * loss[j]
                 }
             }
             let batch = ADOBatch(
-                hierarchy: hierarchy, dimension: d, centered: centered,
+                hierarchy: hierarchy, dimension: d, centered: centered, hamiltonian: hamiltonian.action, hasCorrection: hasCorrection,
                 workerCount: workerCount, adoCount: y.ados.rows,
                 input: UnsafePointer(y.ados.elements), output: dy.ados.elements,
                 hLeft: UnsafePointer(h.elements), hRight: UnsafePointer(hRight.elements),

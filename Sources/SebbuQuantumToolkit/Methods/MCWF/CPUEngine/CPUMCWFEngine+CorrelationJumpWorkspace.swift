@@ -14,21 +14,15 @@ extension MCWF.CPUEngine {
 		internal typealias Failure = SolverError
 
 		@usableFromInline
-        internal let channels: [PreparedChannel]
-		@usableFromInline
-        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
+        internal var channels: UniqueArray<_PreparedMarkovianChannel>
 		@usableFromInline
 		internal var actionBuffer: UniqueVector<Complex<Double>>
 		@usableFromInline
         internal var weights: [Double]
 
         @inlinable
-		internal init(channels: [PreparedChannel], dimension: Int) {
-			self.channels = channels
-			self.collapseBuffer = .zeros(
-				rows: dimension,
-				columns: dimension
-			)
+		internal init(channels: [MarkovianChannel], dimension: Int) {
+			self.channels = _prepareMarkovianChannels(channels, dimension: dimension)
 			self.actionBuffer = .zero(dimension)
 			self.weights = [Double](repeating: .zero, count: channels.count)
 		}
@@ -40,22 +34,17 @@ extension MCWF.CPUEngine {
 			using randomNumberGenerator: inout RNG
 		) throws(SolverError) {
 			var totalWeight = 0.0
-			for index in channels.indices {
-				let channel = channels[index]
-				let rate = Self.checkedRate(channel.rate(time), at: time)
+			for index in 0..<channels.count {
+
+				let rate = Self.checkedRate(channels[index].rate(time), at: time)
 				guard rate > .zero else {
 					weights[index] = .zero
 					continue
 				}
-                    
-                switch channel {
-                case .constant(let channel):
-                    channel.collapseOperator.dotBLAS(state.guide, into: &actionBuffer)
 
-                case .dynamic(let channel):
-                    channel.insert(t: time, into: &collapseBuffer)
-                    collapseBuffer.dotBLAS(state.guide, into: &actionBuffer)
-                }
+                channels[index].updateChecked(at: time)
+                channels[index].action.op.vector(state.guide.components, into: actionBuffer.components, blas: true)
+
 				let weight = rate * actionBuffer.normSquared
 				guard weight.isFinite && weight >= .zero else {
 					throw SolverError.invalidJumpWeight(
@@ -74,7 +63,7 @@ extension MCWF.CPUEngine {
 			let selection = totalWeight * randomNumberGenerator.nextUnitDouble()
 			var cumulativeWeight = 0.0
 			var selectedIndex: Int?
-			for index in channels.indices where weights[index] > .zero {
+			for index in 0..<channels.count where weights[index] > .zero {
 				cumulativeWeight += weights[index]
 				selectedIndex = index
 				if selection < cumulativeWeight { break }
@@ -83,41 +72,20 @@ extension MCWF.CPUEngine {
 				throw SolverError.noAvailableJump(time: time)
 			}
 
-            // Perform jump
-			let selectedChannel = channels[selectedIndex]
-            switch selectedChannel {
-            case .constant(let channel):
-                // Perform jump on the guide and record its norm
-                channel.collapseOperator.dotBLAS(state.guide, into: &actionBuffer)
-                let normSquared = actionBuffer.normSquared
-                guard normSquared.isFinite && normSquared > .zero else {
-                    throw SolverError.noAvailableJump(time: time)
-                }
-                let inverseNorm = 1 / normSquared.squareRoot()
-                state.guide.copyComponents(from: actionBuffer, multiplied: inverseNorm)
-                // Apply jump to ket and normalize according to guide
-                channel.collapseOperator.dotBLAS(state.ket, into: &actionBuffer)
-                state.ket.copyComponents(from: actionBuffer, multiplied: inverseNorm)
-                channel.collapseOperator.dotBLAS(state.bra, into: &actionBuffer)
-                state.bra.copyComponents(from: actionBuffer, multiplied: inverseNorm)
-
-            case .dynamic(let channel):
-                // Perform jump on the guide and record its norm
-                channel.insert(t: time, into: &collapseBuffer)
-                collapseBuffer.dotBLAS(state.guide, into: &actionBuffer)
-                let normSquared = actionBuffer.normSquared
-                guard normSquared.isFinite && normSquared > .zero else {
-                    throw SolverError.noAvailableJump(time: time)
-                }
-                let inverseNorm = 1 / normSquared.squareRoot()
-                state.guide.copyComponents(from: actionBuffer, multiplied: inverseNorm)
-                // Apply jump to ket and normalize according to guide
-                collapseBuffer.dotBLAS(state.ket, into: &actionBuffer)
-                state.ket.copyComponents(from: actionBuffer, multiplied: inverseNorm)
-                // Apply jump to bra and normalize according to guide
-                collapseBuffer.dotBLAS(state.bra, into: &actionBuffer)
-                state.bra.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+            // Reuse the stage used for weights, including all companions.
+            let op = channels[selectedIndex].action.op
+            op.vector(state.guide.components, into: actionBuffer.components, blas: true)
+            let normSquared = actionBuffer.normSquared
+            guard normSquared.isFinite && normSquared > 0 else {
+                throw SolverError.noAvailableJump(time: time)
             }
+            let inverseNorm = 1 / normSquared.squareRoot()
+            state.guide.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+            op.vector(state.ket.components, into: actionBuffer.components, blas: true)
+            state.ket.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+            op.vector(state.bra.components, into: actionBuffer.components, blas: true)
+            state.bra.copyComponents(from: actionBuffer, multiplied: inverseNorm)
+
 		}
 
 		@inlinable

@@ -8,34 +8,24 @@ extension MCWF.CPUEngine {
     @usableFromInline
 	internal struct RightHandSide: ~Copyable, ODERHSFunction {
         @usableFromInline
-		internal let hamiltonian: TimeDependentOperator
+		internal var hamiltonian: _PreparedOperator
         @usableFromInline
-		internal let channels: [PreparedChannel]
-
+		internal var channels: UniqueArray<_PreparedMarkovianChannel>
 		@usableFromInline
-        internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-        internal var adjointBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-        internal var lossBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
+        internal var scratch: UniqueVector<Complex<Double>>
+        @usableFromInline
         internal var operatorAction: UniqueVector<Complex<Double>>
 
         @inlinable
 		internal init(
 			hamiltonian: TimeDependentOperator,
-			channels: [PreparedChannel],
+			channels: [MarkovianChannel],
 			dimension: Int
 		) {
-			self.hamiltonian = hamiltonian
-			self.channels = channels
-			self.hamiltonianBuffer = .zeros(rows: dimension, columns: dimension)
-			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
-			self.adjointBuffer = .zeros(rows: dimension, columns: dimension)
-			self.lossBuffer = .zeros(rows: dimension, columns: dimension)
-			self.operatorAction = .zero(dimension)
+			self.hamiltonian = .init(hamiltonian, dimension: dimension)
+			self.channels = _prepareMarkovianChannels(channels, dimension: dimension)
+			self.scratch = .zero(dimension)
+            self.operatorAction = .zero(dimension)
 		}
 
         @inlinable
@@ -50,41 +40,17 @@ extension MCWF.CPUEngine {
 				"The conditional MCWF state must have a positive finite norm"
 			)
 
-            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
-            hamiltonian.insert(t: t, into: &hamiltonianBuffer)
-			hamiltonianBuffer.dotBLAS(
-				y.wavefunction,
-				multiplied: -.i,
-				into: &dy.wavefunction
-			)
+            hamiltonian.updateChecked(at: t)
+            hamiltonian.action.vector(y.wavefunction.components, into: dy.wavefunction.components, scale: -.i, blas: true)
 
 			var totalHazardRate = 0.0
-			for channel in channels {
-				let rate = Self.checkedRate(channel.rate(t), at: t)
+			for i in 0..<channels.count {
+				let rate = Self.checkedRate(channels[i].rate(t), at: t)
 				guard rate > .zero else { continue }
 
-				switch channel {
-				case .constant(let channel):
-					channel.lossOperator.dotBLAS(
-						y.wavefunction,
-						into: &operatorAction
-					)
-
-				case .dynamic(let channel):
-					channel.insert(t: t, into: &collapseBuffer)
-					for row in 0..<collapseBuffer.rows {
-						for column in 0..<collapseBuffer.columns {
-							adjointBuffer[column, row] =
-								collapseBuffer[row, column]
-								.conjugate
-						}
-					}
-					adjointBuffer.dotBLAS(collapseBuffer, into: &lossBuffer)
-					lossBuffer.dotBLAS(
-						y.wavefunction,
-						into: &operatorAction
-					)
-				}
+                channels[i].updateChecked(at: t)
+                channels[i].action.lossVector(y.wavefunction.components,
+                    into: operatorAction.components, scratch: scratch.components, blas: true)
 
 				let rawExpectation =
 					y.wavefunction.inner(operatorAction).real / normSquared
@@ -130,30 +96,4 @@ extension MCWF.CPUEngine {
 		}
 	}
 
-    @inlinable
-	internal static func prepareChannels(
-		_ markovianChannels: [MarkovianChannel],
-		dimension: Int
-	) -> [PreparedChannel] {
-		var channels: [PreparedChannel] = []
-		channels.reserveCapacity(markovianChannels.count)
-		for channel in markovianChannels {
-			if let prepared = _PreparedConstantMarkovianChannel(
-				channel,
-				dimension: dimension
-			) {
-				channels.append(.constant(prepared))
-			} else {
-				channels.append(
-					.dynamic(
-						_PreparedDynamicMarkovianChannel(
-							channel,
-							dimension: dimension
-						)
-					)
-				)
-			}
-		}
-		return channels
-	}
 }

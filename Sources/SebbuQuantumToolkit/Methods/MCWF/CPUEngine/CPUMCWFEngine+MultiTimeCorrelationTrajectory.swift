@@ -94,10 +94,7 @@ extension MCWF.CPUEngine {
 			return .init(finalTime: end, endReason: .reachedEndTime)
 		}
 
-		let channels = Self.prepareChannels(
-			problem.markovianChannels,
-			dimension: dimension
-		)
+		let channels = problem.markovianChannels
 		let rhs = CorrelationRightHandSide(
 			hamiltonian: problem.system.hamiltonian,
 			channels: channels,

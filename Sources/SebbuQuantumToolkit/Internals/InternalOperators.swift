@@ -4,58 +4,56 @@
 import Numerics
 import SebbuScience
 
+extension ConstantOperator {
+    /// Scatter only stored CSR entries; prepared hot paths retain CSR storage.
+    @inlinable
+    internal func add(into output: inout UniqueMatrix<Complex<Double>>, scale: Complex<Double>) {
+        switch storage {
+        case .dense(let matrix):
+            precondition(
+                output.rows == matrix.rows && output.columns == matrix.columns,
+                "Operator dimensions do not match the output buffer")
+            output.add(matrix, multiplied: scale)
+        case .sparse(let matrix):
+            precondition(
+                output.rows == matrix.rows && output.columns == matrix.columns,
+                "Operator dimensions do not match the output buffer")
+            matrix.withRowIndices { rows in
+                matrix.withColumnIndices { columns in
+                    matrix.withValues { values in
+                        for row in 0..<matrix.rows {
+                            for k in rows[row]..<rows[row + 1] {
+                                output[unchecked: row, unchecked: columns[k]] += scale * values[k]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 extension TimeDependentOperator {
-	/// Materializes this operator in caller-owned storage.
-	///
-	/// Keeping the public, copyable operator representation here avoids a
-	/// second hierarchy of noncopyable operator enums in the numerical
-	/// implementations. The latter substantially complicates ownership
-	/// lowering without saving any per-step allocations.
-	@inlinable
-	internal func insert(
-		t: Double,
-		into output: inout UniqueMatrix<Complex<Double>>
-	) {
-		switch self {
-		case .constant(let constantOperator):
-                switch constantOperator.storage {
-                    case .dense(let matrix):
-                        precondition(
-                            output.rows == matrix.rows
-                            && output.columns == matrix.columns,
-                            "Operator dimensions do not match the output buffer"
-                        )
-                        output.copyElements(from: matrix)
-                    case .sparse(_):
-                        fatalError("TODO: We shouldn't be calling this on sparse matrices...")
-                }
-
-		case .linearCombination(let expansion):
-			precondition(
-				expansion.coefficients.count == expansion.operators.count
-					&& !expansion.operators.isEmpty,
-				"An operator expansion must contain matching, nonempty coefficient and operator arrays"
-			)
-
-			for index in expansion.operators.indices {
-                guard case .dense(let matrix) = expansion.operators[index].storage else {
-                    fatalError("TODO: Sparse matrices shouldn't be calling this..")
-                }
-				precondition(
-					output.rows == matrix.rows
-						&& output.columns == matrix.columns,
-					"Operator dimensions do not match the output buffer"
-				)
-				let coefficient = expansion.coefficients[index](t)
-				if index == expansion.operators.startIndex {
-					output.copyElements(from: matrix, multiplied: coefficient)
-				} else {
-					output.add(matrix, multiplied: coefficient)
-				}
-			}
-
-		case .generatedDense(let dynamicOperator):
-			dynamicOperator.generator(t, &output)
-		}
-	}
+    /// Materialization fallback, correct for mixed dense/CSR expansions too.
+    @inlinable
+    internal func insert(t: Double, into output: inout UniqueMatrix<Complex<Double>>) {
+        switch self {
+        case .constant(let op):
+            if case .dense(let matrix) = op.storage {
+                precondition(
+                    output.rows == matrix.rows && output.columns == matrix.columns,
+                    "Operator dimensions do not match the output buffer")
+                output.copyElements(from: matrix)
+            } else {
+                output.zeroElements()
+                op.add(into: &output, scale: .one)
+            }
+        case .linearCombination(let expansion):
+            output.zeroElements()
+            for i in expansion.operators.indices {
+                expansion.operators[i].add(into: &output, scale: expansion.coefficients[i](t))
+            }
+        case .generatedDense(let op): op.generator(t, &output)
+        }
+    }
 }

@@ -13,18 +13,15 @@ extension MCWF.CPUEngine {
 		internal typealias Failure = SolverError
 
 		@usableFromInline
-        internal let channels: [PreparedChannel]
-		@usableFromInline
-        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
+        internal var channels: UniqueArray<_PreparedMarkovianChannel>
 		@usableFromInline
         internal var actionBuffer: UniqueVector<Complex<Double>>
 		@usableFromInline
         internal var weights: [Double]
 
         @inlinable
-		internal init(channels: [PreparedChannel], dimension: Int) {
-			self.channels = channels
-			self.collapseBuffer = .zeros(rows: dimension, columns: dimension)
+		internal init(channels: [MarkovianChannel], dimension: Int) {
+			self.channels = _prepareMarkovianChannels(channels, dimension: dimension)
 			self.actionBuffer = .zero(dimension)
 			self.weights = [Double](repeating: .zero, count: channels.count)
 		}
@@ -36,19 +33,17 @@ extension MCWF.CPUEngine {
 			using randomNumberGenerator: inout RNG
 		) throws(SolverError) {
 			var totalWeight = 0.0
-			for index in channels.indices {
-				let channel = channels[index]
-				let rate = Self.checkedRate(channel.rate(time), at: time)
+			for index in 0..<channels.count {
+
+				let rate = Self.checkedRate(channels[index].rate(time), at: time)
 				guard rate > .zero else {
 					weights[index] = .zero
 					continue
 				}
 
-				apply(
-					channel,
-					at: time,
-					to: state.wavefunction
-				)
+                channels[index].updateChecked(at: time)
+                channels[index].action.op.vector(state.wavefunction.components, into: actionBuffer.components, blas: true)
+
 				let weight = rate * actionBuffer.normSquared
 				guard weight.isFinite && weight >= .zero else {
 					throw SolverError.invalidJumpWeight(
@@ -67,7 +62,7 @@ extension MCWF.CPUEngine {
 			let selection = totalWeight * randomNumberGenerator.nextUnitDouble()
 			var cumulativeWeight = 0.0
 			var selectedIndex: Int?
-			for index in channels.indices where weights[index] > .zero {
+			for index in 0..<channels.count where weights[index] > .zero {
 				cumulativeWeight += weights[index]
 				selectedIndex = index
 				if selection < cumulativeWeight { break }
@@ -76,11 +71,8 @@ extension MCWF.CPUEngine {
 				throw SolverError.noAvailableJump(time: time)
 			}
 
-			apply(
-				channels[selectedIndex],
-				at: time,
-				to: state.wavefunction
-			)
+            channels[selectedIndex].action.op.vector(state.wavefunction.components,
+                into: actionBuffer.components, blas: true)
 			state.wavefunction.copyComponents(from: actionBuffer)
             try MCWF.CPUEngine.normalize(&state, at: time)
 		}
@@ -94,24 +86,6 @@ extension MCWF.CPUEngine {
 			using rng: inout RNG
 		) throws(SolverError) {
 			try applyJump(at: time, state: &state, using: &rng)
-		}
-
-        @inlinable
-        @inline(__always)
-        //@inline(always) TODO: Crashed. Report the bug to swiftlang when you have a reproducer...
-		internal mutating func apply(
-			_ channel: PreparedChannel,
-			at time: Double,
-			to state: borrowing UniqueVector<Complex<Double>>
-		) {
-			switch channel {
-			case .constant(let channel):
-				channel.collapseOperator.dotBLAS(state, into: &actionBuffer)
-
-			case .dynamic(let channel):
-				channel.insert(t: time, into: &collapseBuffer)
-				collapseBuffer.dotBLAS(state, into: &actionBuffer)
-			}
 		}
 
         @inlinable

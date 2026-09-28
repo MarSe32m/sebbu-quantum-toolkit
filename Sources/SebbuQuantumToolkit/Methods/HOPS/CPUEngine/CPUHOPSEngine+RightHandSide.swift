@@ -16,14 +16,12 @@ extension HOPS.CPUEngine {
 		let poles: Span<Complex<Double>>
 		@usableFromInline
 		let bathChannels: Span<Preparation.BathChannel>
-		@usableFromInline
-		let markovianOperators: Span<PreparedOperator>
-		@usableFromInline
-		let rates: Span<PreparedTimeFunction<Double>>
+        @usableFromInline var markovianOperators: UniqueArray<_PreparedMarkovianChannel>
+        @usableFromInline var markovianActions: UniqueArray<_DiffusiveAction>
 		@usableFromInline
 		let hierarchy: HierarchyTables
 		@usableFromInline
-		let hamiltonian: TimeDependentOperator
+		var hamiltonian: _PreparedOperator
 		@usableFromInline
 		var coloredRNG: TrajectoryRandomNumberGenerator
 		@usableFromInline
@@ -41,12 +39,6 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		var bathMeans: UniqueVector<Complex<Double>>
 
-		/// Reusable scratch for time-dependent Markovian collapse operators.
-		/// These are only full-sized if at least one such operator is dynamic.
-		@usableFromInline
-		var original: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-		var loss: UniqueMatrix<Complex<Double>>
 		@usableFromInline
 		var generator: UniqueMatrix<Complex<Double>>
 		@usableFromInline
@@ -74,12 +66,10 @@ extension HOPS.CPUEngine {
 				preparation.poles, owner: preparation)
 			self.bathChannels = _hopsBorrowStorage(
 				preparation.bathChannels, owner: preparation)
-			self.markovianOperators = _hopsBorrowStorage(
-				preparation.markovianOperators, owner: preparation)
-			self.rates = _hopsBorrowStorage(
-				preparation.rates, owner: preparation)
+            self.markovianOperators = _prepareMarkovianChannels(preparation.markovianChannels, dimension: preparation.dimension)
+            self.markovianActions = .init(minimumCapacity: preparation.markovianChannels.count)
 			self.hierarchy = HierarchyTables(preparation)
-			self.hamiltonian = hamiltonian
+			self.hamiltonian = .init(hamiltonian, dimension: preparation.dimension)
 
 			var rng = TrajectoryRandomNumberGenerator(
 				seed: seed,
@@ -106,24 +96,6 @@ extension HOPS.CPUEngine {
 			self.dynamicBathMatrices = dynamicBathMatrices
 			self.bathMeans = .zero(preparation.bathChannels.count)
 
-			var hasDynamicMarkovianOperator = false
-			for i in 0..<preparation.markovianOperators.count {
-				switch preparation.markovianOperators[i].constant {
-				case .some:
-					break
-				case .none:
-					hasDynamicMarkovianOperator = true
-				}
-				if hasDynamicMarkovianOperator { break }
-			}
-			let markovianScratchDimension =
-				hasDynamicMarkovianOperator ? d : 1
-			self.original = .zeros(
-				rows: markovianScratchDimension,
-				columns: markovianScratchDimension)
-			self.loss = .zeros(
-				rows: markovianScratchDimension,
-				columns: markovianScratchDimension)
 			self.generator = .zeros(rows: d, columns: d)
 			self.down = .zero(d)
 			self.up = .zero(d)
@@ -250,7 +222,6 @@ extension HOPS.CPUEngine {
 			into dy: inout State
 		) {
 			let bathChannels = self.bathChannels
-			let markovianOperators = self.markovianOperators
 			let nonlinear = equationType != .linear
 			let displaced = shiftType == .meanField
 			let normalized = equationType == .nonLinearNormalized
@@ -259,10 +230,10 @@ extension HOPS.CPUEngine {
 
 			dy.zero()
 
-			// 1. Build the common effective system generator H_eff
-            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
-            hamiltonian.insert(t: t, into: &generator)
-			generator.multiply(by: -.i)
+            // Base H stays separate. Every coefficient is evaluated before
+            // any guide, companion or hierarchy-row action.
+            hamiltonian.updateChecked(at: t)
+            generator.zeroElements()
 
 			for p in 0..<y.shifts.count {
 				dy.shifts[unchecked: p] =
@@ -305,41 +276,20 @@ extension HOPS.CPUEngine {
 					generator: &generator)
 			}
 
-			// Markovian drift is also common to every hierarchy row, so fold it
-			// into H_eff before touching the hierarchy
-			for i in 0..<markovianOperators.count {
-				let rate = Self.checkedRate(rates[unchecked: i](t))
-				if rate == 0 { continue }
-
-				switch markovianOperators[unchecked: i].constant {
-				case .some(let constant):
-					Self.accumulateMarkovianDrift(
-						matrix: constant.matrix,
-						loss: constant.loss,
-						rate: rate,
-						nonlinear: nonlinear,
-						normalized: normalized,
-						y: y,
-						inverseNorm: inverseNorm,
-						generator: &generator)
-				case .none:
-					markovianOperators[unchecked: i].source.insert(
-						t: t, into: &original)
-					Self.validateOperator(
-						original, dimension: dimension)
-					OperatorApplication.loss(
-						original, into: &loss)
-					Self.accumulateMarkovianDrift(
-						matrix: original,
-						loss: loss,
-						rate: rate,
-						nonlinear: nonlinear,
-						normalized: normalized,
-						y: y,
-						inverseNorm: inverseNorm,
-						generator: &generator)
-				}
-			}
+            // Dense channels are fused into the common correction generator;
+            // sparse/mixed channels retain factorized actions for every row.
+            var hasCorrection = !bathChannels.isEmpty
+            markovianActions.removeAll() // UniqueArray preserves its reserved capacity.
+            for i in 0..<markovianOperators.count {
+                let rate = Self.checkedRate(markovianOperators[i].rate(t))
+                if rate == 0 { continue }
+                markovianOperators[i].updateChecked(at: t)
+                let action = _DiffusiveAction(collapse: markovianOperators[i].action, rate: rate,
+                    nonlinear: nonlinear, normalized: normalized,
+                    guide: y.amplitudes.elements, norm: norm, scratch: down.components)
+                if action.addDenseGenerator(into: generator.elements) { hasCorrection = true }
+                else { markovianActions.append(action) }
+            }
 
 			// 2. Evaluate the complete guide physical tier first
 			Self.evaluateHierarchyRow(
@@ -348,6 +298,9 @@ extension HOPS.CPUEngine {
 				gauge: 0,
 				hierarchy: hierarchy,
 				generator: generator,
+                hamiltonian: hamiltonian.action,
+                hasCorrection: hasCorrection,
+                markovianActions: markovianActions,
 				bathChannels: bathChannels,
 				dynamicBathMatrices: dynamicBathMatrices,
 				means: bathMeans,
@@ -385,6 +338,9 @@ extension HOPS.CPUEngine {
 					gauge: gauge,
 					hierarchy: hierarchy,
 					generator: generator,
+                hamiltonian: hamiltonian.action,
+                hasCorrection: hasCorrection,
+                markovianActions: markovianActions,
 					bathChannels: bathChannels,
 					dynamicBathMatrices: dynamicBathMatrices,
 					means: bathMeans,
@@ -411,6 +367,9 @@ extension HOPS.CPUEngine {
 						gauge: gauge,
 						hierarchy: hierarchy,
 						generator: generator,
+                hamiltonian: hamiltonian.action,
+                hasCorrection: hasCorrection,
+                markovianActions: markovianActions,
 						bathChannels: bathChannels,
 						dynamicBathMatrices: dynamicBathMatrices,
 						means: bathMeans,
@@ -588,100 +547,21 @@ extension HOPS.CPUEngine {
 			return mean
 		}
 
-		@inlinable
-		internal static func accumulateMarkovianDrift(
-			matrix: borrowing UniqueMatrix<Complex<Double>>,
-			loss: borrowing UniqueMatrix<Complex<Double>>,
-			rate: Double,
-			nonlinear: Bool,
-			normalized: Bool,
-			y: borrowing State,
-			inverseNorm: Double,
-			generator: inout UniqueMatrix<Complex<Double>>
-		) {
-			generator.add(loss, multiplied: -0.5 * rate)
-			if nonlinear {
-				let mean =
-					expectation(matrix, y: y) * inverseNorm
-				generator.add(
-					matrix,
-					multiplied: rate * mean.conjugate)
-				if normalized {
-					let lossMean =
-						expectation(loss, y: y).real * inverseNorm
-					// Stratonovich drift for stochastic Heun, as in QSD.
-					addDiagonal(
-						Complex(
-							rate
-								* (0.5 * lossMean
-									- mean.lengthSquared)),
-						into: &generator)
-				}
-			}
-		}
-
-		@inlinable
-		mutating func diffusion(
-			t: Double,
-			y: borrowing State,
-			channel: Int,
-			into dy: inout State
-		) {
-			let markovianOperators = self.markovianOperators
-			dy.zero()
-			let rate =
-				Self.checkedRate(rates[unchecked: channel](t))
-			if rate == 0 { return }
-
-			switch markovianOperators[unchecked: channel].constant {
-			case .some(let constant):
-				Self.assignDiffusion(
-					constant.matrix,
-					rate: rate,
-					normalized:
-						equationType == .nonLinearNormalized,
-					y: y,
-					dy: &dy)
-			case .none:
-				markovianOperators[unchecked: channel].source.insert(
-					t: t, into: &original)
-				Self.validateOperator(
-					original, dimension: dimension)
-				Self.assignDiffusion(
-					original,
-					rate: rate,
-					normalized:
-						equationType == .nonLinearNormalized,
-					y: y,
-					dy: &dy)
-			}
-		}
-
-		@inlinable
-		internal static func assignDiffusion(
-			_ matrix: borrowing UniqueMatrix<Complex<Double>>,
-			rate: Double,
-			normalized: Bool,
-			y: borrowing State,
-			dy: inout State
-		) {
-			// nextNormal() has variance one in each real component.
-			let coefficient = (0.5 * rate).squareRoot()
-			OperatorApplication.apply(
-				matrix,
-				to: y.amplitudes,
-				multiplied: Complex(coefficient),
-				adding: false,
-				into: &dy.amplitudes)
-			if normalized {
-				let mean =
-					expectation(matrix, y: y)
-					/ y.rootNormSquared
-				dy.amplitudes.add(
-					y.amplitudes,
-					multiplied: -coefficient * mean)
-			}
-		}
+        @inlinable
+        mutating func diffusion(t: Double, y: borrowing State, channel: Int, into dy: inout State) {
+            dy.zero()
+            let rate = Self.checkedRate(markovianOperators[channel].rate(t))
+            if rate == 0 { return }
+            markovianOperators[channel].updateChecked(at: t)
+            let normalized = equationType == .nonLinearNormalized
+            let action = _DiffusiveAction(collapse: markovianOperators[channel].action, rate: rate,
+                nonlinear: normalized, normalized: normalized,
+                guide: y.amplitudes.elements, norm: y.rootNormSquared, scratch: down.components)
+            for row in 0..<y.amplitudes.rows {
+                action.diffusion(y.amplitudes.elements + row * dimension,
+                                 into: dy.amplitudes.elements + row * dimension)
+            }
+        }
 
 		@inlinable
 		@inline(always)

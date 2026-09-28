@@ -8,19 +8,12 @@ extension MCWF.CPUEngine {
     @usableFromInline
 	internal struct CorrelationRightHandSide: ~Copyable, ODERHSFunction {
         @usableFromInline
-		internal let hamiltonian: TimeDependentOperator
+		internal var hamiltonian: _PreparedOperator
         @usableFromInline
-		internal let channels: [PreparedChannel]
-
+		internal var channels: UniqueArray<_PreparedMarkovianChannel>
 		@usableFromInline
-        internal var hamiltonianBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-        internal var collapseBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-        internal var adjointBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-        internal var lossBuffer: UniqueMatrix<Complex<Double>>
-		@usableFromInline
+        internal var scratch: UniqueVector<Complex<Double>>
+        @usableFromInline
         internal var guideAction: UniqueVector<Complex<Double>>
 		@usableFromInline
 		internal var ketAction: UniqueVector<Complex<Double>>
@@ -30,25 +23,13 @@ extension MCWF.CPUEngine {
         @inlinable
 		internal init(
 			hamiltonian: TimeDependentOperator,
-			channels: [PreparedChannel],
+			channels: [MarkovianChannel],
 			dimension: Int
 		) {
-			self.hamiltonian = hamiltonian
-			self.channels = channels
-			self.hamiltonianBuffer = .zeros(
-				rows: dimension,
-				columns: dimension
-			)
-			self.collapseBuffer = .zeros(
-				rows: dimension,
-				columns: dimension
-			)
-			self.adjointBuffer = .zeros(
-				rows: dimension,
-				columns: dimension
-			)
-			self.lossBuffer = .zeros(rows: dimension, columns: dimension)
-			self.guideAction = .zero(dimension)
+			self.hamiltonian = .init(hamiltonian, dimension: dimension)
+			self.channels = _prepareMarkovianChannels(channels, dimension: dimension)
+			self.scratch = .zero(dimension)
+            self.guideAction = .zero(dimension)
 			self.ketAction = .zero(dimension)
 			self.braAction = .zero(dimension)
 		}
@@ -65,68 +46,22 @@ extension MCWF.CPUEngine {
 				"The MCWF guide state must have a positive finite norm"
 			)
 
-            //TODO: Take advantage of potentially constant, sparse etc. Hamiltonian
-            hamiltonian.insert(t: t, into: &hamiltonianBuffer)
-			hamiltonianBuffer.dotBLAS(
-				y.guide,
-				multiplied: -.i,
-				into: &dy.guide
-			)
-			hamiltonianBuffer.dotBLAS(
-				y.ket,
-				multiplied: -.i,
-				into: &dy.ket
-			)
-			hamiltonianBuffer.dotBLAS(
-				y.bra,
-				multiplied: -.i,
-				into: &dy.bra
-			)
+            hamiltonian.updateChecked(at: t)
+            hamiltonian.action.vector(y.guide.components, into: dy.guide.components, scale: -.i, blas: true)
+            hamiltonian.action.vector(y.ket.components, into: dy.ket.components, scale: -.i, blas: true)
+            hamiltonian.action.vector(y.bra.components, into: dy.bra.components, scale: -.i, blas: true)
 
 			var totalHazardRate = 0.0
-			for channel in channels {
-				let rate = Self.checkedRate(channel.rate(t), at: t)
+			for i in 0..<channels.count {
+				let rate = Self.checkedRate(channels[i].rate(t), at: t)
 				guard rate > .zero else { continue }
 
-				switch channel {
-				case .constant(let channel):
-					Self.accumulate(
-						rate: rate,
-						lossOperator: channel.lossOperator,
-						y: y,
-						normSquared: normSquared,
-						guideAction: &guideAction,
-						ketAction: &ketAction,
-						braAction: &braAction,
-						dy: &dy,
-						totalHazardRate: &totalHazardRate
-					)
+                channels[i].updateChecked(at: t)
+                Self.accumulate(rate: rate, lossOperator: channels[i].action,
+                    y: y, normSquared: normSquared, guideAction: &guideAction,
+                    ketAction: &ketAction, braAction: &braAction, scratch: &scratch,
+                    dy: &dy, totalHazardRate: &totalHazardRate)
 
-				case .dynamic(let channel):
-					channel.insert(t: t, into: &collapseBuffer)
-					for row in 0..<collapseBuffer.rows {
-						for column in 0..<collapseBuffer.columns {
-							adjointBuffer[column, row] =
-								collapseBuffer[row, column]
-								.conjugate
-						}
-					}
-					adjointBuffer.dotBLAS(
-						collapseBuffer,
-						into: &lossBuffer
-					)
-					Self.accumulate(
-						rate: rate,
-						lossOperator: lossBuffer,
-						y: y,
-						normSquared: normSquared,
-						guideAction: &guideAction,
-						ketAction: &ketAction,
-						braAction: &braAction,
-						dy: &dy,
-						totalHazardRate: &totalHazardRate
-					)
-				}
 			}
 
 			let normalizationDrift = Complex(0.5 * totalHazardRate)
@@ -140,18 +75,19 @@ extension MCWF.CPUEngine {
         @inline(always)
 		internal static func accumulate(
 			rate: Double,
-			lossOperator: borrowing UniqueMatrix<Complex<Double>>,
+			lossOperator: _CollapseAction,
 			y: borrowing CorrelationState,
 			normSquared: Double,
 			guideAction: inout UniqueVector<Complex<Double>>,
 			ketAction: inout UniqueVector<Complex<Double>>,
 			braAction: inout UniqueVector<Complex<Double>>,
-			dy: inout CorrelationState,
+			scratch: inout UniqueVector<Complex<Double>>,
+            dy: inout CorrelationState,
 			totalHazardRate: inout Double
 		) {
-			lossOperator.dotBLAS(y.guide, into: &guideAction)
-			lossOperator.dotBLAS(y.ket, into: &ketAction)
-			lossOperator.dotBLAS(y.bra, into: &braAction)
+			lossOperator.lossVector(y.guide.components, into: guideAction.components, scratch: scratch.components, blas: true)
+			lossOperator.lossVector(y.ket.components, into: ketAction.components, scratch: scratch.components, blas: true)
+			lossOperator.lossVector(y.bra.components, into: braAction.components, scratch: scratch.components, blas: true)
 
 			let rawExpectation = y.guide.inner(guideAction).real / normSquared
 			precondition(

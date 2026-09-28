@@ -144,10 +144,7 @@ extension MCWF.CPUEngine {
 			)
 		}
 
-		let channels = Self.prepareChannels(
-			problem.markovianChannels,
-			dimension: dimension
-		)
+		let channels = problem.markovianChannels
 		let rhs = RightHandSide(
 			hamiltonian: problem.system.hamiltonian,
 			channels: channels,

@@ -363,7 +363,7 @@ extension HOPS.CPUEngine {
 			hamiltonian: problem.system.hamiltonian, preparation: preparation,
 			seed: seed, trajectoryID: trajectoryID,
 			ensembleSampling: ensembleSampling)
-		if preparation.markovianOperators.isEmpty {
+		if preparation.markovianChannels.isEmpty {
 			// DOPRI uses fewer full-hierarchy stage buffers than the higher-order
 			// Verner solver. OU interpolation error is controlled separately.
 			var solver = UniqueDOPRISolver(
@@ -440,7 +440,7 @@ extension HOPS.CPUEngine {
 			// The existing Heun solver advances all tiers and finite-variation
 			// shifts together, sharing each Wiener increment between stages.
 			var storage = [Complex<Double>](
-				repeating: .zero, count: preparation.markovianOperators.count)
+				repeating: .zero, count: preparation.markovianChannels.count)
 			let noises = storage.mutableSpan
 			var solver = UniqueSRK2Solver(
 				t: start,

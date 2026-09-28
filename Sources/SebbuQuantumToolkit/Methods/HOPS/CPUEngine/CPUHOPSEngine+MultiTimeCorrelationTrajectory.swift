@@ -43,7 +43,7 @@ extension HOPS.CPUEngine {
 			hamiltonian: problem.system.hamiltonian,
 			preparation: preparation, seed: seed, trajectoryID: trajectoryID,
 			ensembleSampling: ensembleSampling)
-		if preparation.markovianOperators.isEmpty {
+		if preparation.markovianChannels.isEmpty {
 			var solver = UniqueDOPRISolver(
 				t: start,
 				dt: min(propagation.integration.maximumStepSize, end - start),
@@ -107,7 +107,7 @@ extension HOPS.CPUEngine {
 			}
 		} else {
 			var noiseStorage = [Complex<Double>](
-				repeating: .zero, count: preparation.markovianOperators.count)
+				repeating: .zero, count: preparation.markovianChannels.count)
 			let noises = noiseStorage.mutableSpan
 			var solver = UniqueSRK2Solver(
 				t: start,

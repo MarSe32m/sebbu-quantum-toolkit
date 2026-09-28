@@ -106,6 +106,18 @@ public extension TimeDependentOperator {
     }
 }
 
+public extension TimeDependentOperator {
+    @inlinable
+    static func constant(_ matrix: CSRMatrix<Complex<Double>>) -> Self {
+        .constant(.init(matrix))
+    }
+
+    @inlinable
+    static func constant(_ matrix: borrowing UniqueCSRMatrix<Complex<Double>>) -> Self {
+        .constant(.init(matrix))
+    }
+}
+
 public struct OperatorExpansion: Sendable {
 	@usableFromInline
 	package let coefficients: [ComplexTimeFunction]

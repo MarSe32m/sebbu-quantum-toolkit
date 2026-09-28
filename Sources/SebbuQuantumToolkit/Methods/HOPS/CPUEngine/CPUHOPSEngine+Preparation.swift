@@ -62,10 +62,8 @@ extension HOPS.CPUEngine {
 		let dynamicBathMatrixCount: Int
 		@usableFromInline
 		let connections: BathConnections
-		@usableFromInline
-		let markovianOperators: UniqueArray<PreparedOperator>
-		@usableFromInline
-		let rates: UniqueArray<PreparedTimeFunction<Double>>
+        @usableFromInline
+        let markovianChannels: [MarkovianChannel]
 		@usableFromInline
 		let noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator
 
@@ -141,21 +139,12 @@ extension HOPS.CPUEngine {
 				channels: bathChannels)
 			self.bathChannels = bathChannels
 
-			var markovianOperators = UniqueArray<PreparedOperator>(
-				minimumCapacity: problem.markovianChannels.count)
-			for channel in problem.markovianChannels {
-				markovianOperators.append(
-					try PreparedOperator(
-						channel.collapseOperator, dimension: dimension,
-						needsLoss: true))
-			}
-			self.markovianOperators = markovianOperators
-			var rates = UniqueArray<PreparedTimeFunction<Double>>(
-				minimumCapacity: problem.markovianChannels.count)
-			for channel in problem.markovianChannels {
-				rates.append(PreparedTimeFunction(channel.rate))
-			}
-			self.rates = rates
+            for channel in problem.markovianChannels {
+                guard channel.collapseOperator.firstDimensionMismatch(expected: dimension) == nil else {
+                    throw SolverError.operatorDimensionMismatch
+                }
+            }
+            self.markovianChannels = problem.markovianChannels
 		}
 	}
 
@@ -206,6 +195,13 @@ extension HOPS.CPUEngine {
 				break
 			}
 
+            if case .constant(let op) = source, case .sparse(let csr) = op.storage,
+               policyCode != 1 && dimension != 2 {
+                let matrix = UniqueCSRMatrix(copying: csr)
+                let adjoint = matrix.conjugateTranspose
+                self = .sparse(.init(matrix: matrix, adjoint: adjoint))
+                return
+            }
 			if source.isConstant {
 				var original = UniqueMatrix<Complex<Double>>.zeros(
 					rows: dimension, columns: dimension)
@@ -297,82 +293,4 @@ extension HOPS.CPUEngine {
 		}
 	}
 
-	@usableFromInline
-	internal struct PreparedOperator: ~Copyable, Sendable {
-		@usableFromInline
-		let source: PreparedSource
-		@usableFromInline
-		let constant: OperatorMatrices?
-
-		@inlinable
-		init(
-			_ source: TimeDependentOperator,
-			dimension: Int,
-			needsLoss: Bool
-		) throws {
-			switch source {
-			case .constant(let op):
-                switch op.storage {
-                    case .dense(let matrix):
-                        guard matrix.rows == dimension && matrix.columns == dimension else {
-                            throw SolverError.operatorDimensionMismatch
-                        }
-                    case .sparse(_):
-                        preconditionFailure("TODO: Handle sparse operators")
-                }
-			case .linearCombination(let expansion):
-				for op in expansion.operators {
-                    switch op.storage {
-                        case .dense(let matrix):
-                            guard
-                                matrix.rows == dimension
-                                    && matrix.columns == dimension
-                                    else {
-                                throw SolverError.operatorDimensionMismatch
-                            }
-                        case .sparse(_):
-                            preconditionFailure("TODO: Handle sparse operators")
-                    }
-				}
-			case .generatedDense:
-				break
-			}
-			self.source = PreparedSource(source)
-			if source.isConstant {
-				var original = UniqueMatrix<Complex<Double>>.zeros(
-					rows: dimension, columns: dimension)
-				source.insert(t: 0, into: &original)
-				self.constant = OperatorMatrices(
-					original, needsLoss: needsLoss)
-			} else {
-				self.constant = nil
-			}
-		}
-	}
-
-	/// Immutable operators in their original orientation. The optional loss
-	/// matrix is prepared once for constant Markovian channels.
-	@usableFromInline
-	internal struct OperatorMatrices: ~Copyable, Sendable {
-		@usableFromInline
-		let matrix: UniqueMatrix<Complex<Double>>
-		@usableFromInline
-		let loss: UniqueMatrix<Complex<Double>>
-
-		@inlinable
-		init(
-			_ original: borrowing UniqueMatrix<Complex<Double>>,
-			needsLoss: Bool
-		) {
-			let n = original.rows
-			var loss = UniqueMatrix<Complex<Double>>.zeros(
-				rows: needsLoss ? n : 1,
-				columns: needsLoss ? n : 1)
-			if needsLoss {
-				OperatorApplication.loss(original, into: &loss)
-			}
-			self.matrix = .init(copying: original)
-			self.loss = loss
-		}
-	}
 }

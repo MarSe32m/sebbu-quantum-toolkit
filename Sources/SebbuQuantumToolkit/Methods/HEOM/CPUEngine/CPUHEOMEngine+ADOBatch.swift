@@ -8,13 +8,13 @@ extension HEOM.CPUEngine {
     @usableFromInline
     internal struct CollapseView {
         @usableFromInline
-        let matrix: UnsafePointer<Complex<Double>>
+        let action: _CollapseAction
         @usableFromInline
         let rate: Double
         
         @inlinable
-        init(matrix: UnsafePointer<Complex<Double>>, rate: Double) {
-            self.matrix = matrix
+        init(action: _CollapseAction, rate: Double) {
+            self.action = action
             self.rate = rate
         }
     }
@@ -40,6 +40,10 @@ extension HEOM.CPUEngine {
         @usableFromInline
         let output: UnsafeMutablePointer<Complex<Double>>
         @usableFromInline
+        let hasCorrection: Bool
+        @usableFromInline
+        let hamiltonian: _OperatorAction
+        @usableFromInline
         let hLeft: UnsafePointer<Complex<Double>>
         @usableFromInline
         let hRight: UnsafePointer<Complex<Double>>
@@ -57,7 +61,7 @@ extension HEOM.CPUEngine {
         let temporaries: UnsafeMutablePointer<Complex<Double>>
 
         @inlinable
-        init(hierarchy: HEOM.Hierarchy, dimension: Int, centered: Bool, workerCount: Int, adoCount: Int, input: UnsafePointer<Complex<Double>>, output: UnsafeMutablePointer<Complex<Double>>, hLeft: UnsafePointer<Complex<Double>>, hRight: UnsafePointer<Complex<Double>>, lambda: UnsafePointer<Complex<Double>>, memory: UnsafePointer<Complex<Double>>, means: UnsafePointer<Complex<Double>>, collapse: UnsafePointer<CollapseView>, collapseCount: Int, temporaries: UnsafeMutablePointer<Complex<Double>>) {
+        init(hierarchy: HEOM.Hierarchy, dimension: Int, centered: Bool, hamiltonian: _OperatorAction, hasCorrection: Bool, workerCount: Int, adoCount: Int, input: UnsafePointer<Complex<Double>>, output: UnsafeMutablePointer<Complex<Double>>, hLeft: UnsafePointer<Complex<Double>>, hRight: UnsafePointer<Complex<Double>>, lambda: UnsafePointer<Complex<Double>>, memory: UnsafePointer<Complex<Double>>, means: UnsafePointer<Complex<Double>>, collapse: UnsafePointer<CollapseView>, collapseCount: Int, temporaries: UnsafeMutablePointer<Complex<Double>>) {
             self.hierarchy = hierarchy
             self.dimension = dimension
             self.centered = centered
@@ -65,6 +69,8 @@ extension HEOM.CPUEngine {
             self.adoCount = adoCount
             self.input = input
             self.output = output
+            self.hamiltonian = hamiltonian
+            self.hasCorrection = hasCorrection
             self.hLeft = hLeft
             self.hRight = hRight
             self.lambda = lambda
@@ -96,14 +102,21 @@ extension HEOM.CPUEngine {
                 let derivative = output + index * size
                 let damping = hierarchy.kWArray[ado]
                 for j in 0..<size { derivative[j] = damping * rho[j] }
-                MatrixAction.product(hLeft, rho, dimension: d, scale: -.i, into: derivative)
-                MatrixAction.product(rho, hRight, dimension: d, scale: .i, into: derivative)
+                hamiltonian.commutator(rho, into: derivative, adding: true)
+                if hasCorrection {
+                    MatrixAction.product(hLeft, rho, dimension: d, scale: -.i, into: derivative)
+                    MatrixAction.product(rho, hRight, dimension: d, scale: .i, into: derivative)
+                }
                 for i in 0..<collapseCount where collapse[i].rate != 0 {
-                    let op = collapse[i].matrix
-                    MatrixAction.product(op, rho, dimension: d, adding: false, into: temporary)
-                    MatrixAction.product(
-                        temporary, op, dimension: d, adjointB: true,
-                        scale: Complex(collapse[i].rate), into: derivative)
+                    let action = collapse[i].action
+                    if action.loss != nil {
+                        // Dense losses have been fused into hLeft/hRight.
+                        action.op.matrix(rho, into: temporary, adding: false)
+                        action.op.matrix(temporary, into: derivative, right: true, adjoint: true,
+                                         scale: Complex(collapse[i].rate))
+                    } else {
+                        action.dissipator(rho, into: derivative, scratch: temporary, rate: collapse[i].rate)
+                    }
                 }
                 for p in 0..<pCount {
                     let op = lambda + p * size

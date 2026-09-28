@@ -19,9 +19,11 @@ extension HOPS.CPUEngine.RightHandSide {
 		gauge: Double,
 		hierarchy: borrowing HOPS.CPUEngine.HierarchyTables,
 		generator: borrowing UniqueMatrix<Complex<Double>>,
+        hamiltonian: _OperatorAction,
+        hasCorrection: Bool,
+        markovianActions: borrowing UniqueArray<_DiffusiveAction>,
 		bathChannels: borrowing Span<HOPS.CPUEngine.Preparation.BathChannel>,
-		dynamicBathMatrices:
-			borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
+		dynamicBathMatrices: borrowing UniqueArray<UniqueMatrix<Complex<Double>>>,
 		means: borrowing UniqueVector<Complex<Double>>,
 		nonlinear: Bool,
 		displaced: Bool,
@@ -36,9 +38,14 @@ extension HOPS.CPUEngine.RightHandSide {
 		let state = y.elements + targetOffset
 		let target = output.elements + targetOffset
 
-		// H_eff psi_k
-        HOPS.CPUEngine.OperatorApplication.vector(
-			generator, x: state, y: target, adding: false)
+		// -i H psi_k plus the common correction generator
+        hamiltonian.vector(state, into: target, scale: -.i)
+        if hasCorrection {
+            HOPS.CPUEngine.OperatorApplication.vector(generator, x: state, y: target, adding: true)
+        }
+        for i in 0..<markovianActions.count {
+            markovianActions[i].drift(state, into: target, scratch: down.components)
+        }
 
 		// hierarchy.damping[h] is already -sum_p k_p W_p.
 		let diagonal = hierarchy.damping[h] - Complex(gauge)

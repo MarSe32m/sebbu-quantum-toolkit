@@ -5,34 +5,12 @@ import Numerics
 import SebbuScience
 
 extension HOPS.CPUEngine {
-	/// Span subscripts of copyable enums can copy their closure contexts.
-	/// A noncopyable representation forces borrowing, including when the
-	/// coefficient is a generated function rather than a constant.
-	@usableFromInline
-	internal enum PreparedTimeFunction<Value: Sendable>: ~Copyable, Sendable {
-		case constant(Value)
-		case generated(@Sendable (Double) -> Value)
-
-		@inlinable
-		init(_ source: TimeFunction<Value>) {
-			switch source {
-			case .constant(let value): self = .constant(value)
-			case .generated(let function): self = .generated(function)
-			}
-		}
-
-		@inlinable
-		borrowing func callAsFunction(_ t: Double) -> Value {
-			switch self {
-			case .constant(let value): value
-			case .generated(let function): function(t)
-			}
-		}
-	}
+    @usableFromInline
+    internal typealias PreparedTimeFunction<Value: Sendable> = _PreparedTimeFunction<Value>
 
 	@usableFromInline
 	internal enum PreparedSource: ~Copyable, Sendable {
-		// Constant operators use the precomputed OperatorMatrices instead.
+		// Constant bath operators use the immutable preparation storage.
 		case precomputed
 		case generated(DynamicDenseOperator.GeneratorFunction)
 		case expansion(UniqueArray<Term>)
@@ -40,12 +18,12 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		internal struct Term: ~Copyable, Sendable {
 			@usableFromInline let coefficient: PreparedTimeFunction<Complex<Double>>
-			@usableFromInline let matrix: UniqueMatrix<Complex<Double>>
+			@usableFromInline let matrix: _ConstantOperatorStorage
 
 			@inlinable
-			init(coefficient: ComplexTimeFunction, matrix: Matrix<Complex<Double>>) {
+			init(coefficient: ComplexTimeFunction, matrix: ConstantOperator) {
 				self.coefficient = PreparedTimeFunction(coefficient)
-				self.matrix = UniqueMatrix(copying: matrix)
+				self.matrix = _ConstantOperatorStorage(matrix)
 			}
 
 			@inlinable
@@ -53,16 +31,9 @@ extension HOPS.CPUEngine {
 				t: Double, first: Bool,
 				into output: inout UniqueMatrix<Complex<Double>>
 			) {
-				precondition(
-					output.rows == matrix.rows
-						&& output.columns == matrix.columns,
-					"Operator dimensions do not match the output buffer")
-				let value = coefficient(t)
-				if first {
-					output.copyElements(from: matrix, multiplied: value)
-				} else {
-					output.add(matrix, multiplied: value)
-				}
+                precondition(output.rows == matrix.view.dimension && output.columns == matrix.view.dimension)
+                if first { output.zeroElements() }
+                matrix.view.add(into: output.elements, scale: coefficient(t))
 			}
 		}
 
@@ -81,17 +52,7 @@ extension HOPS.CPUEngine {
 				var terms = UniqueArray<Term>(
 					minimumCapacity: expansion.operators.count)
 				for i in expansion.operators.indices {
-                    switch expansion.operators[i].storage {
-                        case .dense(let matrix):
-                            terms.append(
-                                Term(
-                                    coefficient: expansion.coefficients[i],
-                                    matrix: matrix
-                                )
-                            )
-                        case .sparse(_):
-                            preconditionFailure("Sparse operators not yet supported")
-                    }
+                    terms.append(Term(coefficient: expansion.coefficients[i], matrix: expansion.operators[i]))
 				}
 				self = .expansion(terms)
 			}
