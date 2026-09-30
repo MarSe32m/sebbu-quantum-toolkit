@@ -216,7 +216,7 @@ struct SparseSolverTests {
         let prep = try HOPS.CPUEngine.Preparation(
             problem: problem, configuration: hc, propagation: hopsPropagation())
         var rhs = HOPS.CPUEngine.makeSeededRightHandSide(hamiltonian: op, preparation: prep, seed: 1, trajectoryID: 0)
-        var y = HOPS.CPUEngine.State(
+        let y = HOPS.CPUEngine.State(
             dimension: d, hierarchyCount: 3 * hc.hierarchy.count, shiftCount: prep.shiftCount)
         var dy = HOPS.CPUEngine.State(
             dimension: d, hierarchyCount: 3 * hc.hierarchy.count, shiftCount: prep.shiftCount)
@@ -229,7 +229,7 @@ struct SparseSolverTests {
         let failure = HEOM.CPUEngine.Failure()
         var erhs = try HEOM.CPUEngine.RightHandSide(
             problem: DensityMatrixProblem(problem), configuration: ec, failure: failure, copies: 3)
-        var ey = HEOM.CPUEngine.State(
+        let ey = HEOM.CPUEngine.State(
             dimension: d, hierarchyCount: ec.hierarchy.count, shiftCount: 0, copies: 3)
         var edy = HEOM.CPUEngine.State(
             dimension: d, hierarchyCount: ec.hierarchy.count, shiftCount: 0, copies: 3)

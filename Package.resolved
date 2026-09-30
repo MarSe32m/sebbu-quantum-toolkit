@@ -1,15 +1,6 @@
 {
-  "originHash" : "6c3977433f75f347e5f9f2c7dc653b4bc9e26c6ba76b6b2142ca07c760d66b12",
+  "originHash" : "32bd1e3f0af3b80cc90bf1d45cc9346c69d112430bf02d63501ff8205e059f0c",
   "pins" : [
-    {
-      "identity" : "pythonkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/pvieito/pythonkit",
-      "state" : {
-        "revision" : "6fee7617cfa910fbac7035276e295ba967adbbb4",
-        "version" : "0.5.1"
-      }
-    },
     {
       "identity" : "sebbu-blas",
       "kind" : "remoteSourceControl",
@@ -71,15 +62,6 @@
       "state" : {
         "revision" : "d71575c146f4f4d1320891990d34d9cd3d143a4d",
         "version" : "0.3.0"
-      }
-    },
-    {
-      "identity" : "sebbu-python-kit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/MarSe32m/sebbu-python-kit",
-      "state" : {
-        "revision" : "3dd1f5725f41b32d3d73ad1e15860b3c64527aab",
-        "version" : "0.0.1"
       }
     },
     {
