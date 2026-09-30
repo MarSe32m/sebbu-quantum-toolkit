@@ -321,11 +321,7 @@ internal struct _PreparedOperator: ~Copyable {
         for i in 0..<storage.count {
             let view = storage[i].view
             // Generated coefficients are deliberately not called during setup.
-            let value: Complex<Double>
-            switch coefficients[i] {
-            case .constant(let c): value = c
-            case .generated: value = .zero
-            }
+            let value = coefficients[i].constantValue(or: .zero)
             if aggregate && !view.isSparse {
                 view.add(into: buffer.elements, scale: value)
             } else {

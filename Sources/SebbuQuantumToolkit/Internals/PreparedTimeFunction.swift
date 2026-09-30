@@ -17,6 +17,17 @@ internal enum _PreparedTimeFunction<Value: Sendable>: ~Copyable, Sendable {
         }
     }
 
+    /// Read a constant without evaluating a generated function. Keep the
+    /// pattern match on `self`: Swift 6.4 on Windows crashes in SILGen when
+    /// switching directly over a UniqueArray subscript with a borrow accessor.
+    @inlinable
+    borrowing func constantValue(or fallback: Value) -> Value {
+        switch self {
+        case .constant(let value): value
+        case .generated: fallback
+        }
+    }
+
     @inlinable
     borrowing func callAsFunction(_ t: Double) -> Value {
         switch self {
