@@ -3,12 +3,11 @@
 import PackageDescription
 import Foundation
 
-let useLocalSQT = Bool(ProcessInfo.processInfo.environment["USE_LOCAL_SQT"] ?? "false") ?? false
-
-let SQTDependency = if useLocalSQT {
-    Package.Dependency.package(name: "sebbu-quantum-toolkit", path: "..")
+let SQTDependency: Package.Dependency
+if Context.environment["USE_LOCAL_SQT"] != nil {
+    SQTDependency = .package(name: "sebbu-quantum-toolkit", path: "..")
 } else {
-    Package.Dependency.package(url: "https://github.com/MarSe32m/sebbu-quantum-toolkit", branch: "main")
+    SQTDependency = .package(url: "https://github.com/MarSe32m/sebbu-quantum-toolkit", branch: "main")
 }
 
 let package = Package(
