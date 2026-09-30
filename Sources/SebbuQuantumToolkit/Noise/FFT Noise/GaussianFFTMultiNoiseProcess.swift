@@ -110,7 +110,7 @@ public struct GaussianFFTMultiNoiseProcessGenerator: Sendable {
 }
 
 /// One precomputed multichannel FFT realization. Samples can be requested in any order.
-public struct GaussianFFTMultiNoiseProcess: Sendable {
+public struct GaussianFFTMultiNoiseProcess: MultiChannelNoiseRealization, Sendable {
     @usableFromInline internal let noises: [GaussianFFTNoiseProcess]
 
     public var channelCount: Int { noises.count }

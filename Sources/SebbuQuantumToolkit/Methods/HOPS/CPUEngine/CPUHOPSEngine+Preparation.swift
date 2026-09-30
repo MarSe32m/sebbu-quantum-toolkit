@@ -65,14 +65,32 @@ extension HOPS.CPUEngine {
         @usableFromInline
         let markovianChannels: [MarkovianChannel]
 		@usableFromInline
-		let noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator
+        let noiseGenerator: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator?
+        @usableFromInline
+        let noiseDefinition: HOPS.BathNoiseDefinition
+
+        @inlinable
+        var noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator {
+            // Only seeded entry points prepare the standard OU factory.
+            noiseGenerator!
+        }
+
+        @inlinable
+        func makeBathNoise(
+            seed: UInt64, trajectoryID: UInt64, ensembleSampling: EnsembleSampling = .independent
+        ) -> HOPS.BathNoiseSampler {
+            .init(path: .init(definition: noiseDefinition, masterSeed: seed,
+                             trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
+                  preparedGenerator: noise)
+        }
 
 		@inlinable
 		init(
 			problem: borrowing PureStateProblem,
 			configuration: HOPS.Configuration,
-			propagation: PropagationOptions<IntegrationOptions>
-		) throws {
+            propagation: PropagationOptions<IntegrationOptions>,
+            preparingStandardNoise: Bool = true
+        ) throws {
 			guard configuration.unravelling == .diffusive else {
 				throw SolverError.unsupportedUnravelling
 			}
@@ -91,10 +109,11 @@ extension HOPS.CPUEngine {
 				configuration.equationType != .linear
 					|| configuration.shiftType == .meanField
 				? model.poleCount : 0
-			self.noise = .init(
-				model: model,
-				windowDuration: propagation.integration.maximumStepSize,
-				start: propagation.timeSpan.start, step: step)
+            self.noiseDefinition = .init(model: model, timeSpan: propagation.timeSpan, stepSize: step)
+            self.noiseGenerator = preparingStandardNoise ? .init(
+                model: model,
+                windowDuration: propagation.integration.maximumStepSize,
+                start: propagation.timeSpan.start, step: step) : nil
 
 			// Correlations are contracted once, without factoring one-sided
 			// exponential residues or changing the sampler's latent basis.
@@ -113,7 +132,7 @@ extension HOPS.CPUEngine {
 						directions.append(.init(index: p, upward: up, downward: down))
 					}
 				}
-				if !directions.isEmpty {
+				if !directions.isEmpty || !preparingStandardNoise {
 					let dynamicMatrixIndex =
 						source.isConstant ? -1 : dynamicBathMatrixCount
 					let op = try PreparedBathOperator(
@@ -293,4 +312,22 @@ extension HOPS.CPUEngine {
 		}
 	}
 
+}
+
+
+extension HOPS.CPUEngine {
+    @_lifetime(borrow preparation)
+    @inlinable
+    internal static func makeSeededRightHandSide(
+        hamiltonian: TimeDependentOperator, preparation: borrowing Preparation,
+        seed: UInt64, trajectoryID: UInt64, ensembleSampling: EnsembleSampling = .independent
+    ) -> RightHandSide<HOPS.BathNoiseSampler, GaussianDiffusiveNoise> {
+        RightHandSide(
+            hamiltonian: hamiltonian, preparation: preparation,
+            bathNoise: preparation.makeBathNoise(
+                seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
+            markovianNoise: GaussianDiffusiveNoise(
+                channelCount: preparation.markovianChannels.count, seed: seed,
+                trajectoryID: trajectoryID, ensembleSampling: ensembleSampling))
+    }
 }

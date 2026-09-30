@@ -87,9 +87,13 @@ struct SparseSolverTests {
         let dense = sparseFixtureProblem(d, sparseH: false, sparseC: false, expansion: expansion)
         let sparse = sparseFixtureProblem(d, sparseH: true, sparseC: true, expansion: expansion)
         var a = QSD.CPUEngine.QSDRightHandSide(
-            dense, equationType: equation, seed: 17, trajectoryID: 3, ensembleSampling: .independent)
+            dense, equationType: equation,
+            noise: GaussianDiffusiveNoise(channelCount: dense.markovianChannels.count,
+                                          seed: 17, trajectoryID: 3, ensembleSampling: .independent))
         var b = QSD.CPUEngine.QSDRightHandSide(
-            sparse, equationType: equation, seed: 17, trajectoryID: 3, ensembleSampling: .independent)
+            sparse, equationType: equation,
+            noise: GaussianDiffusiveNoise(channelCount: sparse.markovianChannels.count,
+                                          seed: 17, trajectoryID: 3, ensembleSampling: .independent))
         let y = QSD.CPUEngine.StateVector(state: sparseFixtureState(d))
         var da = QSD.CPUEngine.StateVector(dimension: d)
         var db = QSD.CPUEngine.StateVector(dimension: d)
@@ -128,9 +132,9 @@ struct SparseSolverTests {
             var b = HOPS.CPUEngine.State(dimension: d, hierarchyCount: n, shiftCount: pd.shiftCount)
             for i in 0..<n * d { y.amplitudes.elements[i] = Complex(0.1 + 0.002 * Double(i), -0.03) }
             for i in 0..<y.shifts.count { y.shifts[i] = Complex(0.04, -0.02) }
-            var rd = HOPS.CPUEngine.RightHandSide(
+            var rd = HOPS.CPUEngine.makeSeededRightHandSide(
                 hamiltonian: dense.system.hamiltonian, preparation: pd, seed: 17, trajectoryID: 3)
-            var rs = HOPS.CPUEngine.RightHandSide(
+            var rs = HOPS.CPUEngine.makeSeededRightHandSide(
                 hamiltonian: sparse.system.hamiltonian, preparation: ps, seed: 17, trajectoryID: 3)
             rd.physicalNoise[0] = Complex(0.12, -0.07)
             rs.physicalNoise[0] = Complex(0.12, -0.07)
@@ -211,7 +215,7 @@ struct SparseSolverTests {
             hierarchy: .init(environment: env, truncation: .maximumTier(12)), equationType: .linear)
         let prep = try HOPS.CPUEngine.Preparation(
             problem: problem, configuration: hc, propagation: hopsPropagation())
-        var rhs = HOPS.CPUEngine.RightHandSide(hamiltonian: op, preparation: prep, seed: 1, trajectoryID: 0)
+        var rhs = HOPS.CPUEngine.makeSeededRightHandSide(hamiltonian: op, preparation: prep, seed: 1, trajectoryID: 0)
         var y = HOPS.CPUEngine.State(
             dimension: d, hierarchyCount: 3 * hc.hierarchy.count, shiftCount: prep.shiftCount)
         var dy = HOPS.CPUEngine.State(

@@ -336,9 +336,8 @@ struct CPUQSDEngineTests {
         var rhs = QSD.CPUEngine.QSDRightHandSide(
 			problem,
 			equationType: .linear,
-			seed: 0,
-			trajectoryID: 0,
-			ensembleSampling: .independent
+            noise: GaussianDiffusiveNoise(channelCount: problem.markovianChannels.count,
+                                          seed: 0, trajectoryID: 0, ensembleSampling: .independent)
 		)
         let state = QSD.CPUEngine.StateVector(state: problem.initialState)
         var diffusion = QSD.CPUEngine.StateVector(dimension: 2)
@@ -361,9 +360,8 @@ struct CPUQSDEngineTests {
         var rhs = QSD.CPUEngine.QSDRightHandSide(
 			problem,
 			equationType: .nonLinearNormalized,
-			seed: 0,
-			trajectoryID: 0,
-			ensembleSampling: .independent
+            noise: GaussianDiffusiveNoise(channelCount: problem.markovianChannels.count,
+                                          seed: 0, trajectoryID: 0, ensembleSampling: .independent)
 		)
         let state = QSD.CPUEngine.StateVector(state: problem.initialState)
         var drift = QSD.CPUEngine.StateVector(dimension: 2)

@@ -6,9 +6,10 @@ import SebbuScience
 
 extension HOPS.CPUEngine {
 	@usableFromInline
-	internal struct RightHandSide: ~Copyable, ~Escapable,
-		ODERHSFunction,
-		SDERHSFunction
+	internal struct RightHandSide<
+        BathNoise: MultiChannelNoiseRealization & ~Copyable,
+        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable
+    >: ~Copyable, ~Escapable, ODERHSFunction, SDERHSFunction
 	{
 		@usableFromInline
 		let dimension: Int
@@ -23,11 +24,9 @@ extension HOPS.CPUEngine {
 		@usableFromInline
 		var hamiltonian: _PreparedOperator
 		@usableFromInline
-		var coloredRNG: TrajectoryRandomNumberGenerator
-		@usableFromInline
-		var whiteRNG: TrajectoryRandomNumberGenerator
-		@usableFromInline
-		var noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcess
+        var bathNoise: BathNoise
+        @usableFromInline
+        var markovianNoise: MarkovianNoise
 		@usableFromInline
 		var physicalNoise: UniqueVector<Complex<Double>>
 
@@ -57,9 +56,8 @@ extension HOPS.CPUEngine {
 		init(
 			hamiltonian: TimeDependentOperator,
 			preparation: borrowing Preparation,
-			seed: UInt64,
-			trajectoryID: UInt64,
-			ensembleSampling: EnsembleSampling = .independent
+            bathNoise: consuming BathNoise,
+            markovianNoise: consuming MarkovianNoise
 		) {
 			self.dimension = preparation.dimension
 			self.poles = Self.borrowPoles(
@@ -71,19 +69,9 @@ extension HOPS.CPUEngine {
 			self.hierarchy = HierarchyTables(preparation)
 			self.hamiltonian = .init(hamiltonian, dimension: preparation.dimension)
 
-			var rng = TrajectoryRandomNumberGenerator(
-				seed: seed,
-				trajectoryID: trajectoryID,
-				ensembleSampling: ensembleSampling,
-				purpose: .coloredNoiseGeneration)
-			self.noise = preparation.noise.generate(generator: &rng.gaussian)
-			self.coloredRNG = rng
-			self.whiteRNG = .init(
-				seed: seed,
-				trajectoryID: trajectoryID,
-				ensembleSampling: ensembleSampling,
-				purpose: .gaussianWhiteNoise)
-			self.physicalNoise = .zero(preparation.noise.channelCount)
+            self.bathNoise = bathNoise
+            self.markovianNoise = markovianNoise
+            self.physicalNoise = .zero(preparation.configuration.hierarchy.environment.bath.channelCount)
 
 			let d = preparation.dimension
 			var dynamicBathMatrices =
@@ -204,17 +192,12 @@ extension HOPS.CPUEngine {
 			y: borrowing State,
 			into dy: inout State
 		) {
-			if !poles.isEmpty {
-				noise.sample(
-					t,
-					into: &physicalNoise.mutableSpan,
-					generator: &coloredRNG.gaussian)
-			}
+            bathNoise.sample(t, into: &physicalNoise.mutableSpan)
 			evaluateWithCurrentNoise(t: t, y: y, into: &dy)
 		}
 
 		/// Also permits deterministic, pathwise equation tests with a prescribed
-		/// physical noise vector. Only `drift` advances the OU sampler.
+		/// physical noise vector. Only `drift` samples the supplied colored realization.
 		@inlinable
 		mutating func evaluateWithCurrentNoise(
 			t: Double,
@@ -572,9 +555,7 @@ extension HOPS.CPUEngine {
 		) {
 			precondition(
 				noises.count == markovianOperators.count)
-			for i in 0..<noises.count {
-				noises[i] = whiteRNG.nextNormal()
-			}
+            markovianNoise.sampleNormalized(at: t, stepSize: stepSize, into: &noises)
 		}
 
 		@inlinable

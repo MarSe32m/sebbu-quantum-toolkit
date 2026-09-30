@@ -138,7 +138,7 @@ public extension HOPS {
     /// The sampler lazily regenerates the same versioned OU mesh used by HOPS and
     /// linearly interpolates that mesh at arbitrary query times. It keeps only a
     /// sliding lookback window, not the complete realization.
-    struct BathNoiseSampler: ~Copyable, Sendable {
+    struct BathNoiseSampler: ~Copyable, MultiChannelNoiseRealization, Sendable {
         @usableFromInline internal var rng: TrajectoryRandomNumberGenerator
         @usableFromInline internal var process: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcess
         @usableFromInline internal let timeSpan: SimulationTimeSpan
@@ -149,6 +149,12 @@ public extension HOPS {
         public var latentBathRanges: [Range<Int>] { process.latentBathRanges }
         public var earliestAvailableTime: Double { process.earliestAvailableTime }
         public var latestGeneratedTime: Double { process.latestGeneratedTime }
+
+        /// Keeps adaptive HOPS steps on the same OU mesh as seeded propagation.
+        public var integrationGrid: (origin: Double, step: Double)? {
+            latentCount == 0 ? nil : (origin: timeSpan.start, step: stepSize)
+        }
+
 
         @usableFromInline
         internal init(path: BathNoisePath, windowDuration: Double) {
@@ -195,7 +201,7 @@ public extension HOPS {
 
         /// Writes all physical correlated bath channels `z_i(t)`.
         @inlinable
-        mutating func sample(
+        public mutating func sample(
             _ time: Double,
             into values: inout MutableSpan<Complex<Double>>
         ) {

@@ -182,18 +182,20 @@ struct AntitheticSolverTests {
 		let p = problem
 		let preparation = try HOPS.CPUEngine.Preparation(
 			problem: p, configuration: configuration, propagation: propagation)
-		var ha = HOPS.CPUEngine.RightHandSide(
+		var ha = HOPS.CPUEngine.makeSeededRightHandSide(
 			hamiltonian: p.system.hamiltonian, preparation: preparation,
 			seed: 91, trajectoryID: 6, ensembleSampling: .antithetic)
-		var hb = HOPS.CPUEngine.RightHandSide(
+		var hb = HOPS.CPUEngine.makeSeededRightHandSide(
 			hamiltonian: p.system.hamiltonian, preparation: preparation,
 			seed: 91, trajectoryID: 7, ensembleSampling: .antithetic)
 		var qa = QSD.CPUEngine.QSDRightHandSide(
 			p, equationType: .nonLinearNormalized,
-			seed: 91, trajectoryID: 6, ensembleSampling: .antithetic)
+            noise: GaussianDiffusiveNoise(channelCount: p.markovianChannels.count,
+                                          seed: 91, trajectoryID: 6, ensembleSampling: .antithetic))
 		var qb = QSD.CPUEngine.QSDRightHandSide(
 			p, equationType: .nonLinearNormalized,
-			seed: 91, trajectoryID: 7, ensembleSampling: .antithetic)
+            noise: GaussianDiffusiveNoise(channelCount: p.markovianChannels.count,
+                                          seed: 91, trajectoryID: 7, ensembleSampling: .antithetic))
 		var ca = QSD.CPUEngine.CorrelationRightHandSide(
 			p, equationType: .nonLinearNormalized,
 			seed: 91, trajectoryID: 6, ensembleSampling: .antithetic)

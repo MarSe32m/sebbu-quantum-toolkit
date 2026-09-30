@@ -11,6 +11,7 @@ public extension QSD {
 
         public enum SolverError: Error, Equatable, Sendable {
             case invalidStateNorm(time: Double)
+            case noiseChannelCountMismatch(expected: Int, actual: Int)
         }
     }
 }

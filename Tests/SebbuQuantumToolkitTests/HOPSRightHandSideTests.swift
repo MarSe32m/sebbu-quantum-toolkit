@@ -23,7 +23,7 @@ struct HOPSRightHandSideTests {
 			variant, model: model, operators: hopsFixtureOperators, depth: depth)
 		let preparation = try HOPS.CPUEngine.Preparation(
 			problem: problem, configuration: config, propagation: hopsPropagation())
-		var rhs = HOPS.CPUEngine.RightHandSide(
+		var rhs = HOPS.CPUEngine.makeSeededRightHandSide(
 			hamiltonian: problem.system.hamiltonian, preparation: preparation, seed: 1,
 			trajectoryID: 0)
 		var y = HOPS.CPUEngine.State(
@@ -131,10 +131,10 @@ struct HOPSRightHandSideTests {
 			propagation: hopsPropagation())
         #expect(a.dynamicBathMatrixCount == 0)
         #expect(b.dynamicBathMatrixCount == b.bathChannels.count)
-        var rhsA = HOPS.CPUEngine.RightHandSide(
+        var rhsA = HOPS.CPUEngine.makeSeededRightHandSide(
             hamiltonian: staticProblem.system.hamiltonian, preparation: a, seed: 1,
             trajectoryID: 2)
-        var rhsB = HOPS.CPUEngine.RightHandSide(
+        var rhsB = HOPS.CPUEngine.makeSeededRightHandSide(
             hamiltonian: dynamicProblem.system.hamiltonian, preparation: b, seed: 1,
             trajectoryID: 2)
         #expect(rhsA.dynamicBathMatrices.count == 0)

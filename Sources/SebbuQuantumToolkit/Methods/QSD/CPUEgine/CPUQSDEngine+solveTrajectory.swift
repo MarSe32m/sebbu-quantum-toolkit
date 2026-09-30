@@ -97,6 +97,30 @@ extension QSD.CPUEngine {
             borrowing UniqueVector<Complex<Double>>
         ) -> PropagationControl
     ) throws -> PropagationRunSummary {
+        try solveTrajectory(
+            problem: problem, configuration: configuration, propagation: propagation,
+            noise: GaussianDiffusiveNoise(
+                channelCount: problem.markovianChannels.count, seed: seed,
+                trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
+            observing: observer)
+    }
+
+    /// Propagates a caller-supplied realization without assigning seed provenance.
+    /// Zero noise retains every deterministic dissipative drift term. QSD keeps
+    /// its fixed-step Heun integration for both standard and prescribed noise.
+    @inlinable
+    @discardableResult
+    public func solveTrajectory<Noise: DiffusiveNoiseRealization & ~Copyable>(
+        problem: borrowing PureStateProblem,
+        configuration: QSD.Configuration,
+        propagation: PropagationOptions<IntegrationOptions>,
+        noise: consuming Noise,
+        observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl
+    ) throws -> PropagationRunSummary {
+        guard noise.channelCount == problem.markovianChannels.count else {
+            throw SolverError.noiseChannelCountMismatch(
+                expected: problem.markovianChannels.count, actual: noise.channelCount)
+        }
         let progress = propagation.progress.incrementing(total: 1)
         defer { progress?.finish() }
 
@@ -143,9 +167,7 @@ extension QSD.CPUEngine {
         let rhs = QSDRightHandSide(
             problem,
             equationType: configuration.equationType,
-            seed: seed,
-            trajectoryID: trajectoryID,
-            ensembleSampling: ensembleSampling
+            noise: noise
         )
         var solver = UniqueSRK2Solver(
             t: start,
@@ -228,6 +250,21 @@ extension QSD.CPUEngine {
 }
 
 extension QSD {
+    /// Propagates one explicit diffusive realization, including noncopyable paths.
+    @inlinable
+    @discardableResult
+    public static func solveTrajectory<Noise: DiffusiveNoiseRealization & ~Copyable>(
+        problem: PureStateProblem,
+        configuration: Configuration,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        noise: consuming Noise,
+        observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl
+    ) throws -> PropagationRunSummary {
+        try CPUEngine().solveTrajectory(
+            problem: problem, configuration: configuration, propagation: propagation,
+            noise: noise, observing: observer)
+    }
+
     @inlinable
     @inline(always)
     @discardableResult

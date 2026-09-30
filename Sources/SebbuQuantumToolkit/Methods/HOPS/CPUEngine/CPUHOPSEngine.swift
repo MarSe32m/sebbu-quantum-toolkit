@@ -14,6 +14,8 @@ extension HOPS {
 			case operatorDimensionMismatch
 			case invalidStateNorm(time: Double)
 			case nonFiniteState(time: Double)
+            case bathNoiseChannelCountMismatch(expected: Int, actual: Int)
+            case markovianNoiseChannelCountMismatch(expected: Int, actual: Int)
 		}
 	}
 }
@@ -21,6 +23,23 @@ extension HOPS {
 extension HOPS.CPUEngine: HOPS.Implementation, HOPS.HierarchyProvidingImplementation {}
 
 extension HOPS {
+    /// Propagates one explicit noise realization without seed provenance.
+    @inlinable
+    @discardableResult
+    public static func solveTrajectory<
+        BathNoise: MultiChannelNoiseRealization & ~Copyable,
+        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable
+    >(
+        problem: PureStateProblem, configuration: HOPS.Configuration,
+        propagation: PropagationOptions<CPUEngine.IntegratorConfiguration>,
+        bathNoise: consuming BathNoise, markovianNoise: consuming MarkovianNoise,
+        observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl
+    ) throws -> PropagationRunSummary {
+        try CPUEngine().solveTrajectory(
+            problem: problem, configuration: configuration, propagation: propagation,
+            bathNoise: bathNoise, markovianNoise: markovianNoise, observing: observer)
+    }
+
 	@inlinable
 	@inline(always)
 	@discardableResult

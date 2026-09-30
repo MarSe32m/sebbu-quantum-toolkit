@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension HOPS.CPUEngine.RightHandSide {
+extension HOPS.CPUEngine.RightHandSide where BathNoise: ~Copyable, MarkovianNoise: ~Copyable {
 	/// Evaluate exactly one target hierarchy row.
 	///
 	/// This is the hot HOPS kernel. The target row is visited once: first the

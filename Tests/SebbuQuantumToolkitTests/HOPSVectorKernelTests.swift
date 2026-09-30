@@ -166,7 +166,7 @@ private func checkVectorHierarchy(variant: Int, dimension d: Int, dynamic: Bool)
 	}
 	for i in shifts.indices { state.shifts[i] = shifts[i] }
 	let noise = [Complex(0.2, -0.7), Complex(-0.4, 0.3)]
-	var rhs = HCT.RightHandSide(
+	var rhs = HCT.makeSeededRightHandSide(
 		hamiltonian: problem.system.hamiltonian, preparation: prep, seed: 1,
 		trajectoryID: 3)
 	for i in noise.indices { rhs.physicalNoise[i] = noise[i] }

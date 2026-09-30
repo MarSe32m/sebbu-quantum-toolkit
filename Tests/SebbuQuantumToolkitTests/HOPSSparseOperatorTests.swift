@@ -203,11 +203,11 @@ struct HOPSSparseOperatorTests {
 				0.01 * Double(i + 1), -0.015 * Double(i + 1))
 		}
 
-		var denseRHS = HCT.RightHandSide(
+		var denseRHS = HCT.makeSeededRightHandSide(
 			hamiltonian: problem.system.hamiltonian,
 			preparation: densePreparation,
 			seed: 17, trajectoryID: 4)
-		var sparseRHS = HCT.RightHandSide(
+		var sparseRHS = HCT.makeSeededRightHandSide(
 			hamiltonian: problem.system.hamiltonian,
 			preparation: sparsePreparation,
 			seed: 17, trajectoryID: 4)

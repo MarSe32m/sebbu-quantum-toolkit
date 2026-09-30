@@ -39,7 +39,7 @@ extension HOPS.CPUEngine {
 				observing: observer)
 			return .init(finalTime: end, endReason: .reachedEndTime)
 		}
-		let rhs = RightHandSide(
+		let rhs = Self.makeSeededRightHandSide(
 			hamiltonian: problem.system.hamiltonian,
 			preparation: preparation, seed: seed, trajectoryID: trajectoryID,
 			ensembleSampling: ensembleSampling)

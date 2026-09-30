@@ -6,28 +6,24 @@ import SebbuScience
 
 extension QSD.CPUEngine {
     @usableFromInline
-    internal struct QSDRightHandSide: ~Copyable, SDERHSFunction {
+    internal struct QSDRightHandSide<Noise: DiffusiveNoiseRealization & ~Copyable>: ~Copyable, SDERHSFunction {
         @usableFromInline let equationType: QSD.EquationType
         @usableFromInline var hamiltonian: _PreparedOperator
         @usableFromInline var channels: UniqueArray<_PreparedMarkovianChannel>
-        @usableFromInline var randomNumberGenerator: TrajectoryRandomNumberGenerator
+        @usableFromInline var noise: Noise
         @usableFromInline var scratch: UniqueVector<Complex<Double>>
 
         @inlinable
         init(
             _ problem: borrowing PureStateProblem,
             equationType: QSD.EquationType,
-            seed: UInt64,
-            trajectoryID: UInt64,
-            ensembleSampling: EnsembleSampling
+            noise: consuming Noise
         ) {
             self.equationType = equationType
             let d = problem.system.dimension
             hamiltonian = .init(problem.system.hamiltonian, dimension: d)
             channels = _prepareMarkovianChannels(problem.markovianChannels, dimension: d)
-            randomNumberGenerator = .init(
-                seed: seed, trajectoryID: trajectoryID,
-                ensembleSampling: ensembleSampling, purpose: .gaussianWhiteNoise)
+            self.noise = noise
             scratch = .zero(d)
         }
 
@@ -82,7 +78,7 @@ extension QSD.CPUEngine {
             t: Double, stepSize: Double, into noises: inout MutableSpan<Complex<Double>>
         ) {
             precondition(noises.count == channels.count)
-            for i in noises.indices { noises[unchecked: i] = randomNumberGenerator.nextNormal() }
+            noise.sampleNormalized(at: t, stepSize: stepSize, into: &noises)
         }
 
         @inlinable @inline(always)

@@ -5,6 +5,42 @@ import Numerics
 import SebbuScience
 
 extension HOPS.CPUEngine {
+    /// Propagates caller-supplied colored and diffusive realizations. No seed or
+    /// bath-path provenance is invented for custom inputs. Zero noise retains
+    /// hierarchy memory and Markovian drift; it is not an ensemble average.
+    @inlinable
+    @discardableResult
+    public func solveTrajectory<
+        BathNoise: MultiChannelNoiseRealization & ~Copyable,
+        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable
+    >(
+        problem: PureStateProblem, configuration: HOPS.Configuration,
+        propagation: PropagationOptions<IntegrationOptions>,
+        bathNoise: consuming BathNoise, markovianNoise: consuming MarkovianNoise,
+        observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl
+    ) throws -> PropagationRunSummary {
+        guard bathNoise.channelCount == configuration.hierarchy.environment.bath.channelCount else {
+            throw SolverError.bathNoiseChannelCountMismatch(
+                expected: configuration.hierarchy.environment.bath.channelCount,
+                actual: bathNoise.channelCount)
+        }
+        guard markovianNoise.channelCount == problem.markovianChannels.count else {
+            throw SolverError.markovianNoiseChannelCountMismatch(
+                expected: problem.markovianChannels.count, actual: markovianNoise.channelCount)
+        }
+        let preparation = try Preparation(
+            problem: problem, configuration: configuration, propagation: propagation,
+            preparingStandardNoise: false)
+        var root = UniqueVector<Complex<Double>>.zero(preparation.dimension)
+        return try propagate(
+            problem: problem, preparation: preparation, propagation: propagation,
+            bathNoise: bathNoise, markovianNoise: markovianNoise
+        ) { t, state in
+            for j in 0..<root.count { root[j] = state.amplitudes.elements[j] }
+            return observer(t, root)
+        }
+    }
+
     @inlinable
 	@discardableResult
 	public func solveTrajectory(
@@ -332,6 +368,26 @@ extension HOPS.CPUEngine {
 		ensembleSampling: EnsembleSampling,
 		observing observer: (Double, borrowing State) -> PropagationControl
 	) throws -> PropagationRunSummary {
+        try propagate(
+            problem: problem, preparation: preparation, propagation: propagation,
+            bathNoise: preparation.makeBathNoise(
+                seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
+            markovianNoise: GaussianDiffusiveNoise(
+                channelCount: preparation.markovianChannels.count, seed: seed,
+                trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
+            observing: observer)
+    }
+
+    @inlinable
+    internal func propagate<
+        BathNoise: MultiChannelNoiseRealization & ~Copyable,
+        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable
+    >(
+        problem: borrowing PureStateProblem, preparation: Preparation,
+        propagation: PropagationOptions<IntegrationOptions>,
+        bathNoise: consuming BathNoise, markovianNoise: consuming MarkovianNoise,
+        observing observer: (Double, borrowing State) -> PropagationControl
+    ) throws -> PropagationRunSummary {
 		let progress = propagation.progress.incrementing(total: 1)
 		defer { progress?.finish() }
 
@@ -359,11 +415,22 @@ extension HOPS.CPUEngine {
 			return .init(finalTime: end, endReason: .reachedEndTime)
 		}
 
-		let rhs = RightHandSide(
-			hamiltonian: problem.system.hamiltonian, preparation: preparation,
-			seed: seed, trajectoryID: trajectoryID,
-			ensembleSampling: ensembleSampling)
-		if preparation.markovianChannels.isEmpty {
+        let grid = bathNoise.integrationGrid
+        var noiseIndex = 1
+        if let grid {
+            precondition(grid.origin.isFinite && grid.origin <= start
+                         && grid.step.isFinite && grid.step > 0
+                         && grid.origin + grid.step > grid.origin,
+                         "Invalid noise integration grid.")
+            let index = ((start - grid.origin) / grid.step).rounded(.down)
+            precondition(index.isFinite && index >= 0 && index < Double(Int.max - 1),
+                         "The noise integration grid has too many nodes.")
+            noiseIndex = Int(index) + 1
+        }
+        let rhs = RightHandSide(
+            hamiltonian: problem.system.hamiltonian, preparation: preparation,
+            bathNoise: bathNoise, markovianNoise: markovianNoise)
+        if preparation.markovianChannels.isEmpty || MarkovianNoise.isIdenticallyZero {
 			// DOPRI uses fewer full-hierarchy stage buffers than the higher-order
 			// Verner solver. OU interpolation error is controlled separately.
 			var solver = UniqueDOPRISolver(
@@ -395,19 +462,16 @@ extension HOPS.CPUEngine {
 			if let time = cursor.takeInitialTime(), observer(time, state) == .stop {
 				return .init(finalTime: time, endReason: .stoppedByObserver)
 			}
-			var noiseIndex = 1
 			while solver.t < end {
 				var limit = min(cursor.nextRequiredStepBoundary ?? end, end)
-				if preparation.noise.latentCount > 0 {
+				if let grid {
 					// Interpolated OU paths have derivative jumps at mesh nodes.
 					// Ending steps there avoids unreliable embedded error estimates
 					// across kinks and repeated tiny rejected steps around them.
-					var boundary = start.addingProduct(
-						Double(noiseIndex), preparation.noise.step)
+					var boundary = grid.origin.addingProduct(Double(noiseIndex), grid.step)
 					while boundary <= solver.t {
 						noiseIndex += 1
-						boundary = start.addingProduct(
-							Double(noiseIndex), preparation.noise.step)
+						boundary = grid.origin.addingProduct(Double(noiseIndex), grid.step)
 					}
 					limit = min(limit, boundary)
 				}
