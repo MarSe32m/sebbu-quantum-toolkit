@@ -16,6 +16,11 @@ internal enum _DenseMatrixAction {
         scale: Complex<Double> = .one, adding: Bool = true,
         into c: UnsafeMutablePointer<Complex<Double>>
     ) {
+        if scale == .zero {
+            if adding { return }
+            for i in 0..<d &* d { c[i] = .zero }
+            return
+        }
         if d <= 4 {
             for i in 0..<d {
                 for j in 0..<d {

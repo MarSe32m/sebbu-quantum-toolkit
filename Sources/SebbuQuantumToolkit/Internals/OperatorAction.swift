@@ -9,23 +9,27 @@ import SebbuScience
 /// No COW containers or closure contexts enter the hierarchy kernels.
 @usableFromInline
 internal struct _MatrixActionView {
+    //TODO: Use spans instead of pointers (this requires making _MatrixActionView ~Copyable & ~Escapable)
     @usableFromInline let dimension: Int
     @usableFromInline let values: UnsafePointer<Complex<Double>>?
     @usableFromInline let rows: UnsafePointer<Int>?
     @usableFromInline let columns: UnsafePointer<Int>?
 
-    @inlinable init(dimension: Int, values: UnsafePointer<Complex<Double>>) {
+    @inlinable
+    internal init(dimension: Int, values: UnsafePointer<Complex<Double>>) {
         self.dimension = dimension
         self.values = values
         rows = nil
         columns = nil
     }
 
-    @inlinable init(_ matrix: borrowing UniqueMatrix<Complex<Double>>) {
+    @inlinable
+    internal init(_ matrix: borrowing UniqueMatrix<Complex<Double>>) {
         self.init(dimension: matrix.rows, values: UnsafePointer(matrix.elements))
     }
 
-    @inlinable init(_ matrix: borrowing UniqueCSRMatrix<Complex<Double>>) {
+    @inlinable
+    internal init(_ matrix: borrowing UniqueCSRMatrix<Complex<Double>>) {
         dimension = matrix.rows
         // Unique storage stays at these addresses until its owner is mutated.
         // Empty CSR values/columns may be nil and are never dereferenced.
@@ -34,10 +38,13 @@ internal struct _MatrixActionView {
         columns = matrix.withColumnIndices { $0.span.withUnsafeBufferPointer { $0.baseAddress } }
     }
 
-    @inlinable var isSparse: Bool { rows != nil }
+    @inlinable
+    @inline(always)
+    internal var isSparse: Bool { rows != nil }
 
-    @inlinable @inline(always)
-    func vector(
+    @inlinable
+    @inline(always)
+    internal func vector(
         _ x: UnsafePointer<Complex<Double>>, into y: UnsafeMutablePointer<Complex<Double>>,
         scale: Complex<Double> = .one, adding: Bool = false, adjoint: Bool = false,
         blas: Bool = false
@@ -87,8 +94,9 @@ internal struct _MatrixActionView {
 
     /// rho*A scatters CSR row k into output column j. This uses A, never
     /// A†, unless explicitly requested, including for non-Hermitian H.
-    @inlinable @inline(always)
-    func matrix(
+    @inlinable
+    @inline(always)
+    internal func matrix(
         _ rho: UnsafePointer<Complex<Double>>, into output: UnsafeMutablePointer<Complex<Double>>,
         right: Bool = false, adjoint: Bool = false,
         scale: Complex<Double> = .one, adding: Bool = true
@@ -152,9 +160,13 @@ internal struct _MatrixActionView {
 
 @usableFromInline
 internal struct _OperatorTermView {
-    @usableFromInline let matrix: _MatrixActionView
-    @usableFromInline var coefficient: Complex<Double>
-    @inlinable init(matrix: _MatrixActionView, coefficient: Complex<Double>) {
+    @usableFromInline
+    internal let matrix: _MatrixActionView
+    @usableFromInline
+    internal var coefficient: Complex<Double>
+    
+    @inlinable
+    internal init(matrix: _MatrixActionView, coefficient: Complex<Double>) {
         self.matrix = matrix
         self.coefficient = coefficient
     }
@@ -165,19 +177,31 @@ internal struct _OperatorTermView {
 /// mutating any backing storage. Coefficients are already evaluated.
 @usableFromInline
 internal struct _OperatorAction {
-    @usableFromInline let terms: UnsafePointer<_OperatorTermView>
-    @usableFromInline let count: Int
-    @inlinable init(terms: UnsafePointer<_OperatorTermView>, count: Int) {
+    //TODO: Use Span instead
+    @usableFromInline
+    let terms: UnsafePointer<_OperatorTermView>
+    @usableFromInline
+    let count: Int
+    
+    @inlinable
+    internal init(terms: UnsafePointer<_OperatorTermView>, count: Int) {
         self.terms = terms
         self.count = count
     }
-    @inlinable var dimension: Int { terms[0].matrix.dimension }
-    @inlinable var dense: UnsafePointer<Complex<Double>>? {
+    
+    @inlinable
+    @inline(always)
+    var dimension: Int { terms[0].matrix.dimension }
+    
+    @inlinable
+    @inline(always)
+    var dense: UnsafePointer<Complex<Double>>? {
         count == 1 && !terms[0].matrix.isSparse && terms[0].coefficient == .one ? terms[0].matrix.values : nil
     }
 
-    @inlinable @inline(always)
-    func vector(
+    @inlinable
+    @inline(always)
+    internal func vector(
         _ x: UnsafePointer<Complex<Double>>, into y: UnsafeMutablePointer<Complex<Double>>,
         scale: Complex<Double> = .one, adding: Bool = false, adjoint: Bool = false,
         blas: Bool = false
@@ -190,8 +214,9 @@ internal struct _OperatorAction {
         }
     }
 
-    @inlinable @inline(always)
-    func matrix(
+    @inlinable
+    @inline(always)
+    internal func matrix(
         _ rho: UnsafePointer<Complex<Double>>, into output: UnsafeMutablePointer<Complex<Double>>,
         right: Bool = false, adjoint: Bool = false,
         scale: Complex<Double> = .one, adding: Bool = true
@@ -205,6 +230,7 @@ internal struct _OperatorAction {
     }
 
     @inlinable
+    @inline(always)
     func commutator(
         _ rho: UnsafePointer<Complex<Double>>, into output: UnsafeMutablePointer<Complex<Double>>,
         scale: Complex<Double> = -.i, adding: Bool = false, adjoint: Bool = false
@@ -216,6 +242,7 @@ internal struct _OperatorAction {
     @inlinable
     @inline(always)
     func add(into output: UnsafeMutablePointer<Complex<Double>>, scale: Complex<Double> = .one) {
+        if scale == .zero { return }
         for i in 0..<count { terms[i].matrix.add(into: output, scale: scale * terms[i].coefficient) }
     }
 

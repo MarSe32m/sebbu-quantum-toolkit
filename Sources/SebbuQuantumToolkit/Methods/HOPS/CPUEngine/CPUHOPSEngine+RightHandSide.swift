@@ -17,8 +17,10 @@ extension HOPS.CPUEngine {
 		let poles: Span<Complex<Double>>
 		@usableFromInline
 		let bathChannels: Span<Preparation.BathChannel>
-        @usableFromInline var markovianOperators: UniqueArray<_PreparedMarkovianChannel>
-        @usableFromInline var markovianActions: UniqueArray<_DiffusiveAction>
+        @usableFromInline
+        var markovianOperators: UniqueArray<_PreparedMarkovianChannel>
+        @usableFromInline
+        var markovianActions: UniqueArray<_DiffusiveAction>
 		@usableFromInline
 		let hierarchy: HierarchyTables
 		@usableFromInline

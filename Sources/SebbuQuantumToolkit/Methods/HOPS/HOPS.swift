@@ -17,7 +17,7 @@ extension HOPS {
 		case meanField
 	}
 
-	/// Package-only control used by tests and the HOPS benchmark. Normal user
+	/// Package-only control used by tests. Normal user
 	/// code keeps `.automatic`; this is deliberately not part of the public API.
 	package enum BathOperatorStoragePolicy: Sendable {
 		case automatic
@@ -50,9 +50,7 @@ extension HOPS {
 			}
 		}
 
-		/// Uniform OU mesh spacing. Nil uses the integrator's maximum step.
-		/// Converge this independently of the ODE tolerances. The CPU engine
-		/// retains enough history for every trial step and solver retry.
+		/// Uniform OU mesh spacing. Nil uses the integrator's maximum step
 		public var noiseStepSize: Double?
 
 		public init(

@@ -76,7 +76,8 @@ extension DiffusiveNoiseRealization where Self: ~Copyable {
 /// SQT's purpose-separated, reproducible Gaussian white-noise realization.
 public struct GaussianDiffusiveNoise: DiffusiveNoiseRealization, Sendable {
 	public let channelCount: Int
-	@usableFromInline internal var rng: TrajectoryRandomNumberGenerator
+	@usableFromInline
+    internal var rng: TrajectoryRandomNumberGenerator
 
 	@inlinable
 	public init(

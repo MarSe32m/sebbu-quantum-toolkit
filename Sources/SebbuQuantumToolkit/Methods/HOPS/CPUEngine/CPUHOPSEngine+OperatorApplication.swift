@@ -43,9 +43,7 @@ extension HOPS.CPUEngine {
 			}
 		}
 
-		/// CSR SpMV used by sparse physical HOPS bath operators. Adjoint
-		/// application deliberately receives the separately prepared CSR
-		/// conjugate transpose rather than scattering through the forward CSR.
+		/// CSR SpMV used by sparse physical HOPS bath operators.
 		@inlinable
 		@inline(always)
 		static func vector(
@@ -90,7 +88,7 @@ extension HOPS.CPUEngine {
 			return result
 		}
 
-		/// Add a*L + b*L^dagger into a dense common generator in one traversal
+		/// Add a\*L + b\*L^dagger into a dense common generator in one traversal
 		/// of the forward CSR representation.
 		@inlinable
 		@inline(always)
