@@ -289,7 +289,7 @@ struct CustomNoiseTests {
 		#expect((actual.last! - reference).length < 3e-15)
 	}
 
-	@Test("HOPS replay plus explicit Gaussian equals seeded paths", arguments: 0..<6, 0..<4)
+	@Test("HOPS replay plus explicit Gaussian matches seeded paths", arguments: 0..<6, 0..<4)
 	func hopsSeeded(variant: Int, mode: Int) throws {
 		let channels: [MarkovianChannel] =
 			mode % 2 == 0
@@ -310,6 +310,43 @@ struct CustomNoiseTests {
 			for i in 0..<state.count { expected.append(state[i]) }
 			return .proceed
 		}
+
+		// Keep the reference-noise contract exact, independently of the
+		// floating-point arithmetic used to propagate the quantum state.
+		let preparation = try HOPS.CPUEngine.Preparation(
+			problem: problem, configuration: config, propagation: propagation)
+		var seededRHS = HOPS.CPUEngine.makeSeededRightHandSide(
+			hamiltonian: problem.system.hamiltonian, preparation: preparation,
+			seed: 43, trajectoryID: 7, ensembleSampling: sampling)
+		var replay = run.bathNoise.makeSampler(
+			windowDuration: propagation.integration.maximumStepSize)
+		var gaussian = GaussianDiffusiveNoise(
+			channelCount: channels.count, seed: 43,
+			trajectoryID: 7, ensembleSampling: sampling)
+		var colored = [Complex<Double>](repeating: .zero, count: replay.channelCount)
+		var seededWhite = [Complex<Double>](repeating: .zero, count: channels.count)
+		var explicitWhite = seededWhite
+		for time in [0.003, 0.013, 0.026, 0.020, 0.026, 0.081] {
+			seededRHS.sampleColoredNoises(at: time)
+            do {
+                var mutableSpan = colored.mutableSpan
+                replay.sample(time, into: &mutableSpan)
+            }
+			for i in colored.indices { #expect(colored[i] == seededRHS.physicalNoise[i]) }
+            do {
+                var mutableSpan = seededWhite.mutableSpan
+                seededRHS.sampleNormalizedNoises(
+                    t: time, stepSize: 0.009, into: &mutableSpan)
+            }
+            do {
+                var mutableSpan = explicitWhite.mutableSpan
+                gaussian.sampleNormalized(
+                    at: time, stepSize: 0.009, into: &mutableSpan)
+            }
+			#expect(explicitWhite == seededWhite)
+		}
+
+		var previousExplicit: [Complex<Double>]?
 		for _ in 0..<2 {
 			var actual: [Complex<Double>] = []
 			let summary = try HOPS.solveTrajectory(
@@ -323,7 +360,13 @@ struct CustomNoiseTests {
 				for i in 0..<state.count { actual.append(state[i]) }
 				return .proceed
 			}
-			#expect(actual == expected)
+			// Seeded and explicit paths use different potential-noise generic
+			// types even when no potential is configured. Release specialization
+			// can round Relaxed arithmetic differently, so state equality is
+			// numerical. This bound is 1,000 times below the solver tolerances.
+			expectHOPSClose(actual, expected, tolerance: 1e-11)
+			if let previousExplicit { #expect(actual == previousExplicit) }
+			previousExplicit = actual
 			#expect(summary.finalTime == run.propagation.finalTime)
 			#expect(summary.endReason == run.propagation.endReason)
 		}
