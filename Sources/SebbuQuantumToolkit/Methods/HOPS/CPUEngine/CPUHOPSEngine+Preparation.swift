@@ -69,6 +69,27 @@ extension HOPS.CPUEngine {
         @usableFromInline
         let noiseDefinition: HOPS.BathNoiseDefinition
 
+        @usableFromInline
+        let potentialDefinition: HOPS.PotentialNoiseDefinition?
+        @usableFromInline
+        let potentialOperators: UniqueArray<PotentialOperatorDefinition>
+
+        @inlinable
+        func potentialPath(seed: UInt64, trajectoryID: UInt64, ensembleSampling: EnsembleSampling)
+            -> HOPS.PotentialNoisePath? {
+            guard let potentialDefinition else { return nil }
+            return .init(definition: potentialDefinition, masterSeed: seed,
+                         trajectoryID: trajectoryID, ensembleSampling: ensembleSampling)
+        }
+
+        @inlinable
+        func potentialPaths(seed: UInt64, execution: TrajectoryExecution)
+            -> HOPS.EnsemblePotentialNoisePaths? {
+            guard let potentialDefinition else { return nil }
+            return .init(definition: potentialDefinition, masterSeed: seed,
+                         trajectoryIDs: execution.trajectoryIDs, ensembleSampling: execution.ensembleSampling)
+        }
+
         @inlinable
         var noise: UniformSlidingWindowCorrelatedOrnsteinUhlenbeckProcessGenerator {
             // Only seeded entry points prepare the standard OU factory.
@@ -114,6 +135,19 @@ extension HOPS.CPUEngine {
                 model: model,
                 windowDuration: propagation.integration.maximumStepSize,
                 start: propagation.timeSpan.start, step: step) : nil
+
+            var potentialOperators = UniqueArray<PotentialOperatorDefinition>()
+            if let potential = configuration.stochasticPotential {
+                for source in potential.couplingOperators {
+                    guard source.firstDimensionMismatch(expected: dimension) == nil else {
+                        throw SolverError.operatorDimensionMismatch
+                    }
+                    potentialOperators.append(.init(source))
+                }
+                self.potentialDefinition = preparingStandardNoise
+                    ? .init(potential, propagation: propagation, fallbackStep: step) : nil
+            } else { self.potentialDefinition = nil }
+            self.potentialOperators = potentialOperators
 
 			// Correlations are contracted once, without factoring one-sided
 			// exponential residues or changing the sampler's latent basis.
@@ -321,13 +355,16 @@ extension HOPS.CPUEngine {
     internal static func makeSeededRightHandSide(
         hamiltonian: TimeDependentOperator, preparation: borrowing Preparation,
         seed: UInt64, trajectoryID: UInt64, ensembleSampling: EnsembleSampling = .independent
-    ) -> RightHandSide<HOPS.BathNoiseSampler, GaussianDiffusiveNoise> {
+    ) -> RightHandSide<HOPS.BathNoiseSampler, GaussianDiffusiveNoise, HOPS.PotentialNoiseSampler> {
         RightHandSide(
             hamiltonian: hamiltonian, preparation: preparation,
             bathNoise: preparation.makeBathNoise(
                 seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
             markovianNoise: GaussianDiffusiveNoise(
                 channelCount: preparation.markovianChannels.count, seed: seed,
+                trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
+            potentialNoise: HOPS.PotentialNoiseSampler(
+                definition: preparation.potentialDefinition, seed: seed,
                 trajectoryID: trajectoryID, ensembleSampling: ensembleSampling))
     }
 }

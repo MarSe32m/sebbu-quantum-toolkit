@@ -108,7 +108,8 @@ extension HOPS.CPUEngine {
 			bathNoise: .init(
 				definition: definition, masterSeed: seed,
 				trajectoryIDs: execution.trajectoryIDs,
-				ensembleSampling: execution.ensembleSampling))
+				ensembleSampling: execution.ensembleSampling),
+            potentialNoise: preparation.potentialPaths(seed: seed, execution: execution))
 	}
 
     @inlinable
@@ -173,6 +174,7 @@ extension HOPS.CPUEngine {
 			bathNoise: .init(
 				definition: definition, masterSeed: seed,
 				trajectoryIDs: execution.trajectoryIDs,
-				ensembleSampling: execution.ensembleSampling))
+				ensembleSampling: execution.ensembleSampling),
+            potentialNoise: preparation.potentialPaths(seed: seed, execution: execution))
 	}
 }

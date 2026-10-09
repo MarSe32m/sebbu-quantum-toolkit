@@ -19,26 +19,13 @@ extension HOPS.CPUEngine {
         bathNoise: consuming BathNoise, markovianNoise: consuming MarkovianNoise,
         observing observer: (Double, borrowing UniqueVector<Complex<Double>>) -> PropagationControl
     ) throws -> PropagationRunSummary {
-        guard bathNoise.channelCount == configuration.hierarchy.environment.bath.channelCount else {
-            throw SolverError.bathNoiseChannelCountMismatch(
-                expected: configuration.hierarchy.environment.bath.channelCount,
-                actual: bathNoise.channelCount)
+        guard configuration.stochasticPotential == nil else {
+            throw SolverError.missingPotentialNoise
         }
-        guard markovianNoise.channelCount == problem.markovianChannels.count else {
-            throw SolverError.markovianNoiseChannelCountMismatch(
-                expected: problem.markovianChannels.count, actual: markovianNoise.channelCount)
-        }
-        let preparation = try Preparation(
+        return try solveTrajectory(
             problem: problem, configuration: configuration, propagation: propagation,
-            preparingStandardNoise: false)
-        var root = UniqueVector<Complex<Double>>.zero(preparation.dimension)
-        return try propagate(
-            problem: problem, preparation: preparation, propagation: propagation,
-            bathNoise: bathNoise, markovianNoise: markovianNoise
-        ) { t, state in
-            for j in 0..<root.count { root[j] = state.amplitudes.elements[j] }
-            return observer(t, root)
-        }
+            bathNoise: bathNoise, markovianNoise: markovianNoise,
+            potentialNoise: ZeroMultiChannelNoise(channelCount: 0), observing: observer)
     }
 
     @inlinable
@@ -92,7 +79,9 @@ extension HOPS.CPUEngine {
 			summary: runSummary,
 			bathNoise: .init(
 				definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
-				ensembleSampling: ensembleSampling))
+				ensembleSampling: ensembleSampling),
+            potentialNoise: preparation.potentialPath(
+                seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling))
 	}
 
 	/// Consumes two words to select the reproducible master seed and trajectory
@@ -129,37 +118,11 @@ extension HOPS.CPUEngine {
 		observingWithNoise observer: (Double, borrowing UniqueVector<Complex<Double>>, borrowing Span<Complex<Double>>) ->
 			PropagationControl
 	) throws -> HOPS.TrajectoryRunResult {
-		precondition(
-			trajectoryID < UInt64.max,
-			"The trajectory ID must fit in a half-open range.")
-		let preparation = try Preparation(
-			problem: problem, configuration: configuration, propagation: propagation)
-		let definition = HOPS.BathNoiseDefinition(
-			model: configuration.hierarchy.environment.bath,
-			timeSpan: propagation.timeSpan,
-			stepSize: preparation.noise.step)
-		let path = HOPS.BathNoisePath(
-			definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
-			ensembleSampling: ensembleSampling)
-		var sampler = HOPS.BathNoiseSampler(
-			path: path, preparedGenerator: preparation.noise)
-		var noise = UniqueVector<Complex<Double>>.zero(path.channelCount)
-
-		let propagationSummary = try _solveTrajectory(
-			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID,
-			ensembleSampling: ensembleSampling
-		) { time, state in
-			sampler.sample(time, into: &noise.mutableSpan)
-			let noiseSpan = Span(_unsafeStart: noise.components, count: noise.count)
-            return observer(time, state, noiseSpan)
-		}
-		let runSummary = TrajectoryRunSummary(
-			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
-			ensembleSampling: ensembleSampling,
-			propagation: propagationSummary)
-		return .init(summary: runSummary, bathNoise: path)
-	}
+        try solveTrajectory(
+            problem: problem, configuration: configuration, propagation: propagation,
+            seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling,
+            observingWithNoises: { time, state, noise in observer(time, state, noise.bath) })
+    }
 
 	/// RNG convenience matching the state-only trajectory observer.
 	@discardableResult
@@ -254,7 +217,9 @@ extension HOPS.CPUEngine {
 			summary: runSummary,
 			bathNoise: .init(
 				definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
-				ensembleSampling: ensembleSampling))
+				ensembleSampling: ensembleSampling),
+            potentialNoise: preparation.potentialPath(
+                seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling))
 	}
 
     @inlinable
@@ -288,7 +253,9 @@ extension HOPS.CPUEngine {
 		return .init(
 			summary: runSummary,
 			bathNoise: .init(
-				definition: definition, masterSeed: seed, trajectoryID: id))
+				definition: definition, masterSeed: seed, trajectoryID: id),
+            potentialNoise: preparation.potentialPath(
+                seed: seed, trajectoryID: id, ensembleSampling: .independent))
 	}
 
 	/// Solves one HOPS trajectory while exposing both the complete hierarchy and
@@ -305,39 +272,11 @@ extension HOPS.CPUEngine {
 			Double, borrowing HOPS.HierarchyStateView, borrowing Span<Complex<Double>>
 		) -> PropagationControl
 	) throws -> HOPS.TrajectoryRunResult {
-		precondition(
-			trajectoryID < UInt64.max,
-			"The trajectory ID must fit in a half-open range.")
-		let preparation = try Preparation(
-			problem: problem, configuration: configuration, propagation: propagation)
-		let definition = HOPS.BathNoiseDefinition(
-			model: configuration.hierarchy.environment.bath,
-			timeSpan: propagation.timeSpan,
-			stepSize: preparation.noise.step)
-		let path = HOPS.BathNoisePath(
-			definition: definition, masterSeed: seed, trajectoryID: trajectoryID,
-			ensembleSampling: ensembleSampling)
-		var sampler = HOPS.BathNoiseSampler(
-			path: path, preparedGenerator: preparation.noise)
-		var noise = UniqueVector<Complex<Double>>.zero(path.channelCount)
-
-		let propagationSummary = try propagate(
-			problem: problem, preparation: preparation, propagation: propagation,
-			seed: seed, trajectoryID: trajectoryID,
-			ensembleSampling: ensembleSampling
-		) { time, state in
-			sampler.sample(time, into: &noise.mutableSpan)
-			let noiseSpan = Span(_unsafeStart: noise.components, count: noise.count)
-			return Self.withHierarchyView(state) { view in
-				observer(time, view, noiseSpan)
-			}
-		}
-		let runSummary = TrajectoryRunSummary(
-			trajectoryIDs: trajectoryID..<(trajectoryID + 1), masterSeed: seed,
-			ensembleSampling: ensembleSampling,
-			propagation: propagationSummary)
-		return .init(summary: runSummary, bathNoise: path)
-	}
+        try solveWithHierarchy(
+            problem: problem, configuration: configuration, propagation: propagation,
+            seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling,
+            observingWithNoises: { time, state, noise in observer(time, state, noise.bath) })
+    }
 
 	/// RNG convenience matching the hierarchy-only observer.
 	@discardableResult
@@ -370,23 +309,22 @@ extension HOPS.CPUEngine {
 	) throws -> PropagationRunSummary {
         try propagate(
             problem: problem, preparation: preparation, propagation: propagation,
-            bathNoise: preparation.makeBathNoise(
-                seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
-            markovianNoise: GaussianDiffusiveNoise(
-                channelCount: preparation.markovianChannels.count, seed: seed,
-                trajectoryID: trajectoryID, ensembleSampling: ensembleSampling),
-            observing: observer)
+            rhs: Self.makeSeededRightHandSide(
+                hamiltonian: problem.system.hamiltonian, preparation: preparation,
+                seed: seed, trajectoryID: trajectoryID, ensembleSampling: ensembleSampling)
+        ) { time, state, _ in observer(time, state) }
     }
 
     @inlinable
     internal func propagate<
         BathNoise: MultiChannelNoiseRealization & ~Copyable,
-        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable
+        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable,
+        PotentialNoise: MultiChannelNoiseRealization & ~Copyable
     >(
         problem: borrowing PureStateProblem, preparation: Preparation,
         propagation: PropagationOptions<IntegrationOptions>,
-        bathNoise: consuming BathNoise, markovianNoise: consuming MarkovianNoise,
-        observing observer: (Double, borrowing State) -> PropagationControl
+        rhs: consuming RightHandSide<BathNoise, MarkovianNoise, PotentialNoise>,
+        observing observer: (Double, borrowing State, borrowing HOPS.NoiseView) -> PropagationControl
     ) throws -> PropagationRunSummary {
 		let progress = propagation.progress.incrementing(total: 1)
 		defer { progress?.finish() }
@@ -407,29 +345,27 @@ extension HOPS.CPUEngine {
 		if configuration.equationType == .nonLinearNormalized { Self.normalize(&state) }
 		var cursor = OutputCursor(
 			timeSpan: propagation.timeSpan, schedule: propagation.output)
-		if start == end {
-			if let time = cursor.takeInitialTime(), observer(time, state) == .stop {
-				return .init(finalTime: time, endReason: .stoppedByObserver)
-			}
-			progress?.increment()
-			return .init(finalTime: end, endReason: .reachedEndTime)
-		}
-
-        let grid = bathNoise.integrationGrid
-        var noiseIndex = 1
-        if let grid {
-            precondition(grid.origin.isFinite && grid.origin <= start
-                         && grid.step.isFinite && grid.step > 0
-                         && grid.origin + grid.step > grid.origin,
-                         "Invalid noise integration grid.")
-            let index = ((start - grid.origin) / grid.step).rounded(.down)
-            precondition(index.isFinite && index >= 0 && index < Double(Int.max - 1),
-                         "The noise integration grid has too many nodes.")
-            noiseIndex = Int(index) + 1
+        var rhs = rhs
+        var bathGrid = NoiseGridCursor(rhs.bathNoise.integrationGrid, start: start)
+        var potentialGrid = NoiseGridCursor(rhs.potentialNoise.integrationGrid, start: start)
+        rhs.sampleColoredNoises(at: start)
+        // These addresses are owned by rhs, which is moved into exactly one
+        // solver below. Each solver is kept alive through the last callback.
+        // Accepted DOPRI/Heun steps evaluate their final drift at step.endTime;
+        // prescribed outputs also lie at these boundaries. Thus these are the
+        // retained path values at the observation time, without a replay sampler.
+        let noise = NoiseObservation(
+            bath: rhs.physicalNoise.components, bathCount: rhs.physicalNoise.count,
+            potential: rhs.potentialCoefficients.components,
+            potentialCount: rhs.potentialCoefficients.count)
+        if start == end {
+            defer { _fixLifetime(rhs) }
+            if let time = cursor.takeInitialTime(), noise.observe(time, state, observer) == .stop {
+                return .init(finalTime: time, endReason: .stoppedByObserver)
+            }
+            progress?.increment()
+            return .init(finalTime: end, endReason: .reachedEndTime)
         }
-        let rhs = RightHandSide(
-            hamiltonian: problem.system.hamiltonian, preparation: preparation,
-            bathNoise: bathNoise, markovianNoise: markovianNoise)
         if preparation.markovianChannels.isEmpty || MarkovianNoise.isIdenticallyZero {
 			// DOPRI uses fewer full-hierarchy stage buffers than the higher-order
 			// Verner solver. OU interpolation error is controlled separately.
@@ -458,23 +394,15 @@ extension HOPS.CPUEngine {
 				absoluteTolerance: propagation.integration.absoluteTolerance,
 				relativeTolerance: propagation.integration.relativeTolerance,
 				minimumStep: propagation.integration.minimumStepSize)
+            defer { _fixLifetime(solver) }
 			// Every owned propagation buffer exists before the first callback.
-			if let time = cursor.takeInitialTime(), observer(time, state) == .stop {
+			if let time = cursor.takeInitialTime(), noise.observe(time, state, observer) == .stop {
 				return .init(finalTime: time, endReason: .stoppedByObserver)
 			}
 			while solver.t < end {
 				var limit = min(cursor.nextRequiredStepBoundary ?? end, end)
-				if let grid {
-					// Interpolated OU paths have derivative jumps at mesh nodes.
-					// Ending steps there avoids unreliable embedded error estimates
-					// across kinks and repeated tiny rejected steps around them.
-					var boundary = grid.origin.addingProduct(Double(noiseIndex), grid.step)
-					while boundary <= solver.t {
-						noiseIndex += 1
-						boundary = grid.origin.addingProduct(Double(noiseIndex), grid.step)
-					}
-					limit = min(limit, boundary)
-				}
+                limit = bathGrid.limit(limit, after: solver.t)
+                limit = potentialGrid.limit(limit, after: solver.t)
 				let step = try solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
                 if configuration.equationType == .nonLinearNormalized {
@@ -493,7 +421,7 @@ extension HOPS.CPUEngine {
                     }
                 }
 				while let time = cursor.nextTime(through: step.endTime) {
-					if observer(time, state) == .stop {
+					if noise.observe(time, state, observer) == .stop {
 						return .init(
 							finalTime: time,
 							endReason: .stoppedByObserver)
@@ -521,11 +449,14 @@ extension HOPS.CPUEngine {
 				temporary: State(
 					dimension: d, hierarchyCount: count, shiftCount: shiftCount),
 				noises: noises)
-			if let time = cursor.takeInitialTime(), observer(time, state) == .stop {
+            defer { _fixLifetime(solver) }
+			if let time = cursor.takeInitialTime(), noise.observe(time, state, observer) == .stop {
 				return .init(finalTime: time, endReason: .stoppedByObserver)
 			}
 			while solver.t < end {
-				let limit = min(cursor.nextRequiredStepBoundary ?? end, end)
+                var limit = min(cursor.nextRequiredStepBoundary ?? end, end)
+                limit = bathGrid.limit(limit, after: solver.t)
+                limit = potentialGrid.limit(limit, after: solver.t)
 				let step = solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
                 if configuration.equationType == .nonLinearNormalized {
@@ -547,7 +478,7 @@ extension HOPS.CPUEngine {
 					precondition(
 						time == step.endTime,
 						"Stochastic outputs must lie at step boundaries.")
-					if observer(time, state) == .stop {
+					if noise.observe(time, state, observer) == .stop {
 						return .init(
 							finalTime: time,
 							endReason: .stoppedByObserver)

@@ -90,7 +90,9 @@ public struct CorrelatedBathModel: Sendable {
 	public let channelCount: Int
 	public let latentBaths: [LatentBath]
 
-	/// Total number of latent OU states and, therefore, hierarchy directions.
+	/// Total number of latent OU states. These become hierarchy directions only
+    /// when this model is used as the hierarchy bath. Stochastic-potential poles
+    /// are sampler state and do not enlarge the hierarchy.
 	public var poleCount: Int {
 		latentBaths.reduce(0) { $0 + $1.poleCount }
 	}
@@ -108,6 +110,31 @@ public struct CorrelatedBathModel: Sendable {
 	public static func zero(channelCount: Int) -> Self {
 		Self(channelCount: channelCount, latentBaths: [])
 	}
+
+    /// Scalar covariance K(tau) = sum_q amplitudes[q] * exp(-poles[q] * tau)
+    /// for tau >= 0, with K(-tau) = conj(K(tau)). All quantities use caller units.
+    ///
+    /// Each nonzero term has its own white-noise input. Combining these poles
+    /// inside one LatentBath would introduce unwanted cross correlations.
+    public static func independentExponentials(
+        amplitudes: [Double], poles: [Complex<Double>]
+    ) -> Self {
+        precondition(amplitudes.count == poles.count, "Expected one amplitude per pole.")
+        var baths: [LatentBath] = []
+        for (amplitude, pole) in zip(amplitudes, poles) {
+            precondition(amplitude.isFinite && amplitude >= 0,
+                         "Covariance amplitudes must be finite and nonnegative.")
+            precondition(pole.real.isFinite && pole.imaginary.isFinite && pole.real > 0,
+                         "Covariance poles must be finite with strictly positive damping.")
+            if amplitude == 0 { continue }
+            // Separate square roots avoid overflow in the intermediate product.
+            let residue = Double(2).squareRoot() * pole.real.squareRoot() * amplitude.squareRoot()
+            precondition(residue.isFinite, "The covariance residue is not representable.")
+            baths.append(.init(poles: [pole], residues: .init(
+                elements: [Complex(residue)], rows: 1, columns: 1)))
+        }
+        return .init(channelCount: 1, latentBaths: baths)
+    }
 
 	/// Evaluates the stable spectral factor `H(omega)`.
 	///

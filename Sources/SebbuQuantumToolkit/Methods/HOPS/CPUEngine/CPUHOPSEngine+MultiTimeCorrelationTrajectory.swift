@@ -43,6 +43,8 @@ extension HOPS.CPUEngine {
 			hamiltonian: problem.system.hamiltonian,
 			preparation: preparation, seed: seed, trajectoryID: trajectoryID,
 			ensembleSampling: ensembleSampling)
+        var bathGrid = NoiseGridCursor(rhs.bathNoise.integrationGrid, start: start)
+        var potentialGrid = NoiseGridCursor(rhs.potentialNoise.integrationGrid, start: start)
 		if preparation.markovianChannels.isEmpty {
 			var solver = UniqueDOPRISolver(
 				t: start,
@@ -65,22 +67,13 @@ extension HOPS.CPUEngine {
 				at: start, state: &state, insertionIndex: &insertionIndex,
 				cursor: &cursor, request: request, equationType: equation,
 				observing: observer)
-			var noiseIndex = 1
 			while solver.t < end {
 				var limit =
 					insertionIndex < request.insertions.count
 					? request.insertions[insertionIndex].time
 					: min(cursor.nextRequiredStepBoundary ?? end, end)
-				if preparation.noise.latentCount > 0 {
-					var boundary = start.addingProduct(
-						Double(noiseIndex), preparation.noise.step)
-					while boundary <= solver.t {
-						noiseIndex += 1
-						boundary = start.addingProduct(
-							Double(noiseIndex), preparation.noise.step)
-					}
-					limit = min(limit, boundary)
-				}
+                limit = bathGrid.limit(limit, after: solver.t)
+                limit = potentialGrid.limit(limit, after: solver.t)
 				let step = try solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
                 if equation == .nonLinearNormalized {
@@ -129,10 +122,12 @@ extension HOPS.CPUEngine {
 				cursor: &cursor, request: request, equationType: equation,
 				observing: observer)
 			while solver.t < end {
-				let limit =
+				var limit =
 					insertionIndex < request.insertions.count
 					? request.insertions[insertionIndex].time
 					: min(cursor.nextRequiredStepBoundary ?? end, end)
+                limit = bathGrid.limit(limit, after: solver.t)
+                limit = potentialGrid.limit(limit, after: solver.t)
 				let step = solver.step(y: &state, upTo: limit)
 				try Self.validate(state, at: step.endTime)
                 if equation == .nonLinearNormalized {

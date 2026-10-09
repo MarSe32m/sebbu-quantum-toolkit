@@ -14,6 +14,8 @@ extension HOPS {
 			case operatorDimensionMismatch
 			case invalidStateNorm(time: Double)
 			case nonFiniteState(time: Double)
+            case missingPotentialNoise
+            case potentialNoiseChannelCountMismatch(expected: Int, actual: Int)
             case bathNoiseChannelCountMismatch(expected: Int, actual: Int)
             case markovianNoiseChannelCountMismatch(expected: Int, actual: Int)
 		}

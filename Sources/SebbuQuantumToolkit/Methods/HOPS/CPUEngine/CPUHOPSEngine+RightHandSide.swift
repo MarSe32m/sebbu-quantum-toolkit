@@ -8,7 +8,8 @@ extension HOPS.CPUEngine {
 	@usableFromInline
 	internal struct RightHandSide<
         BathNoise: MultiChannelNoiseRealization & ~Copyable,
-        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable
+        MarkovianNoise: DiffusiveNoiseRealization & ~Copyable,
+        PotentialNoise: MultiChannelNoiseRealization & ~Copyable
     >: ~Copyable, ~Escapable, ODERHSFunction, SDERHSFunction
 	{
 		@usableFromInline
@@ -31,6 +32,11 @@ extension HOPS.CPUEngine {
         var markovianNoise: MarkovianNoise
 		@usableFromInline
 		var physicalNoise: UniqueVector<Complex<Double>>
+
+        @usableFromInline var potentialNoise: PotentialNoise
+        @usableFromInline var potentialCoefficients: UniqueVector<Complex<Double>>
+        @usableFromInline let potentialDefinitions: Span<PotentialOperatorDefinition>
+        @usableFromInline var potentialOperators: UniqueArray<PotentialOperatorState>
 
 		/// Scratch matrices only for time-dependent physical bath channels.
 		/// Constant matrices remain owned by the shared Preparation and are
@@ -56,10 +62,24 @@ extension HOPS.CPUEngine {
 		@_lifetime(borrow preparation)
 		@inlinable
 		init(
+            hamiltonian: TimeDependentOperator, preparation: borrowing Preparation,
+            bathNoise: consuming BathNoise, markovianNoise: consuming MarkovianNoise
+        ) where PotentialNoise == ZeroMultiChannelNoise {
+            precondition(preparation.configuration.stochasticPotential == nil,
+                         "An explicit potential realization is required.")
+            self.init(hamiltonian: hamiltonian, preparation: preparation,
+                      bathNoise: bathNoise, markovianNoise: markovianNoise,
+                      potentialNoise: ZeroMultiChannelNoise(channelCount: 0))
+        }
+
+        @_lifetime(borrow preparation)
+        @inlinable
+		init(
 			hamiltonian: TimeDependentOperator,
 			preparation: borrowing Preparation,
             bathNoise: consuming BathNoise,
-            markovianNoise: consuming MarkovianNoise
+            markovianNoise: consuming MarkovianNoise,
+            potentialNoise: consuming PotentialNoise
 		) {
 			self.dimension = preparation.dimension
 			self.poles = Self.borrowPoles(
@@ -74,6 +94,16 @@ extension HOPS.CPUEngine {
             self.bathNoise = bathNoise
             self.markovianNoise = markovianNoise
             self.physicalNoise = .zero(preparation.configuration.hierarchy.environment.bath.channelCount)
+            self.potentialNoise = potentialNoise
+            let potentialCount = preparation.potentialOperators.count
+            self.potentialCoefficients = potentialCount == 0 ? .init() : .zero(potentialCount)
+            self.potentialDefinitions = _hopsBorrowStorage(preparation.potentialOperators, owner: preparation)
+            var potentialOperators = UniqueArray<PotentialOperatorState>(minimumCapacity: potentialCount)
+            for i in 0..<potentialCount {
+                potentialOperators.append(.init(preparation.potentialOperators[i], dimension: preparation.dimension))
+            }
+            self.potentialOperators = potentialOperators
+
 
 			let d = preparation.dimension
 			var dynamicBathMatrices =
@@ -194,9 +224,17 @@ extension HOPS.CPUEngine {
 			y: borrowing State,
 			into dy: inout State
 		) {
-            bathNoise.sample(t, into: &physicalNoise.mutableSpan)
+            sampleColoredNoises(at: t)
 			evaluateWithCurrentNoise(t: t, y: y, into: &dy)
 		}
+
+        /// Both drift and observers use these retained paths; reporting never
+        /// constructs a second sampler or derives another seed.
+        @inlinable
+        mutating func sampleColoredNoises(at time: Double) {
+            bathNoise.sample(time, into: &physicalNoise.mutableSpan)
+            potentialNoise.sample(time, into: &potentialCoefficients.mutableSpan)
+        }
 
 		/// Also permits deterministic, pathwise equation tests with a prescribed
 		/// physical noise vector. Only `drift` samples the supplied colored realization.
@@ -218,6 +256,9 @@ extension HOPS.CPUEngine {
             // Base H stays separate. Every coefficient is evaluated before
             // any guide, companion or hierarchy-row action.
             hamiltonian.updateChecked(at: t)
+            for i in 0..<potentialOperators.count {
+                potentialOperators[i].update(potentialDefinitions[i], at: t, dimension: dimension)
+            }
             generator.zeroElements()
 
 			for p in 0..<y.shifts.count {
@@ -284,6 +325,8 @@ extension HOPS.CPUEngine {
 				hierarchy: hierarchy,
 				generator: generator,
                 hamiltonian: hamiltonian.action,
+                potentialOperators: potentialOperators,
+                potentialCoefficients: potentialCoefficients,
                 hasCorrection: hasCorrection,
                 markovianActions: markovianActions,
 				bathChannels: bathChannels,
@@ -324,6 +367,8 @@ extension HOPS.CPUEngine {
 					hierarchy: hierarchy,
 					generator: generator,
                 hamiltonian: hamiltonian.action,
+                potentialOperators: potentialOperators,
+                potentialCoefficients: potentialCoefficients,
                 hasCorrection: hasCorrection,
                 markovianActions: markovianActions,
 					bathChannels: bathChannels,
@@ -353,6 +398,8 @@ extension HOPS.CPUEngine {
 						hierarchy: hierarchy,
 						generator: generator,
                 hamiltonian: hamiltonian.action,
+                potentialOperators: potentialOperators,
+                potentialCoefficients: potentialCoefficients,
                 hasCorrection: hasCorrection,
                 markovianActions: markovianActions,
 						bathChannels: bathChannels,

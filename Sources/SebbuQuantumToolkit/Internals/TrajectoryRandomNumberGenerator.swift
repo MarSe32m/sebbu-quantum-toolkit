@@ -11,9 +11,10 @@ internal struct TrajectoryRandomNumberGenerator: RandomNumberGenerator, Sendable
 	@usableFromInline
 	internal enum Purpose: UInt64 {
 		case unspecified = 0
-		case gaussianWhiteNoise
-		case coloredNoiseGeneration
-		case mcwfJumps
+		case gaussianWhiteNoise = 1
+		case coloredNoiseGeneration = 2
+		case mcwfJumps = 3
+        case stochasticPotentialGeneration = 4
 	}
 
 	@usableFromInline

@@ -68,7 +68,8 @@ public extension HOPS {
     /// part of this path. ``ensembleSampling`` is part of the replay identity.
     /// Antithetic paths negate the reference noise, before state-dependent shifts.
     struct BathNoisePath: Sendable {
-        @usableFromInline internal let definition: BathNoiseDefinition
+        @usableFromInline
+        internal let definition: BathNoiseDefinition
 
         public let masterSeed: UInt64
         public let trajectoryID: UInt64
@@ -298,15 +299,21 @@ public extension HOPS {
     struct TrajectoryRunResult: Sendable {
         public let summary: TrajectoryRunSummary
         public let bathNoise: BathNoisePath
+        public let potentialNoise: PotentialNoisePath?
 
         public var trajectoryIDs: Range<UInt64> { summary.trajectoryIDs }
         public var masterSeed: UInt64 { summary.masterSeed }
         public var ensembleSampling: EnsembleSampling { summary.ensembleSampling }
         public var propagation: PropagationRunSummary { summary.propagation }
 
-        public init(summary: TrajectoryRunSummary, bathNoise: BathNoisePath) {
+        public init(
+            summary: TrajectoryRunSummary,
+            bathNoise: BathNoisePath,
+            potentialNoise: PotentialNoisePath? = nil
+        ) {
             self.summary = summary
             self.bathNoise = bathNoise
+            self.potentialNoise = potentialNoise
         }
     }
 
@@ -314,15 +321,18 @@ public extension HOPS {
     struct EnsembleRunResult: Sendable {
         public let summary: TrajectoryRunSummary
         public let bathNoise: EnsembleNoisePaths
+        public let potentialNoise: EnsemblePotentialNoisePaths?
 
         public var trajectoryIDs: Range<UInt64> { summary.trajectoryIDs }
         public var masterSeed: UInt64 { summary.masterSeed }
         public var ensembleSampling: EnsembleSampling { summary.ensembleSampling }
         public var propagation: PropagationRunSummary { summary.propagation }
 
-        public init(summary: TrajectoryRunSummary, bathNoise: EnsembleNoisePaths) {
+        public init(summary: TrajectoryRunSummary, bathNoise: EnsembleNoisePaths,
+                    potentialNoise: EnsemblePotentialNoisePaths? = nil) {
             self.summary = summary
             self.bathNoise = bathNoise
+            self.potentialNoise = potentialNoise
         }
     }
 }

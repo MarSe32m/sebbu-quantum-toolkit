@@ -4,7 +4,7 @@
 import Numerics
 import SebbuScience
 
-extension HOPS.CPUEngine.RightHandSide where BathNoise: ~Copyable, MarkovianNoise: ~Copyable {
+extension HOPS.CPUEngine.RightHandSide where BathNoise: ~Copyable, MarkovianNoise: ~Copyable, PotentialNoise: ~Copyable {
 	/// Evaluate exactly one target hierarchy row.
 	///
 	/// This is the hot HOPS kernel. The target row is visited once: first the
@@ -20,6 +20,8 @@ extension HOPS.CPUEngine.RightHandSide where BathNoise: ~Copyable, MarkovianNois
 		hierarchy: borrowing HOPS.CPUEngine.HierarchyTables,
 		generator: borrowing UniqueMatrix<Complex<Double>>,
         hamiltonian: _OperatorAction,
+        potentialOperators: borrowing UniqueArray<HOPS.CPUEngine.PotentialOperatorState>,
+        potentialCoefficients: borrowing UniqueVector<Complex<Double>>,
         hasCorrection: Bool,
         markovianActions: borrowing UniqueArray<_DiffusiveAction>,
 		bathChannels: borrowing Span<HOPS.CPUEngine.Preparation.BathChannel>,
@@ -40,6 +42,12 @@ extension HOPS.CPUEngine.RightHandSide where BathNoise: ~Copyable, MarkovianNois
 
 		// -i H psi_k plus the common correction generator
         hamiltonian.vector(state, into: target, scale: -.i)
+        for i in 0..<potentialOperators.count {
+            let coefficient = potentialCoefficients[unchecked: i]
+            let action = potentialOperators[i].action
+            action.vector(state, into: target, scale: -.i * coefficient.conjugate, adding: true)
+            action.vector(state, into: target, scale: -.i * coefficient, adding: true, adjoint: true)
+        }
         if hasCorrection {
             HOPS.CPUEngine.OperatorApplication.vector(generator, x: state, y: target, adding: true)
         }

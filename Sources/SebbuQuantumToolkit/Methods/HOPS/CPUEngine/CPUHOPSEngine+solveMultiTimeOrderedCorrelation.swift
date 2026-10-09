@@ -130,8 +130,9 @@ extension HOPS.CPUEngine: HOPS.MultiTimeOrderedCorrelationImplementation {
 				definition: definition,
 				masterSeed: masterSeed,
 				trajectoryIDs: execution.trajectoryIDs,
-				ensembleSampling: execution.ensembleSampling)
-		)
+				ensembleSampling: execution.ensembleSampling),
+            potentialNoise: preparation.potentialPaths(seed: masterSeed, execution: execution)
+        )
 	}
 }
 

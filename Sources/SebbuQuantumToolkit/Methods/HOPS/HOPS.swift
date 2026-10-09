@@ -53,12 +53,17 @@ extension HOPS {
 		/// Uniform OU mesh spacing. Nil uses the integrator's maximum step
 		public var noiseStepSize: Double?
 
+        /// Independent classical coefficients in sum_i (y_i L_i† + conj(y_i) L_i).
+        /// Their covariance is never added to the hierarchy bath.
+        public var stochasticPotential: StochasticPotential?
+
 		public init(
 			hierarchy: Hierarchy,
 			equationType: EquationType,
 			shiftType: ShiftType = .none,
 			unravelling: MarkovianUnravelling = .diffusive,
-			noiseStepSize: Double? = nil
+			noiseStepSize: Double? = nil,
+            stochasticPotential: StochasticPotential? = nil
 		) {
 			self.hierarchy = hierarchy
 			self.equationType = equationType
@@ -69,6 +74,7 @@ extension HOPS {
 					"The OU mesh step must be finite and positive.")
 			}
 			self.noiseStepSize = noiseStepSize
+            self.stochasticPotential = stochasticPotential
 		}
 	}
 }
