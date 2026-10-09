@@ -27,9 +27,13 @@ extension HOPS.CPUEngine {
         func observe(_ time: Double, _ state: borrowing State,
                      _ observer: (Double, borrowing State, borrowing HOPS.NoiseView) -> PropagationControl)
             -> PropagationControl {
+            // An absent potential has no allocated coefficient storage. Span's
+            // pointer initializer requires alignment even when count is zero.
             let view = HOPS.NoiseView(
                 bath: Span(_unsafeStart: bath, count: bathCount),
-                potential: Span(_unsafeStart: potential, count: potentialCount))
+                potential: potentialCount == 0
+                    ? Span<Complex<Double>>()
+                    : Span(_unsafeStart: potential, count: potentialCount))
             return observer(time, state, view)
         }
     }

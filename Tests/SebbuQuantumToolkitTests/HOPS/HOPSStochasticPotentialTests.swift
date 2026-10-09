@@ -30,9 +30,10 @@ private struct PotentialTestGridNoise: ~Copyable, MultiChannelNoiseRealization {
 
 @Suite("HOPS stochastic potentials", .serialized)
 struct HOPSStochasticPotentialTests {
-    @Test("Absent potential uses an empty borrowed span and preserves early stop")
-    func absentPotentialObservation() throws {
-        let run = try HOPS.solveTrajectory(problem: hopsProblem(), configuration: hcConfiguration(0),
+    @Test("Absent potential uses an empty borrowed span and preserves early stop", arguments: [false, true])
+    func absentPotentialObservation(stochastic: Bool) throws {
+        let problem = hopsProblem(markovian: stochastic ? [.init(rate: 0.1, collapseOperator: hcL)] : [])
+        let run = try HOPS.solveTrajectory(problem: problem, configuration: hcConfiguration(0),
             propagation: hopsPropagation(end: 0.2, output: .times([0, 0.1, 0.2])), seed: 5, trajectoryID: 0,
             observingWithNoises: { time, _, noise in
                 #expect(noise.bath.count == 1 && noise.potential.isEmpty)
@@ -44,6 +45,22 @@ struct HOPSStochasticPotentialTests {
         // legacy bath-only overload even if it never inspects the third value.
         _ = try HOPS.solveTrajectory(problem: hopsProblem(), configuration: hcConfiguration(0),
             propagation: hopsPropagation(end: 0.01), seed: 5, trajectoryID: 0) { _, _, _ in .proceed }
+    }
+
+    @Test("Absent potential supports a zero-duration hierarchy observation")
+    func absentPotentialAtOrigin() throws {
+        var observations = 0
+        let run = try HOPS.solveWithHierarchy(
+            problem: hopsProblem(), configuration: hcConfiguration(0),
+            propagation: hopsPropagation(end: 2, start: 2), seed: 5, trajectoryID: 0,
+            observingWithNoises: { time, hierarchy, noise in
+                observations += 1
+                #expect(time == 2 && hierarchy.count == 1)
+                #expect(noise.bath.count == 1 && noise.potential.isEmpty)
+                return .stop
+            })
+        #expect(observations == 1 && run.potentialNoise == nil)
+        #expect(run.propagation.finalTime == 2 && run.propagation.endReason == .stoppedByObserver)
     }
 
     @Test("Potential mesh spacing resolves override, configuration, then integrator")

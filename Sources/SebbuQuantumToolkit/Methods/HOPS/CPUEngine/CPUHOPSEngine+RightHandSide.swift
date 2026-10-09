@@ -233,7 +233,11 @@ extension HOPS.CPUEngine {
         @inlinable
         mutating func sampleColoredNoises(at time: Double) {
             bathNoise.sample(time, into: &physicalNoise.mutableSpan)
-            potentialNoise.sample(time, into: &potentialCoefficients.mutableSpan)
+            // UniqueVector() uses an unaligned sentinel for empty storage.
+            // With no potential, avoid constructing a MutableSpan from it.
+            if potentialCoefficients.count > 0 {
+                potentialNoise.sample(time, into: &potentialCoefficients.mutableSpan)
+            }
         }
 
 		/// Also permits deterministic, pathwise equation tests with a prescribed
