@@ -128,6 +128,16 @@ public struct QuantumUnitSystem: Sendable, Hashable, Codable {
         Time(valueInSIUnits: secondsPerInternalTimeUnit)
     }
 
+    /// Physical temperature corresponding to one internal thermal-energy
+    /// unit, i.e. k_B * T0 = E0.
+    public var internalTemperatureUnit: Temperature {
+        Temperature(
+            valueInSIUnits:
+                joulesPerInternalEnergyUnit
+                / PhysicalConstants.boltzmannConstant
+        )
+    }
+
     /// Numerical value of hbar in this coherent energy-time system.
     public var reducedPlanckConstantInInternalUnits: Double {
         1
@@ -235,6 +245,18 @@ public struct QuantumUnitSystem: Sendable, Hashable, Codable {
             / joulesPerInternalEnergyUnit
     }
 
+    /// Dimensionless inverse temperature E0 / (k_B T).
+    ///
+    /// This is the inverse of the internal thermal energy, not the physical
+    /// inverse temperature in J^-1.
+    ///
+    /// At T = 0, returns positive infinity.
+    public func inverseThermalEnergyValue(
+        at temperature: Temperature
+    ) -> Double {
+        1 / thermalEnergyValue(at: temperature)
+    }
+
     /// Converts an internal thermal-energy value back to absolute temperature.
     public func temperature(
         fromInternalThermalEnergy value: Double
@@ -316,6 +338,14 @@ public struct QuantumUnitSystem: Sendable, Hashable, Codable {
     /// Factor that converts a decay-rate value in `unit` to an internal rate.
     public func decayRateScale(from unit: DecayRateUnit) -> Double {
         unit.perSecondPerUnit * secondsPerInternalTimeUnit
+    }
+
+    /// Factor that converts a temperature in `unit` to dimensionless internal
+    /// thermal energy k_B T / E0.
+    public func thermalEnergyScale(from unit: TemperatureUnit) -> Double {
+        PhysicalConstants.boltzmannConstant
+            * unit.kelvinPerUnit
+            / joulesPerInternalEnergyUnit
     }
 
     /// Factor that converts a value in `unit^-1` to internal inverse time.

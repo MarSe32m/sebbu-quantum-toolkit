@@ -387,6 +387,110 @@ struct QuantumUnitSystemTests {
     }
 
     @Test
+    func testInternalTemperatureUnit() throws {
+        let atomicUnits = QuantumUnitSystem.hartreeAtomic
+        #expect(
+            isApproximatelyEqual(
+                atomicUnits.internalTemperatureUnit.value(in: .atomicUnit),
+                1,
+                accuracy: 1e-15
+            )
+        )
+
+        let systems = [
+            atomicUnits,
+            try QuantumUnitSystem.natural(
+                energyScale: 1,
+                unit: .milliElectronVolt
+            ),
+            try QuantumUnitSystem.natural(
+                timeScale: 1,
+                unit: .picosecond
+            )
+        ]
+
+        for units in systems {
+            #expect(
+                isApproximatelyEqual(
+                    units.thermalEnergyValue(at: units.internalTemperatureUnit),
+                    1,
+                    accuracy: 1e-15
+                )
+            )
+        }
+    }
+
+    @Test
+    func testThermalEnergyScalesAgreeWithTypedConversions() throws {
+        let systems = [
+            QuantumUnitSystem.hartreeAtomic,
+            try QuantumUnitSystem.natural(
+                energyScale: 1,
+                unit: .milliElectronVolt
+            ),
+            try QuantumUnitSystem.natural(
+                timeScale: 1,
+                unit: .picosecond
+            )
+        ]
+
+        for units in systems {
+            for unit in TemperatureUnit.allCases {
+                let expected = units.thermalEnergyValue(
+                    at: Temperature(300, unit)
+                )
+                let actual = 300 * units.thermalEnergyScale(from: unit)
+                #expect(
+                    isApproximatelyEqual(
+                        actual,
+                        expected,
+                        accuracy: 2e-15 * Swift.abs(expected)
+                    )
+                )
+            }
+        }
+    }
+
+    @Test
+    func testInverseThermalEnergyValue() throws {
+        let units = try QuantumUnitSystem.natural(
+            energyScale: 1,
+            unit: .milliElectronVolt
+        )
+        let temperature = Temperature(300, .kelvin)
+        let thermalEnergy = units.thermalEnergyValue(at: temperature)
+        let inverseThermalEnergy = units.inverseThermalEnergyValue(
+            at: temperature
+        )
+
+        #expect(
+            isApproximatelyEqual(
+                thermalEnergy,
+                25.851_999_786_435_535,
+                accuracy: 2e-14
+            )
+        )
+        #expect(
+            isApproximatelyEqual(
+                inverseThermalEnergy,
+                1 / 25.851_999_786_435_535,
+                accuracy: 1e-16
+            )
+        )
+        #expect(
+            isApproximatelyEqual(
+                thermalEnergy * inverseThermalEnergy,
+                1,
+                accuracy: 1e-15
+            )
+        )
+        #expect(
+            units.inverseThermalEnergyValue(at: Temperature(0, .kelvin))
+                == .infinity
+        )
+    }
+
+    @Test
     func testSpectroscopicWavenumber() throws {
         let units = try QuantumUnitSystem.natural(
             reference: .energy(value: 1, unit: .electronVolt)
