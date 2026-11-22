@@ -46,7 +46,7 @@ jobs:
             platform: Windows ARM64
             cuda: false
             mode: No CUDA
-          - os: macos-latest
+          - os: xcode-27
             platform: macOS
             cuda: false
             mode: No CUDA
